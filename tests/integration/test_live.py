@@ -37,8 +37,7 @@ def test_create_company_live(integration_client):
 
     create_company_result = integration_client.create(HuduEndpoint.COMPANIES, payload)
 
-    assert create_company_result is not None
-    assert name in str(create_company_result)
+    assert create_company_result.name == name
 
 def test_create_random_asset_layout(integration_client):
 

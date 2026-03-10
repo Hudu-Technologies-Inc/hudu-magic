@@ -8,6 +8,15 @@ from hudu_magic.exceptions import HuduAPIError
 from hudu_magic.instance import Instance
 from .validation import validate_payload
 from .payloads import maybe_wrap_payload
+from .resources import (
+    ArticlesResource,
+    AssetLayoutsResource,
+    AssetsResource,
+    CompaniesResource,
+    FoldersResource,
+    WebsitesResource,
+)
+from .models import HuduObject, MODEL_MAP
 
 class HuduClient:
     def __init__(self, api_key: str, instance_url: str, timeout: int = 30):
@@ -16,6 +25,19 @@ class HuduClient:
         self.session = requests.Session()
         self.session.headers.update(self.instance.get_request_headers)
 
+        self.companies = CompaniesResource(self)
+        self.articles = ArticlesResource(self)
+        self.folders = FoldersResource(self)
+        self.websites = WebsitesResource(self)
+        self.asset_layouts = AssetLayoutsResource(self)
+        self.assets = AssetsResource(self)
+        # aliases
+        self.asset = self.assets
+        self.company = self.companies
+        self.article = self.articles
+        self.folder = self.folders
+        self.website = self.websites
+        self.asset_layout = self.asset_layouts
 
     def build_url(self, endpoint: HuduEndpoint | str) -> str:
         endpoint_path = endpoint.endpoint if isinstance(endpoint, HuduEndpoint) else str(endpoint).lstrip("/")
@@ -51,6 +73,42 @@ class HuduClient:
             return response.json()
 
         return response.text
+
+    def _extract_primary_object(self, result: dict):
+        if "id" in result:
+            return result
+
+        for value in result.values():
+            if isinstance(value, dict) and "id" in value:
+                return value
+
+        return result
+        
+    def _wrap_result(self, endpoint, result):
+        if not isinstance(endpoint, HuduEndpoint):
+            return result
+
+        model_cls = MODEL_MAP.get(endpoint)
+        if model_cls is None:
+            return result
+
+        if isinstance(result, list):
+            return [model_cls(self, endpoint, item) if isinstance(item, dict) else item for item in result]
+
+        if isinstance(result, dict):
+            collection_key = endpoint.resource_name
+            if collection_key in result and isinstance(result[collection_key], list):
+                return [
+                    model_cls(self, endpoint, item)
+                    if isinstance(item, dict) else item
+                    for item in result[collection_key]
+                ]
+
+            primary = self._extract_primary_object(result)
+            if isinstance(primary, dict):
+                return model_cls(self, endpoint, primary)
+
+        return result
 
     def _prepare_payload(
         self,
@@ -111,26 +169,18 @@ class HuduClient:
             timeout=self.timeout,
         )
         return self._handle_response(response)
-
-    def get(
-        self,
-        endpoint: HuduEndpoint | str,
-        params: dict | None = None,
-        paginate: bool | None = None,
-    ) -> Any:
-        """
-        Intelligent GET with optional pagination override.
-        """
-
+    def get(self, endpoint, params=None, paginate: bool | None = None):
         if isinstance(endpoint, HuduEndpoint):
             if paginate is None:
                 paginate = endpoint.is_paginated
 
             if paginate:
-                return self._get_all_pages(endpoint, params)
+                result = self._get_all_pages(endpoint, params)
+                return self._wrap_result(endpoint, result)
 
-        return self._get_nonpaginated(endpoint, params)
-
+        result = self._get_nonpaginated(endpoint, params)
+        return self._wrap_result(endpoint, result)
+        
     def _get_nonpaginated(self, endpoint: HuduEndpoint | str, params: dict | None = None) -> Any:
         response = self.session.get(
             self.build_url(endpoint),
@@ -181,8 +231,9 @@ class HuduClient:
             validate=validate,
             allow_unknown_fields=allow_unknown_fields,
         )
-        return self.post(endpoint, json=prepared)
-
+        result = self.post(endpoint, json=prepared)
+        return self._wrap_result(endpoint, result)
+        
 
     def update(
         self,
@@ -203,7 +254,8 @@ class HuduClient:
 
         path = self.resolve_path(endpoint, item_id)
         wrapped_payload = maybe_wrap_payload(endpoint, payload)
-        return self.put(path, json=wrapped_payload)
+        result = self.put(path, json=wrapped_payload)
+        return self._wrap_result(endpoint, result)
 
     def resolve_path(self, endpoint: HuduEndpoint | str, item_id: int | str | None = None) -> str:
         if isinstance(endpoint, HuduEndpoint):
