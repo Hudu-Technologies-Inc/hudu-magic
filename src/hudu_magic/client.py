@@ -84,7 +84,7 @@ class HuduClient:
 
         return result
         
-    def _wrap_result(self, endpoint: HuduEndpoint | str, result):
+    def _wrap_result(self, endpoint, result):
         if not isinstance(endpoint, HuduEndpoint):
             return result
 
@@ -96,8 +96,17 @@ class HuduClient:
             return [model_cls(self, endpoint, item) if isinstance(item, dict) else item for item in result]
 
         if isinstance(result, dict):
+            collection_key = endpoint.resource_name
+            if collection_key in result and isinstance(result[collection_key], list):
+                return [
+                    model_cls(self, endpoint, item)
+                    if isinstance(item, dict) else item
+                    for item in result[collection_key]
+                ]
+
             primary = self._extract_primary_object(result)
-            return model_cls(self, endpoint, primary)
+            if isinstance(primary, dict):
+                return model_cls(self, endpoint, primary)
 
         return result
 
@@ -160,28 +169,18 @@ class HuduClient:
             timeout=self.timeout,
         )
         return self._handle_response(response)
-
-    def get(
-        self,
-        endpoint: HuduEndpoint | str,
-        params: dict | None = None,
-        paginate: bool | None = None,
-    ) -> Any:
-        """
-        Intelligent GET with optional pagination override.
-        """
-
+    def get(self, endpoint, params=None, paginate: bool | None = None):
         if isinstance(endpoint, HuduEndpoint):
             if paginate is None:
                 paginate = endpoint.is_paginated
 
             if paginate:
-                result= self._get_all_pages(endpoint, params)
+                result = self._get_all_pages(endpoint, params)
+                return self._wrap_result(endpoint, result)
 
-        result= self._get_nonpaginated(endpoint, params)
+        result = self._get_nonpaginated(endpoint, params)
         return self._wrap_result(endpoint, result)
-
-
+        
     def _get_nonpaginated(self, endpoint: HuduEndpoint | str, params: dict | None = None) -> Any:
         response = self.session.get(
             self.build_url(endpoint),

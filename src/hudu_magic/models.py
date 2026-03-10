@@ -5,14 +5,18 @@ from .endpoints import HuduEndpoint
 
 
 class HuduObject:
-    def __init__(self, client, endpoint, data: dict[str, Any]):
+    def __init__(self, client, endpoint, data):
         self._client = client
         self._endpoint = endpoint
         self._data = data
 
     def __repr__(self) -> str:
         object_id = self._data.get("id")
-        return f"<{self.__class__.__name__} id={object_id}>"
+        name = self._data.get("name")
+        return f"<{self.__class__.__name__} id={object_id} name={name!r}>"
+
+    def __str__(self) -> str:
+        return repr(self)
 
     def __getattr__(self, item: str):
         try:
@@ -23,7 +27,19 @@ class HuduObject:
     def __getitem__(self, item: str):
         return self._data[item]
 
-    def to_dict(self) -> dict[str, Any]:
+    def get(self, key, default=None):
+        return self._data.get(key, default)
+
+    def values(self):
+        return self._data.values()
+
+    def items(self):
+        return self._data.items()
+
+    def keys(self):
+        return self._data.keys()
+
+    def to_dict(self):
         return dict(self._data)
 
     @property

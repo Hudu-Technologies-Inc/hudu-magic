@@ -14,8 +14,10 @@ def test_get_dispatches_paginated():
 
     client._get_all_pages.assert_called_once()
     client._get_nonpaginated.assert_not_called()
-    assert result == [{"id": 1}]
 
+    assert isinstance(result, list)
+    assert len(result) == 1
+    assert result[0].id == 1
 
 def test_get_dispatches_nonpaginated():
     client = HuduClient(api_key="x", instance_url="example.hudu.app")
