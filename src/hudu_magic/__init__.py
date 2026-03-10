@@ -2,5 +2,5 @@ from __future__ import annotations
 from .client import HuduClient
 from .instance import Instance
 from .endpoints import HuduEndpoint
-
+from .models import Asset
 __all__ = ["HuduClient", "Instance", "HuduEndpoint"]

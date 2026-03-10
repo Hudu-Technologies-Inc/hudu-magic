@@ -50,12 +50,17 @@ client = HuduClient(
     instance_url="https://env.yourinstance",
 )
 
-companies = client.get(HuduEndpoint.COMPANIES)
+newasset = client.assets.create(company_id=5,payload={"name": "Router", "asset_layout_id": 2},)
+print(newasset)
+print(newasset.id)
+print(newasset.name)
 
-client.companies.get(144)
-client.companies.create({"name": "Acme"})
-client.articles.create({"name": "How To", "content": "..."})
-client.assets.create(company_id=5, payload={"name": "Router", "asset_layout_id": 2})
+newcompany = client.companies.create(payload={"name":f"masonmason{uuid.uuid4()}","nickname":"stelteSErstelter"})
+print(newcompany)
+newcompany.delete()
+newarticle = client.articles.create(payload={"name":f"someartASDFicles{uuid.uuid4()}","content":"once upon a time"})
+print(newarticle)
+newarticle.delete()
 
 ...
 ```
