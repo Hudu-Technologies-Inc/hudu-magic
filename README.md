@@ -2,9 +2,25 @@
 
 purposefully tiny, enum-driven, and class-based API client library for Hudu
 
+Low-Maintenance, generated from openapi spec
+
+## Generating
+
+1. Place openapi spec file https://yoururl.huducloud.com/api-docs.json in project directory as hudu-openapiv1.json
+
+2. run `python generate-endpoints.py` after sourcing virtual environment
+
+## Building
+
+run 
+
+```
+./build.sh
+```
+
 ## Install
 
-for now, build and run tests (in python 3.11-3.14 venv) with:
+for now, first build with
 ```
 ./build.sh
 ```
@@ -13,12 +29,6 @@ future:
 ```bash
 pip install hudu-magic
 ```
-
-## Generating Class Definitions
-
-When a new version of Hudu comes along with updated endpoints, we simply generate from the new openapi spec file https://yoururl.huducloud.com/api-docs.json and place in project dir named hudu-openapiv1.json.
-
-install dev dependencies in generate-requirements.txt and then generate new class definitions with generate-endpoints.py
 
 ## interacting with classes
 
