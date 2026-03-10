@@ -1,6 +1,6 @@
 # hudu-magic
 
-enum-driven class-based API client library for Hudu
+purposefully tiny, enum-driven, and class-based API client library for Hudu
 
 ## Install
 
