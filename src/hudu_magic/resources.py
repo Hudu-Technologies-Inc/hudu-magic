@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Any
 
 from .endpoints import HuduEndpoint
-
 from .models import Asset, Company, Article, Folder, Website, AssetLayout
 
 class BaseResource:
@@ -52,13 +51,17 @@ class AssetLayoutsResource(BaseResource):
 
 class AssetsResource(BaseResource):
     endpoint = HuduEndpoint.ASSETS
-    def create(self, company_id: int | str, payload: dict[str, Any], **kwargs):
+
+    def create(self, company_id: int | str, payload: dict[str, Any], **kwargs) -> Any:
         wrapped = {"asset": payload}
         result = self.client.post(f"companies/{company_id}/assets", json=wrapped)
+
         if isinstance(result, dict):
             result = self.client._extract_primary_object(result)
             return Asset(self.client, HuduEndpoint.ASSETS, result)
+
         return result
+
     def list_for_company(self, company_id: int | str, **params) -> Any:
         path = f"companies/{company_id}/assets"
         return self.client.get(path, params=params or None, paginate=False)
