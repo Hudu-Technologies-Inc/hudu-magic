@@ -20,21 +20,21 @@ def test_resource_lifecycle(integration_client, plan):
     try:
         create_payload = plan.create_payload(ctx)
         created = integration_client.create(
-            plan.endpoint,
+            plan.create_endpoint,
             create_payload,
-            validate=plan.validate,
+            validate=plan.validate_create,
         )
         created_id = extract_id(created)
 
-        fetched = integration_client.get(plan.endpoint.item_path(created_id), paginate=False)
+        fetched = integration_client.get(plan.update_endpoint.item_path(created_id), paginate=False)
         assert extract_id(fetched) == created_id
 
         update_payload = plan.update_payload(ctx)
         updated = integration_client.update(
-            plan.endpoint,
+            plan.update_endpoint,
             created_id,
             update_payload,
-            validate=plan.validate,
+            validate=plan.validate_update,
         )
 
         actual_value = get_nested_value(updated, plan.assert_updated_field)
@@ -43,7 +43,7 @@ def test_resource_lifecycle(integration_client, plan):
     finally:
         if created_id is not None:
             try:
-                integration_client.delete(plan.endpoint.item_path(created_id))
+                integration_client.delete(plan.delete_endpoint.item_path(created_id))
             except Exception:
                 pass
 

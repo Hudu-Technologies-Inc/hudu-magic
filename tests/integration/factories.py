@@ -1,8 +1,20 @@
 # tests/integration/factories.py
 from __future__ import annotations
-
+from hudu_magic.helpers.general import ensure_https
 import random
 import uuid
+
+def website_payload(company_id: int) -> dict:
+    return {
+        "company_id": company_id,
+        "name": ensure_https(unique_name("SDK TEST Website")),
+        "notes": "Created by integration test",
+        "paused": False,
+        "disable_dns": True,
+        "disable_ssl": True,
+        "disable_whois": True,
+    }
+
 
 
 def unique_name(prefix: str) -> str:
@@ -91,20 +103,24 @@ def folder_update_payload() -> dict:
     }
 
 
-def website_payload(company_id: int) -> dict:
-    return {
-        "company_id": company_id,
-        "name": unique_name("SDK TEST Website"),
-        "notes": "Created by integration test",
-        "paused": False,
-        "disable_dns": True,
-        "disable_ssl": True,
-        "disable_whois": True,
-    }
-
 
 def website_update_payload() -> dict:
     return {
         "notes": "Updated by integration test",
         "paused": True,
+    }
+
+def asset_layout_update_payload_from_created(created: dict) -> dict:
+    layout = created.get("asset_layout", created)
+
+    return {
+        "name": layout.get("name"),
+        "icon": "fas fa-network-wired",
+        "color": "#228B22",
+        "icon_color": layout.get("icon_color", "#FFFFFF"),
+        "fields": layout.get("fields", []),
+        "include_passwords": layout.get("include_passwords", False),
+        "include_photos": layout.get("include_photos", False),
+        "include_comments": layout.get("include_comments", False),
+        "include_files": layout.get("include_files", False),
     }

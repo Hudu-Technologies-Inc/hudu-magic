@@ -26,13 +26,17 @@ CleanupHook = Callable[[Any, dict[str, Any]], None]
 @dataclass(frozen=True)
 class LifecyclePlan:
     name: str
-    endpoint: HuduEndpoint
+    create_endpoint: HuduEndpoint
+    update_endpoint: HuduEndpoint
+    delete_endpoint: HuduEndpoint
     create_payload: CreateFactory
     update_payload: UpdateFactory
     assert_updated_field: str
     assert_updated_value: Any
-    validate: bool = True
+    validate_create: bool = True
+    validate_update: bool = True
     cleanup_hook: CleanupHook | None = None
+
 
 
 def company_create(ctx: dict[str, Any]) -> dict[str, Any]:
@@ -64,7 +68,20 @@ def asset_layout_create(ctx: dict[str, Any]) -> dict[str, Any]:
 
 
 def asset_layout_update(ctx: dict[str, Any]) -> dict[str, Any]:
-    return asset_layout_update_payload()
+    created = ctx["created"]
+    layout = created.get("asset_layout", created)
+
+    return {
+        "name": layout.get("name"),
+        "icon": "fas fa-network-wired",
+        "color": "#228B22",
+        "icon_color": layout.get("icon_color", "#FFFFFF"),
+        "fields": layout.get("fields", []),
+        "include_passwords": layout.get("include_passwords", False),
+        "include_photos": layout.get("include_photos", False),
+        "include_comments": layout.get("include_comments", False),
+        "include_files": layout.get("include_files", False),
+    }
 
 
 def website_create(ctx: dict[str, Any]) -> dict[str, Any]:
@@ -90,7 +107,9 @@ def website_cleanup(client, ctx: dict[str, Any]) -> None:
 LIFECYCLE_PLANS = [
     LifecyclePlan(
         name="companies",
-        endpoint=HuduEndpoint.COMPANIES,
+        create_endpoint=HuduEndpoint.COMPANIES,
+        update_endpoint=HuduEndpoint.COMPANIES_ID,
+        delete_endpoint=HuduEndpoint.COMPANIES_ID,
         create_payload=company_create,
         update_payload=company_update,
         assert_updated_field="notes",
@@ -98,36 +117,51 @@ LIFECYCLE_PLANS = [
     ),
     LifecyclePlan(
         name="articles",
-        endpoint=HuduEndpoint.ARTICLES,
+        create_endpoint=HuduEndpoint.ARTICLES,
+        update_endpoint=HuduEndpoint.ARTICLES_ID,
+        delete_endpoint=HuduEndpoint.ARTICLES_ID,        
         create_payload=article_create,
         update_payload=article_update,
         assert_updated_field="content",
         assert_updated_value="<p>Updated from integration test</p>",
+        validate_create=True,
+        validate_update=True        
     ),
     LifecyclePlan(
         name="folders",
-        endpoint=HuduEndpoint.FOLDERS,
+        create_endpoint=HuduEndpoint.FOLDERS,
+        update_endpoint=HuduEndpoint.FOLDERS_ID,
+        delete_endpoint=HuduEndpoint.FOLDERS_ID,
         create_payload=folder_create,
         update_payload=folder_update,
         assert_updated_field="description",
         assert_updated_value="Updated by integration test",
+        validate_create=True,
+        validate_update=True        
     ),
     LifecyclePlan(
         name="asset_layouts",
-        endpoint=HuduEndpoint.ASSET_LAYOUTS,
+        create_endpoint=HuduEndpoint.ASSET_LAYOUTS,
+        update_endpoint=HuduEndpoint.ASSET_LAYOUTS_ID,
+        delete_endpoint=HuduEndpoint.ASSET_LAYOUTS_ID,
         create_payload=asset_layout_create,
         update_payload=asset_layout_update,
         assert_updated_field="icon",
         assert_updated_value="fas fa-network-wired",
-        validate=False,
+        validate_create=True,
+        validate_update=True
     ),
     LifecyclePlan(
         name="websites",
-        endpoint=HuduEndpoint.WEBSITES,
+        create_endpoint=HuduEndpoint.WEBSITES,
+        update_endpoint=HuduEndpoint.WEBSITES_ID,
+        delete_endpoint=HuduEndpoint.WEBSITES_ID,        
         create_payload=website_create,
         update_payload=website_update,
         assert_updated_field="paused",
         assert_updated_value=True,
         cleanup_hook=website_cleanup,
+        validate_create=True,
+        validate_update=True        
     ),
 ]

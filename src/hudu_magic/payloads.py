@@ -36,3 +36,4 @@ def maybe_wrap_payload(endpoint: HuduEndpoint | str, payload: dict) -> dict:
         return payload
 
     return {wrapper: payload}
+

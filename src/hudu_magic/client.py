@@ -193,17 +193,21 @@ class HuduClient:
         validate: bool = True,
         allow_unknown_fields: bool = False,
     ):
-        path = (
-            endpoint.item_path(item_id)
-            if isinstance(endpoint, HuduEndpoint)
-            else f"{str(endpoint).rstrip('/')}/{item_id}"
-        )
+        if isinstance(endpoint, HuduEndpoint) and validate:
+            validate_payload(
+                endpoint,
+                payload,
+                "update",
+                allow_unknown_fields=allow_unknown_fields,
+            )
 
-        prepared = self._prepare_payload(
-            endpoint,
-            payload,
-            operation="update",
-            validate=validate,
-            allow_unknown_fields=allow_unknown_fields,
-        )
-        return self.put(path, json=prepared)
+        if isinstance(endpoint, HuduEndpoint):
+            if "{id}" in endpoint.endpoint:
+                path = "/" + endpoint.endpoint.replace("{id}", str(item_id))
+            else:
+                path = endpoint.item_path(item_id)
+        else:
+            path = f"{str(endpoint).rstrip('/')}/{item_id}"
+
+        wrapped_payload = maybe_wrap_payload(endpoint, payload)
+        return self.put(path, json=wrapped_payload)
