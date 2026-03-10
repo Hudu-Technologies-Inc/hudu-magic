@@ -1,8 +1,15 @@
 # tests/integration/factories.py
 from __future__ import annotations
-from hudu_magic.helpers.general import ensure_https
 import random
 import uuid
+from hudu_magic.helpers.general import ensure_https
+
+from hudu_magic.constants import FIELD_TYPES
+
+ASSET_LAYOUT_FIELD_TYPES = [
+    t for t in FIELD_TYPES
+    if t != "Heading"
+]
 
 def website_payload(company_id: int) -> dict:
     return {
@@ -54,14 +61,13 @@ def article_update_payload() -> dict:
 
 
 def asset_layout_payload() -> dict:
-    field_types = ["Text", "Number", "CheckBox", "Website", "Email", "Phone", "Date", "RichText", "Heading", "Password"]
     field_count = random.randint(8, 12)
 
     fields = []
     for i in range(field_count):
         field = {
             "label": f"SDK Field {i + 1}",
-            "field_type": random.choice(field_types),
+            "field_type": random.choice(FIELD_TYPES),
             "position": i + 1,
         }
         if random.choice([True, False]):

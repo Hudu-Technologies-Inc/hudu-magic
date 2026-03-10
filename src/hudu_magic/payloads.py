@@ -28,7 +28,9 @@ def maybe_wrap_payload(endpoint: HuduEndpoint | str, payload: dict) -> dict:
     if not isinstance(endpoint, HuduEndpoint):
         return payload
 
-    wrapper = RESOURCE_WRAPPERS.get(endpoint.endpoint)
+    endpoint_key = endpoint.endpoint.replace("/{id}", "")
+    wrapper = RESOURCE_WRAPPERS.get(endpoint_key)
+
     if not wrapper:
         return payload
 
@@ -36,4 +38,3 @@ def maybe_wrap_payload(endpoint: HuduEndpoint | str, payload: dict) -> dict:
         return payload
 
     return {wrapper: payload}
-

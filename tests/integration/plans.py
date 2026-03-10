@@ -71,18 +71,37 @@ def asset_layout_update(ctx: dict[str, Any]) -> dict[str, Any]:
     created = ctx["created"]
     layout = created.get("asset_layout", created)
 
-    return {
+    clean_fields = []
+    for i, field in enumerate(layout.get("fields", []), start=1):
+        clean_field = {
+            "id": field["id"],
+            "label": field["label"],
+            "field_type": field["field_type"],
+            "position": i,
+        }
+
+        if field["field_type"] != "Heading":
+            if field.get("required") is not None:
+                clean_field["required"] = bool(field["required"])
+            if field.get("show_in_list") is not None:
+                clean_field["show_in_list"] = bool(field["show_in_list"])
+
+        clean_fields.append(clean_field)
+
+    payload = {
         "name": layout.get("name"),
         "icon": "fas fa-network-wired",
         "color": "#228B22",
-        "icon_color": layout.get("icon_color", "#FFFFFF"),
-        "fields": layout.get("fields", []),
-        "include_passwords": layout.get("include_passwords", False),
-        "include_photos": layout.get("include_photos", False),
-        "include_comments": layout.get("include_comments", False),
-        "include_files": layout.get("include_files", False),
+        "icon_color": layout.get("icon_color") or "#FFFFFF",
+        "fields": clean_fields,
     }
 
+    for key in ("include_passwords", "include_photos", "include_comments", "include_files"):
+        value = layout.get(key)
+        if value is not None:
+            payload[key] = bool(value)
+
+    return payload
 
 def website_create(ctx: dict[str, Any]) -> dict[str, Any]:
     company = ctx["client"].create(HuduEndpoint.COMPANIES, company_payload())

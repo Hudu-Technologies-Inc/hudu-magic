@@ -25,6 +25,8 @@ def test_resource_lifecycle(integration_client, plan):
             validate=plan.validate_create,
         )
         created_id = extract_id(created)
+        ctx["created"] = created
+        ctx["created_id"] = created_id
         fetched = integration_client.get(
             integration_client.resolve_path(plan.update_endpoint, created_id),
             paginate=False,

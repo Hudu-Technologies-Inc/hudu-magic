@@ -30,6 +30,9 @@ FIELD_TYPES = [
     "Date",
     "RichText",
     "Heading",
-    "ListSelect",
     "Password"
+]
+
+NESTED_FIELD_TYPES=[
+    "ListSelect"
 ]

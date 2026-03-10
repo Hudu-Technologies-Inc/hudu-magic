@@ -2,6 +2,7 @@ from __future__ import annotations
 import random
 import uuid
 
+from hudu_magic.constants import FIELD_TYPES
 
 SAFE_FIELD_TYPES = [
     "Text",
