@@ -18,3 +18,21 @@ MATCH_FOUND_OPTIONS = [
     "auto-select earlier created-on date (keep)",
     "ask me after each type of item.",
 ]
+
+FIELD_TYPES = [
+    "Text",
+    "Number",
+    "CheckBox",
+    "Website",
+    "AssetTag",
+    "Email",
+    "Phone",
+    "Date",
+    "RichText",
+    "Heading",
+    "Password"
+]
+
+NESTED_FIELD_TYPES=[
+    "ListSelect"
+]

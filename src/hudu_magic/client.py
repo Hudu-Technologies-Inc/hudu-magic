@@ -7,6 +7,7 @@ from hudu_magic.endpoints import HuduEndpoint
 from hudu_magic.exceptions import HuduAPIError
 from hudu_magic.instance import Instance
 from .validation import validate_payload
+from .payloads import maybe_wrap_payload
 
 class HuduClient:
     def __init__(self, api_key: str, instance_url: str, timeout: int = 30):
@@ -27,7 +28,20 @@ class HuduClient:
                 message = payload.get("message") or payload.get("error") or response.text
             except Exception:
                 message = response.text
-            raise HuduAPIError(response.status_code, message)
+
+            request_body = None
+            try:
+                request_body = response.request.body
+            except Exception:
+                pass
+
+            raise HuduAPIError(
+                response.status_code,
+                f"{message}\n"
+                f"METHOD={response.request.method}\n"
+                f"URL={response.request.url}\n"
+                f"BODY={request_body}"
+            )
 
         if not response.text.strip():
             return None
@@ -38,44 +52,24 @@ class HuduClient:
 
         return response.text
 
-
-    def create(
+    def _prepare_payload(
         self,
         endpoint: HuduEndpoint | str,
         payload: dict[str, Any],
         *,
+        operation: str,
         validate: bool = True,
         allow_unknown_fields: bool = False,
-    ):
+    ) -> dict[str, Any]:
         if isinstance(endpoint, HuduEndpoint) and validate:
             validate_payload(
                 endpoint,
                 payload,
-                "create",
-                allow_unknown_fields=allow_unknown_fields,
-            )
-        return self.post(endpoint, json=payload)
-
-
-    def update(
-        self,
-        endpoint: HuduEndpoint | str,
-        item_id: int | str,
-        payload: dict[str, Any],
-        *,
-        validate: bool = True,
-        allow_unknown_fields: bool = False,
-    ):
-        if isinstance(endpoint, HuduEndpoint) and validate:
-            validate_payload(
-                endpoint,
-                payload,
-                "update",
+                operation,
                 allow_unknown_fields=allow_unknown_fields,
             )
 
-        path = endpoint.item_path(item_id) if isinstance(endpoint, HuduEndpoint) else f"{str(endpoint).rstrip('/')}/{item_id}"
-        return self.put(path, json=payload)
+        return maybe_wrap_payload(endpoint, payload)
 
     def post(
         self,
@@ -172,5 +166,59 @@ class HuduClient:
 
         return all_items
 
+    def create(
+        self,
+        endpoint: HuduEndpoint | str,
+        payload: dict[str, Any],
+        *,
+        validate: bool = True,
+        allow_unknown_fields: bool = False,
+    ):
+        prepared = self._prepare_payload(
+            endpoint,
+            payload,
+            operation="create",
+            validate=validate,
+            allow_unknown_fields=allow_unknown_fields,
+        )
+        return self.post(endpoint, json=prepared)
 
 
+    def update(
+        self,
+        endpoint: HuduEndpoint | str,
+        item_id: int | str,
+        payload: dict[str, Any],
+        *,
+        validate: bool = True,
+        allow_unknown_fields: bool = False,
+    ):
+        if isinstance(endpoint, HuduEndpoint) and validate:
+            validate_payload(
+                endpoint,
+                payload,
+                "update",
+                allow_unknown_fields=allow_unknown_fields,
+            )
+
+        path = self.resolve_path(endpoint, item_id)
+        wrapped_payload = maybe_wrap_payload(endpoint, payload)
+        return self.put(path, json=wrapped_payload)
+
+    def resolve_path(self, endpoint: HuduEndpoint | str, item_id: int | str | None = None) -> str:
+        if isinstance(endpoint, HuduEndpoint):
+            if item_id is not None:
+                if "{id}" in endpoint.endpoint:
+                    return f"/{endpoint.endpoint.replace('{id}', str(item_id))}"
+                return endpoint.item_path(item_id)
+            return endpoint.path
+
+        endpoint_str = str(endpoint).lstrip("/")
+        if item_id is not None:
+            if "{id}" in endpoint_str:
+                return f"/{endpoint_str.replace('{id}', str(item_id))}"
+            return f"/{endpoint_str.rstrip('/')}/{item_id}"
+        return f"/{endpoint_str}"
+
+    def delete_item(self, endpoint: HuduEndpoint | str, item_id: int | str):
+        return self.delete(self.resolve_path(endpoint, item_id))

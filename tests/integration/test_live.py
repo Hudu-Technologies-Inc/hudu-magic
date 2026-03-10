@@ -1,6 +1,9 @@
+import random
 import uuid
 from hudu_magic import HuduClient
 from hudu_magic.endpoints import HuduEndpoint
+from hudu_magic.constants import FIELD_TYPES
+from .random_layout import random_asset_layout_payload
 
 def pytest_collection_modifyitems(config, items):
     run_integration = os.getenv("HUDU_RUN_INTEGRATION") == "1"
@@ -36,3 +39,15 @@ def test_create_company_live(integration_client):
 
     assert create_company_result is not None
     assert name in str(create_company_result)
+
+def test_create_random_asset_layout(integration_client):
+
+    payload = random_asset_layout_payload()
+    print(payload)
+    result = integration_client.create(
+        HuduEndpoint.ASSET_LAYOUTS,
+        payload,
+        validate=False,
+    )
+
+    assert result is not None

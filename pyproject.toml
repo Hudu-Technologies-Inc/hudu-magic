@@ -8,7 +8,8 @@ version = "0.1.0"
 description = "Python client library for the Hudu API"
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
   { name = "Mason Stelter" }
 ]
@@ -16,7 +17,6 @@ keywords = ["hudu", "api", "client", "documentation"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
