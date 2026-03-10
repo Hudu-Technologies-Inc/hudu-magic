@@ -6,7 +6,7 @@ from enum import Enum
 from hudu_magic.endpoints import HuduEndpoint
 from hudu_magic.exceptions import HuduAPIError
 from hudu_magic.instance import Instance
-
+from .validation import validate_payload
 
 class HuduClient:
     def __init__(self, api_key: str, instance_url: str, timeout: int = 30):
@@ -76,6 +76,40 @@ class HuduClient:
 
         path = endpoint.item_path(item_id) if isinstance(endpoint, HuduEndpoint) else f"{str(endpoint).rstrip('/')}/{item_id}"
         return self.put(path, json=payload)
+
+    def post(
+        self,
+        endpoint: HuduEndpoint | str,
+        *,
+        json: dict | None = None,
+        files: dict | None = None,
+        data: dict | None = None,
+    ) -> Any:
+        response = self.session.post(
+            self.build_url(endpoint),
+            json=json if files is None else None,
+            data=data if files is not None else None,
+            files=files,
+            timeout=self.timeout,
+        )
+        return self._handle_response(response)
+
+    def put(
+        self,
+        endpoint: HuduEndpoint | str,
+        *,
+        json: dict | None = None,
+        files: dict | None = None,
+        data: dict | None = None,
+    ) -> Any:
+        response = self.session.put(
+            self.build_url(endpoint),
+            json=json if files is None else None,
+            data=data if files is not None else None,
+            files=files,
+            timeout=self.timeout,
+        )
+        return self._handle_response(response)
 
     def delete(self, endpoint: HuduEndpoint | str) -> Any:
         response = self.session.delete(

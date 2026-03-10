@@ -5,9 +5,9 @@ from dotenv import load_dotenv
 
 from hudu_magic import HuduClient
 from hudu_magic.endpoints import HuduEndpoint
+run_integration = "1"
 
-
-load_dotenv(".testenv")
+load_dotenv("testenv")
 
 
 def _get_test_config():
