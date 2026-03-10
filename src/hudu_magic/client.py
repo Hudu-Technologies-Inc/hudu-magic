@@ -38,13 +38,6 @@ class HuduClient:
 
         return response.text
 
-    def get(self, endpoint: HuduEndpoint | str, params: dict | None = None) -> Any:
-        response = self.session.get(
-            self.build_url(endpoint),
-            params=params,
-            timeout=self.timeout,
-        )
-        return self._handle_response(response)
 
     def post(self, endpoint: HuduEndpoint | str, json: dict | None = None, files: dict | None = None) -> Any:
         response = self.session.post(
@@ -71,15 +64,27 @@ class HuduClient:
         )
         return self._handle_response(response)
 
-    def get_all_pages(self, endpoint: HuduEndpoint, params: dict | None = None) -> list[dict]:
-        if not endpoint.is_paginated:
-            result = self.get(endpoint, params=params)
-            if isinstance(result, list):
-                return result
-            if isinstance(result, dict):
-                return result.get(endpoint.endpoint, []) or result.get("items", []) or [result]
-            return []
+    def get(self, endpoint: HuduEndpoint | str, params: dict | None = None) -> Any:
+        """
+        simple GET method that takes care of it for you.
+        """
 
+        if isinstance(endpoint, HuduEndpoint) and endpoint.is_paginated:
+            return self._get_all_pages(endpoint, params)
+
+        return self._get_nonpaginated(endpoint, params)
+
+
+    def _get_nonpaginated(self, endpoint: HuduEndpoint | str, params: dict | None = None) -> Any:
+        response = self.session.get(
+            self.build_url(endpoint),
+            params=params,
+            timeout=self.timeout,
+        )
+        return self._handle_response(response)
+
+
+    def _get_all_pages(self, endpoint: HuduEndpoint, params: dict | None = None) -> list[dict]:
         page = 1
         all_items: list[dict] = []
         params = dict(params or {})
@@ -88,7 +93,7 @@ class HuduClient:
             page_params = dict(params)
             page_params["page"] = page
 
-            result = self.get(endpoint, params=page_params)
+            result = self._get_nonpaginated(endpoint, params=page_params)
 
             if isinstance(result, dict):
                 items = result.get(endpoint.endpoint) or result.get("items") or result.get("data") or []

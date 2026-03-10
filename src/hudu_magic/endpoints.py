@@ -1,6 +1,8 @@
 from enum import Enum
 from .helpers.general import strip_string
 
+
+
 class HuduEndpoint(Enum):
     ACTIVITYLOGS = ("activity_logs", True, [])
     APIINFO = ("api_info", False, [])
