@@ -25,8 +25,10 @@ def test_resource_lifecycle(integration_client, plan):
             validate=plan.validate_create,
         )
         created_id = extract_id(created)
-
-        fetched = integration_client.get(plan.update_endpoint.item_path(created_id), paginate=False)
+        fetched = integration_client.get(
+            integration_client.resolve_path(plan.update_endpoint, created_id),
+            paginate=False,
+        )
         assert extract_id(fetched) == created_id
 
         update_payload = plan.update_payload(ctx)

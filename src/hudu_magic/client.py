@@ -201,13 +201,24 @@ class HuduClient:
                 allow_unknown_fields=allow_unknown_fields,
             )
 
-        if isinstance(endpoint, HuduEndpoint):
-            if "{id}" in endpoint.endpoint:
-                path = "/" + endpoint.endpoint.replace("{id}", str(item_id))
-            else:
-                path = endpoint.item_path(item_id)
-        else:
-            path = f"{str(endpoint).rstrip('/')}/{item_id}"
-
+        path = self.resolve_path(endpoint, item_id)
         wrapped_payload = maybe_wrap_payload(endpoint, payload)
         return self.put(path, json=wrapped_payload)
+
+    def resolve_path(self, endpoint: HuduEndpoint | str, item_id: int | str | None = None) -> str:
+        if isinstance(endpoint, HuduEndpoint):
+            if item_id is not None:
+                if "{id}" in endpoint.endpoint:
+                    return f"/{endpoint.endpoint.replace('{id}', str(item_id))}"
+                return endpoint.item_path(item_id)
+            return endpoint.path
+
+        endpoint_str = str(endpoint).lstrip("/")
+        if item_id is not None:
+            if "{id}" in endpoint_str:
+                return f"/{endpoint_str.replace('{id}', str(item_id))}"
+            return f"/{endpoint_str.rstrip('/')}/{item_id}"
+        return f"/{endpoint_str}"
+
+    def delete_item(self, endpoint: HuduEndpoint | str, item_id: int | str):
+        return self.delete(self.resolve_path(endpoint, item_id))

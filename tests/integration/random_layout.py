@@ -18,16 +18,18 @@ SAFE_FIELD_TYPES = [
 
 
 def random_field(i: int) -> dict:
+    field_type = random.choice(FIELD_TYPES)
+
     field = {
         "label": f"SDK Field {i + 1}",
-        "field_type": random.choice(SAFE_FIELD_TYPES),
+        "field_type": field_type,
         "position": i + 1,
     }
 
-    if random.choice([True, False]):
+    if field_type != "Heading" and random.choice([True, False]):
         field["required"] = random.choice([True, False])
 
-    if random.choice([True, False]):
+    if field_type != "Heading" and random.choice([True, False]):
         field["show_in_list"] = random.choice([True, False])
 
     return field
