@@ -2,25 +2,11 @@
 
 purposefully tiny, enum-driven, and class-based API client library for Hudu
 
-Low-Maintenance, generated from openapi spec
-
-## Generating
-
-1. Place openapi spec file https://yoururl.huducloud.com/api-docs.json in project directory as hudu-openapiv1.json
-
-2. run `python generate-endpoints.py` after sourcing virtual environment
-
-## Building
-
-run 
-
-```
-./build.sh
-```
+**Low-Maintenance, generated from openapi spec**
 
 ## Install
 
-for now, first build with
+for now, first build with the below script
 ```
 ./build.sh
 ```
@@ -30,12 +16,51 @@ future:
 pip install hudu-magic
 ```
 
+## Generating builds for new hudu versions
+
+1. Place openapi spec file https://yoururl.huducloud.com/api-docs.json in project directory as hudu-openapiv1.json
+
+2. run `python generate-endpoints.py` after sourcing virtual environment (that has dev dependencies installed)
+
+3. run ./build
+
+this is designed to be suyper simple so that subsequent releases can eventually just be automatically generated, tested, validated, and pushed to pypi.
+
+## Building
+
+run the below script with zsh, sh, or bash
+
+```
+./build.sh
+```
+
+unit tests and integration tests run during build, so if you want the integration tests to actually run (and succeed), ensure you've filled out testenv from template testenv.example.
+
+
 ## interacting with classes
 
-client.get_all_pages(HuduEndpoint.COMPANIES)
-client.get(HuduEndpoint.COMPANIES)
-client.get(HuduEndpoint.ASSETS)
-client.get(HuduEndpoint.NETWORKS)
+
+newasset = client.assets.create(company_id=5,payload={"name": "Router", "asset_layout_id": 2},)
+print(newasset)
+print(newasset.id)
+print(newasset.name)
+
+newcompany = client.companies.create(payload={"name":f"masonmason{uuid.uuid4()}","nickname":"stelteSErstelter"})
+print(newcompany)
+newcompany.delete()
+newarticle = client.articles.create(payload={"name":f"someartASDFicles{uuid.uuid4()}","content":"once upon a time"})
+print(newarticle)
+newarticle.delete()
+
+### Future
+
+in the future, once we get all the class methods built in, we'll be able to interact with different objects in new and exciting ways
+
+companyrelation = client.companies.get(45).relate_to(client.get.network(1))
+
+newarticleinfolder = client.folder.new({name="myfolder}).assign(client.articles.get(55))
+
+networkassets.move_to(client.companies.get("roberts company"))
 
 
 ## using in your project
@@ -51,16 +76,9 @@ client = HuduClient(
 )
 
 newasset = client.assets.create(company_id=5,payload={"name": "Router", "asset_layout_id": 2},)
-print(newasset)
-print(newasset.id)
-print(newasset.name)
 
-newcompany = client.companies.create(payload={"name":f"masonmason{uuid.uuid4()}","nickname":"stelteSErstelter"})
-print(newcompany)
-newcompany.delete()
-newarticle = client.articles.create(payload={"name":f"someartASDFicles{uuid.uuid4()}","content":"once upon a time"})
-print(newarticle)
-newarticle.delete()
+newarticle = client.articles.create(payload={name:"this",contents:"that"})
+
 
 ...
 ```
