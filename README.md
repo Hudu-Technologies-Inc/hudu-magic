@@ -1,6 +1,6 @@
 # hudu-magic
 
-Python client library for the Hudu API.
+enum-driven class-based API client library for Hudu
 
 ## Install
 
