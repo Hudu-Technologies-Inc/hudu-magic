@@ -1,9 +1,8 @@
 from __future__ import annotations
-
-from typing import Any
-
 import requests
-
+from typing import Any
+from dataclasses import dataclass, field
+from enum import Enum
 from hudu_magic.endpoints import HuduEndpoint
 from hudu_magic.exceptions import HuduAPIError
 from hudu_magic.instance import Instance
@@ -15,6 +14,7 @@ class HuduClient:
         self.timeout = timeout
         self.session = requests.Session()
         self.session.headers.update(self.instance.get_request_headers)
+
 
     def build_url(self, endpoint: HuduEndpoint | str) -> str:
         endpoint_path = endpoint.endpoint if isinstance(endpoint, HuduEndpoint) else str(endpoint).lstrip("/")
@@ -38,31 +38,44 @@ class HuduClient:
 
         return response.text
 
-    def get(self, endpoint: HuduEndpoint | str, params: dict | None = None) -> Any:
-        response = self.session.get(
-            self.build_url(endpoint),
-            params=params,
-            timeout=self.timeout,
-        )
-        return self._handle_response(response)
 
-    def post(self, endpoint: HuduEndpoint | str, json: dict | None = None, files: dict | None = None) -> Any:
-        response = self.session.post(
-            self.build_url(endpoint),
-            json=json if files is None else None,
-            files=files,
-            data=None if files is None else json,
-            timeout=self.timeout,
-        )
-        return self._handle_response(response)
+    def create(
+        self,
+        endpoint: HuduEndpoint | str,
+        payload: dict[str, Any],
+        *,
+        validate: bool = True,
+        allow_unknown_fields: bool = False,
+    ):
+        if isinstance(endpoint, HuduEndpoint) and validate:
+            validate_payload(
+                endpoint,
+                payload,
+                "create",
+                allow_unknown_fields=allow_unknown_fields,
+            )
+        return self.post(endpoint, json=payload)
 
-    def put(self, endpoint: HuduEndpoint | str, json: dict | None = None) -> Any:
-        response = self.session.put(
-            self.build_url(endpoint),
-            json=json,
-            timeout=self.timeout,
-        )
-        return self._handle_response(response)
+
+    def update(
+        self,
+        endpoint: HuduEndpoint | str,
+        item_id: int | str,
+        payload: dict[str, Any],
+        *,
+        validate: bool = True,
+        allow_unknown_fields: bool = False,
+    ):
+        if isinstance(endpoint, HuduEndpoint) and validate:
+            validate_payload(
+                endpoint,
+                payload,
+                "update",
+                allow_unknown_fields=allow_unknown_fields,
+            )
+
+        path = endpoint.item_path(item_id) if isinstance(endpoint, HuduEndpoint) else f"{str(endpoint).rstrip('/')}/{item_id}"
+        return self.put(path, json=payload)
 
     def delete(self, endpoint: HuduEndpoint | str) -> Any:
         response = self.session.delete(
@@ -71,15 +84,35 @@ class HuduClient:
         )
         return self._handle_response(response)
 
-    def get_all_pages(self, endpoint: HuduEndpoint, params: dict | None = None) -> list[dict]:
-        if not endpoint.is_paginated:
-            result = self.get(endpoint, params=params)
-            if isinstance(result, list):
-                return result
-            if isinstance(result, dict):
-                return result.get(endpoint.endpoint, []) or result.get("items", []) or [result]
-            return []
+    def get(
+        self,
+        endpoint: HuduEndpoint | str,
+        params: dict | None = None,
+        paginate: bool | None = None,
+    ) -> Any:
+        """
+        Intelligent GET with optional pagination override.
+        """
 
+        if isinstance(endpoint, HuduEndpoint):
+            if paginate is None:
+                paginate = endpoint.is_paginated
+
+            if paginate:
+                return self._get_all_pages(endpoint, params)
+
+        return self._get_nonpaginated(endpoint, params)
+
+    def _get_nonpaginated(self, endpoint: HuduEndpoint | str, params: dict | None = None) -> Any:
+        response = self.session.get(
+            self.build_url(endpoint),
+            params=params,
+            timeout=self.timeout,
+        )
+        return self._handle_response(response)
+
+
+    def _get_all_pages(self, endpoint: HuduEndpoint, params: dict | None = None) -> list[dict]:
         page = 1
         all_items: list[dict] = []
         params = dict(params or {})
@@ -88,7 +121,7 @@ class HuduClient:
             page_params = dict(params)
             page_params["page"] = page
 
-            result = self.get(endpoint, params=page_params)
+            result = self._get_nonpaginated(endpoint, params=page_params)
 
             if isinstance(result, dict):
                 items = result.get(endpoint.endpoint) or result.get("items") or result.get("data") or []
@@ -104,3 +137,6 @@ class HuduClient:
             page += 1
 
         return all_items
+
+
+
