@@ -14,3 +14,4 @@ build/
 venv/
 .env
 dev/testdev.py
+testenv
