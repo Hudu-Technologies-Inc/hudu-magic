@@ -14,6 +14,12 @@ future:
 pip install hudu-magic
 ```
 
+## Generating Class Definitions
+
+When a new version of Hudu comes along with updated endpoints, we simply generate from the new openapi spec file https://yoururl.huducloud.com/api-docs.json and place in project dir named hudu-openapiv1.json.
+
+install dev dependencies in generate-requirements.txt and then generate new class definitions with generate-endpoints.py
+
 ## interacting with classes
 
 client.get_all_pages(HuduEndpoint.COMPANIES)
@@ -34,6 +40,12 @@ client = HuduClient(
     instance_url="https://env.yourinstance",
 )
 
-companies = client.get_all_pages(HuduEndpoint.COMPANIES)
+companies = client.get(HuduEndpoint.COMPANIES)
+
+client.companies.get(144)
+client.companies.create({"name": "Acme"})
+client.articles.create({"name": "How To", "content": "..."})
+client.assets.create(company_id=5, payload={"name": "Router", "asset_layout_id": 2})
+
 ...
 ```

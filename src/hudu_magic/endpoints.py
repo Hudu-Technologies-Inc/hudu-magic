@@ -1,7 +1,84 @@
 from enum import Enum
 from .helpers.general import strip_string
 
+from __future__ import annotations
 
+from dataclasses import dataclass, field
+from typing import Any
+
+
+@dataclass(frozen=True)
+class FieldMeta:
+    name: str
+    type: str | None = None
+    required: bool = False
+    location: str | None = None          # query, path, body, formData
+    enum: tuple[str, ...] = ()
+    description: str | None = None
+    item_type: str | None = None         # for arrays
+    properties: dict[str, "FieldMeta"] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class EndpointMeta:
+    path: str
+    resource_name: str
+    tag: str | None = None
+
+    # discovery / behavior
+    is_paginated: bool = False
+    company_scoped: bool = False
+    content_types: tuple[str, ...] = ()
+    methods: tuple[str, ...] = ()
+
+    # operation support
+    supports_list: bool = False
+    supports_get: bool = False
+    supports_create: bool = False
+    supports_update: bool = False
+    supports_delete: bool = False
+    supports_archive: bool = False
+    supports_unarchive: bool = False
+
+    # params / schemas
+    path_params: dict[str, FieldMeta] = field(default_factory=dict)
+    query_params: dict[str, FieldMeta] = field(default_factory=dict)
+    create_fields: dict[str, FieldMeta] = field(default_factory=dict)
+    update_fields: dict[str, FieldMeta] = field(default_factory=dict)
+    create_required_fields: tuple[str, ...] = ()
+    update_required_fields: tuple[str, ...] = ()
+
+    # optional extras
+    response_ref: str | None = None
+    operation_ids: dict[str, str] = field(default_factory=dict)
+
+class HuduEndpoint(Enum):
+    COMPANIES = EndpointMeta(
+        path="companies",
+        is_paginated=True,
+        creatable=True,
+        updatable=True,
+        allowed_fields=(
+            "name", "nickname", "company_type", "address_line_1", "address_line_2",
+            "city", "state", "zip", "country_name", "phone_number", "fax_number",
+            "website", "id_number", "parent_company_id", "notes", "slug",
+        ),
+        required_create_fields=("name",),
+    )
+
+    ARTICLES = EndpointMeta(
+        path="articles",
+        is_paginated=True,
+        creatable=True,
+        updatable=True,
+        allowed_fields=("content", "name", "enable_sharing", "folder_id", "company_id", "slug"),
+        required_create_fields=("name",),
+    )
+
+    def __init__(self, meta: EndpointMeta):
+        self.meta = meta
+        self.endpoint = meta.path
+        self.is_paginated = meta.is_paginated
 
 class HuduEndpoint(Enum):
     ACTIVITYLOGS = ("activity_logs", True, [])
@@ -190,3 +267,4 @@ class HuduEndpoint(Enum):
 
     def unarchive_path(self, item_id):
         return f"{self.item_path(item_id)}/unarchive"
+
