@@ -1,14 +1,19 @@
 from hudu_magic.endpoints import HuduEndpoint
 
-
-def test_endpoint_path():
-    assert HuduEndpoint.COMPANIES.path == "/companies"
-
-
-def test_endpoint_item_path():
-    assert HuduEndpoint.ARTICLES.item_path(123) == "/articles/123"
+def test_articles_endpoint_exists():
+    assert HuduEndpoint.ARTICLES.endpoint == "articles"
 
 
-def test_endpoint_pagination_flag():
+def test_articles_is_paginated():
     assert HuduEndpoint.ARTICLES.is_paginated is True
-    assert HuduEndpoint.NETWORKS.is_paginated is False
+
+
+def test_api_info_not_paginated():
+    assert HuduEndpoint.API_INFO.is_paginated is False
+
+
+def test_photos_has_form_params():
+    assert HuduEndpoint.PHOTOS.meta.form_params
+
+def test_endpoint_has_methods():
+    assert "GET" in HuduEndpoint.ASSETS.meta.methods
