@@ -15,6 +15,8 @@ from .resources import (
     CompaniesResource,
     FoldersResource,
     WebsitesResource,
+    AssetPasswordsResource,
+
 )
 from .models import HuduObject, MODEL_MAP
 
@@ -31,7 +33,11 @@ class HuduClient:
         self.websites = WebsitesResource(self)
         self.asset_layouts = AssetLayoutsResource(self)
         self.assets = AssetsResource(self)
+        self.asset_passwords = AssetPasswordsResource(self)
         # aliases
+        self.asset_password = self.asset_passwords
+        self.passwords = self.asset_passwords
+        self.password = self.asset_passwords
         self.asset = self.assets
         self.company = self.companies
         self.article = self.articles

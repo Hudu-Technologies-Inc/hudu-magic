@@ -1,5 +1,5 @@
 from hudu_magic.endpoints import HuduEndpoint
-from hudu_magic.constants import PROPERTIES_TO_POP_ON_SAVE
+from hudu_magic.constants import PROPERTIES_TO_POP_ON_SAVE, COMPANY_PROPERTIES_TO_POP_ON_SAVE, PASSWORD_PROPERTIES_TO_POP_ON_SAVE
 RESOURCE_WRAPPERS = {
     "asset_layouts": "asset_layout",
     "companies": "company",
@@ -114,3 +114,9 @@ def normalize_asset_payload_for_save(data: dict) -> dict:
         payload["custom_fields"] = transform_asset_fields_for_save(data["fields"])
 
     return payload
+
+def normalize_company_payload_for_save(data: dict) -> dict:
+    return {k: v for k, v in data.items() if k not in COMPANY_PROPERTIES_TO_POP_ON_SAVE and v is not None}
+
+def normalize_password_payload_for_save(data: dict) -> dict:
+    return {k: v for k, v in data.items() if k not in PASSWORD_PROPERTIES_TO_POP_ON_SAVE and v is not None}

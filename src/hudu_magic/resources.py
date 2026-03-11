@@ -37,6 +37,9 @@ class BaseResource:
         path = self.client.resolve_path(self.endpoint, item_id)
         return self.client.delete(path)
 
+    def new(self, payload: dict, **kwargs):
+        return self.create(payload, **kwargs)
+
 
 class CompaniesResource(BaseResource):
     endpoint = HuduEndpoint.COMPANIES
@@ -49,6 +52,17 @@ class ArticlesResource(BaseResource):
 class FoldersResource(BaseResource):
     endpoint = HuduEndpoint.FOLDERS
 
+class AssetPasswordsResource(BaseResource):
+    endpoint = HuduEndpoint.ASSET_PASSWORDS
+    def save(self, item_id: int | str, payload: dict[str, Any], **kwargs) -> Any:
+        path = self.client.resolve_path(self.endpoint, item_id)
+        wrapped_payload = {"asset_password": payload}
+        result = self.client.put(path, json=wrapped_payload)
+        return self.client._wrap_result(self.endpoint, result)
+    
+    def update(self, item_id: int | str, payload: dict[str, Any], **kwargs) -> Any:
+        payload = normalize_password_payload_for_save(payload)
+        return self.save(item_id, payload, **kwargs)
 
 class WebsitesResource(BaseResource):
     endpoint = HuduEndpoint.WEBSITES

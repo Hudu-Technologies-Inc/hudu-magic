@@ -63,3 +63,26 @@ ASSET_PROPERTIES_TO_KEEP_ON_SAVE = {
     "primary_manufacturer",
     "custom_fields",
 }
+
+COMPANY_PROPERTIES_TO_POP_ON_SAVE = {
+    "slug",
+    "parent_company_name",
+    "archived",
+    "url",
+    "full_url",
+    "passwords_url",
+    "knowledge_base_url",
+    "created_at",
+    "updated_at",
+    "integrations",
+}
+
+PASSWORD_PROPERTIES_TO_POP_ON_SAVE = {
+"slug",
+"password_folder_name",
+"url",
+"archived",
+"created_at",
+"updated_at",
+
+}

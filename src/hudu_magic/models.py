@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 from .endpoints import HuduEndpoint
-from .payloads import transform_custom_fields_for_save, clean_payload, normalize_asset_payload_for_save
+from .payloads import transform_custom_fields_for_save, clean_payload, normalize_asset_payload_for_save, normalize_company_payload_for_save, normalize_password_payload_for_save
 
 class HuduObject:
     def __init__(self, client, endpoint, data):
@@ -121,7 +121,6 @@ class HuduObject:
     def delete(self):
         if self.id is None:
             raise ValueError("Cannot delete object without an id")
-
         return self._client.delete(
             self._client.resolve_path(self._endpoint, self.id)
         )
@@ -149,11 +148,41 @@ class HuduObject:
     
 
 class Company(HuduObject):
-    pass
+    def save(self, **kwargs):
+        if self.id is None:
+            raise ValueError("Cannot save object without an id")
+
+        payload = normalize_company_payload_for_save(self.to_dict())
+
+        path = f"companies/{self.id}"
+        updated = self._client.put(path, json=payload)
+        refreshed = self._client.get(path, paginate=False)
+        if hasattr(refreshed, "_data"):
+            self._data = dict(refreshed._data)
+        elif isinstance(refreshed, dict):
+            refreshed = self._client._extract_primary_object(refreshed)
+            self._data = dict(refreshed)
+
+        return self
 
 
 class Article(HuduObject):
-    pass
+    def save(self, **kwargs):
+        if self.id is None:
+            raise ValueError("Cannot save object without an id")
+
+        payload = clean_payload(self.to_dict())
+
+        path = f"articles/{self.id}"
+        updated = self._client.put(path, json=payload)
+        refreshed = self._client.get(path, paginate=False)
+        if hasattr(refreshed, "_data"):
+            self._data = dict(refreshed._data)
+        elif isinstance(refreshed, dict):
+            refreshed = self._client._extract_primary_object(refreshed)
+            self._data = dict(refreshed)
+
+        return self
 
 class Asset(HuduObject):
     # Note: Asset has a custom save() method because the API requires
@@ -165,6 +194,16 @@ class Asset(HuduObject):
     endpoint = HuduEndpoint.ASSETS
     resource_attr = "assets"
 
+    def delete(self):
+        if self.id is None:
+            raise ValueError("Cannot delete object without an id")
+
+        company_id = self.company_id or self.get("company_id")
+        if company_id is None:
+            raise ValueError("Asset delete() requires company_id")
+
+        path = f"companies/{company_id}/assets/{self.id}"
+        return self._client.delete(path)
     def save(self, **kwargs):
         if self.id is None:
             raise ValueError("Cannot save object without an id")
@@ -199,6 +238,28 @@ class Website(HuduObject):
 class AssetLayout(HuduObject):
     pass
 
+class AssetPassword(HuduObject):
+    endpoint = HuduEndpoint.ASSET_PASSWORDS
+    def save(self, **kwargs):
+        if self.id is None:
+            raise ValueError("Cannot save object without an id")
+        company_id = self.company_id or self.get("company_id")
+        if company_id is None:
+            raise ValueError("AssetPassword save() requires company_id")
+
+        payload = normalize_password_payload_for_save(self.to_dict())
+
+        path = f"asset_passwords/{self.id}"
+        updated = self._client.put(path, json={"asset_password": payload})
+        refreshed = self._client.get(path, paginate=False)
+        if hasattr(refreshed, "_data"):
+            self._data = dict(refreshed._data)
+        elif isinstance(refreshed, dict):
+            refreshed = self._client._extract_primary_object(refreshed)
+            self._data = dict(refreshed)
+
+        return self
+
 class HuduCollection(list):
     def first(self):
         return self[0] if self else None
@@ -226,4 +287,6 @@ MODEL_MAP = {
     HuduEndpoint.WEBSITES_ID: Website,
     HuduEndpoint.ASSET_LAYOUTS: AssetLayout,
     HuduEndpoint.ASSET_LAYOUTS_ID: AssetLayout,
+    HuduEndpoint.ASSET_PASSWORDS: AssetPassword,
+    HuduEndpoint.ASSET_PASSWORDS_ID: AssetPassword,
 }

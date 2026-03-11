@@ -41,19 +41,37 @@ unit tests and integration tests run during build, so if you want the integratio
 
 
 newasset = client.assets.create(company_id=5,payload={"name": "Router", "asset_layout_id": 2},)
-print(newasset)
+print(f"created {newasset.name} with id {newasset.id}")
 
-newasset.keys
+newname = f"Router {str(uuid.uuid4())[:8]}"
+print(f"updating name to {newname}")
+newasset.name = newname
 
-print(newasset.id)
-print(newasset.name)
+newasset.save()
+print(f"updated {newasset.name} with id {newasset.id}")
 
-newcompany = client.companies.create(payload={"name":f"masonmason{uuid.uuid4()}","nickname":"stelteSErstelter"})
-print(newcompany)
+newasset.delete()
+print(f"deleted asset with id {newasset.id}")
+
+article = client.articles.create(payload={"name":"asdfasdf","content": "This is a test article.","company_id":5})
+print(f"created article with id {article.id}")
+
+article.content = "This is updated content for the test article."
+article.save()
+print(f"updated article with id {article.id}, new content: {article.content}")
+
+article.delete()
+print(f"deleted article with id {article.id}")
+
+newcompany = client.companies.create(payload={"name": f"Test Company {str(uuid.uuid4())[:8]}"})
+print(f"created company with id {newcompany.id}")
+
+newcompany.name = f"Updated Test Company {str(uuid.uuid4())[:8]}"
+newcompany.save()
+print(f"updated company with id {newcompany.id}, new name: {newcompany.name}")
+
 newcompany.delete()
-newarticle = client.articles.create(payload={"name":f"someartASDFicles{uuid.uuid4()}","content":"once upon a time"})
-print(newarticle)
-newarticle.delete()
+print(f"deleted company with id {newcompany.id}")
 
 client.folders.get()          # all folders
 client.folders.get(5)         # one folder
