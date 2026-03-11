@@ -15,11 +15,17 @@ class BaseResource:
         return self.client.get(self.endpoint, params=params or None)
 
     def get(self, item_id=None, **params):
+        if item_id is not None and params:
+            raise ValueError("Provide either item_id or query params, not both")
+
         if item_id is None:
             return self.list(**params)
 
         path = self.endpoint.item_path(item_id)
         return self.client.get(path, paginate=False)
+
+    def get_all(self, **params):
+        return self.get(None, **params)
 
     def create(self, payload: dict[str, Any], **kwargs) -> Any:
         return self.client.create(self.endpoint, payload, **kwargs)

@@ -36,3 +36,15 @@ FIELD_TYPES = [
 NESTED_FIELD_TYPES=[
     "ListSelect"
 ]
+
+PROPERTIES_TO_POP_ON_SAVE = {
+    "id",
+    "created_on",
+    "updated_on",
+    "created_by",
+    "updated_by",
+    "slug",
+    "asset_type",
+    "object_type",
+    "company_name",
+}

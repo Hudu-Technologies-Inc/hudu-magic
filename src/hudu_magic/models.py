@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 from .endpoints import HuduEndpoint
-
+from .constants import PROPERTIES_TO_POP_ON_SAVE
 
 class HuduObject:
     def __init__(self, client, endpoint, data):
@@ -23,9 +23,6 @@ class HuduObject:
             return self._data[item]
         except KeyError as exc:
             raise AttributeError(item) from exc
-
-    def __getitem__(self, item: str):
-        return self._data[item]
 
     def get(self, key, default=None):
         return self._data.get(key, default)
@@ -54,10 +51,35 @@ class HuduObject:
     def __getitem__(self, item):
         return self._data[item]
 
-    def save(self):
+    def save(self, **kwargs):
         if self.id is None:
-            raise ValueError("Cannot save object without id")
-        return self.update(self.to_dict())
+            raise ValueError("Cannot save object without an id")
+
+        update_endpoint = getattr(self.__class__,
+                                  "update_endpoint",
+                                  self._endpoint)
+
+        payload = self.to_dict()
+        for key in PROPERTIES_TO_POP_ON_SAVE:
+            payload.pop(key, None)
+
+        updated = self._client.update(
+            update_endpoint,
+            self.id,
+            payload,
+            **kwargs,
+        )
+
+        if hasattr(updated, "_data"):
+            self._data = dict(updated._data)
+            return self
+
+        if isinstance(updated, dict):
+            self._data = dict(updated)
+            return self
+
+        return updated
+
 
     @property
     def id(self):
@@ -135,6 +157,39 @@ class Article(HuduObject):
     pass
 
 class Asset(HuduObject):
+    # Note: Asset has a custom save() method because the API requires
+    # a different payload structure for updates vs creates, and the endpoint
+    # is also different (nested under company)
+    # in the future, when models are isomorphic with API endpoints,
+    # we may want to move this logic into the client or resources layer
+    # instead of the model layer
+    endpoint = HuduEndpoint.ASSETS
+    resource_attr = "assets"
+
+    def save(self, **kwargs):
+        if self.id is None:
+            raise ValueError("Cannot save object without an id")
+
+        payload = self.to_dict()
+        payload = self.to_dict()
+        for key in PROPERTIES_TO_POP_ON_SAVE:
+            payload.pop(key, None)
+            
+        company_id = payload.get("company_id") or self.get("company_id")
+        if company_id is None:
+            raise ValueError("Asset save() requires company_id")
+
+        path = f"companies/{company_id}/assets/{self.id}"
+        updated = self._client.put(path, json={"asset": payload})
+
+\
+        if hasattr(updated, "_data"):
+            self._data = dict(updated._data)
+        elif isinstance(updated, dict):
+            updated = self._client._extract_primary_object(updated)
+            self._data = dict(updated)
+
+        return self
     @classmethod
     def from_dict(cls, client, endpoint, data):
         return cls(client, endpoint, data)

@@ -42,6 +42,9 @@ unit tests and integration tests run during build, so if you want the integratio
 
 newasset = client.assets.create(company_id=5,payload={"name": "Router", "asset_layout_id": 2},)
 print(newasset)
+
+newasset.keys
+
 print(newasset.id)
 print(newasset.name)
 
@@ -51,6 +54,13 @@ newcompany.delete()
 newarticle = client.articles.create(payload={"name":f"someartASDFicles{uuid.uuid4()}","content":"once upon a time"})
 print(newarticle)
 newarticle.delete()
+
+client.folders.get()          # all folders
+client.folders.get(5)         # one folder
+
+Folder.get(client)            # all folders
+Folder.get(client, 5)         # one folder
+client.folders.get(name="IT")  # filtered list
 
 ### Future
 
