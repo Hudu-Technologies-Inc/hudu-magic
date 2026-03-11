@@ -50,6 +50,8 @@ newasset.name = newname
 newasset.save()
 print(f"updated {newasset.name} with id {newasset.id}")
 
+companyassets = client.assets.list_for_company(5)
+
 newasset.delete()
 print(f"deleted asset with id {newasset.id}")
 
@@ -79,6 +81,16 @@ client.folders.get(5)         # one folder
 Folder.get(client)            # all folders
 Folder.get(client, 5)         # one folder
 client.folders.get(name="IT")  # filtered list
+
+newpassword = client.asset_passwords.create(payload={"company_id": 5, "name": f"Test Password {str(uuid.uuid4())[:8]}", "username": "testuser", "password": "testpass"})
+print(f"created password with id {newpassword.id}")
+
+newpassword.name = f"Updated Test Password {str(uuid.uuid4())[:8]}"
+newpassword.save()
+print(f"updated password with id {newpassword.id}, new name: {newpassword.name}")
+
+newpassword.delete()
+print(f"deleted password with id {newpassword.id}")
 
 ### Future
 
