@@ -272,6 +272,24 @@ class Website(HuduObject):
 class AssetLayout(HuduObject):
     pass
 
+class PasswordFolder(HuduObject):
+    def add_passwords(self, password: int | list[int] | HuduObject.password | list[HuduObject.password]):
+        if self.id is None:
+            raise ValueError("Cannot add password to folder without an id")
+        if password is None:
+            raise ValueError("Must provide password_id to add_password")
+        if isinstance(password, HuduObject):
+            password.password_folder_id = self.id
+            return password.save()
+        if isinstance(password, list):
+            returnvalues = []
+            for p in password:
+                if isinstance(p, HuduObject):
+                    p.password_folder_id = self.id
+                    returnvalues.append(p.save())
+                elif isinstance(p, int):
+                    returnvalues.append(self._client.asset_passwords.update(p, {"password_folder_id": self.id}))
+       
 class AssetPassword(HuduObject):
     endpoint = HuduEndpoint.ASSET_PASSWORDS
     def save(self, **kwargs):
@@ -327,4 +345,6 @@ MODEL_MAP = {
     HuduEndpoint.ASSET_LAYOUTS_ID: AssetLayout,
     HuduEndpoint.ASSET_PASSWORDS: AssetPassword,
     HuduEndpoint.ASSET_PASSWORDS_ID: AssetPassword,
+    HuduEndpoint.PASSWORD_FOLDERS: Folder,
+    HuduEndpoint.PASSWORD_FOLDERS_ID: Folder,
 }
