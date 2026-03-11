@@ -10,7 +10,7 @@ class HuduObject:
         self._endpoint = endpoint
         self._data = data
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         object_id = self._data.get("id")
         name = self._data.get("name")
         return f"<{self.__class__.__name__} id={object_id} name={name!r}>"
@@ -41,6 +41,23 @@ class HuduObject:
 
     def to_dict(self):
         return dict(self._data)
+
+    def __iter__(self):
+        return iter(self._data)
+
+    def __len__(self):
+        return len(self._data)
+
+    def __contains__(self, item):
+        return item in self._data
+
+    def __getitem__(self, item):
+        return self._data[item]
+
+    def save(self):
+        if self.id is None:
+            raise ValueError("Cannot save object without id")
+        return self.update(self.to_dict())
 
     @property
     def id(self):
@@ -88,6 +105,28 @@ class HuduObject:
             self._client.resolve_path(self._endpoint, self.id)
         )
 
+
+    @classmethod
+    def get(cls, client, item_id: int | str | None = None, **params):
+        if not cls.resource_attr:
+            raise NotImplementedError(f"{cls.__name__} does not define resource_attr")
+
+        resource = getattr(client, cls.resource_attr)
+
+        if item_id is None:
+            return resource.list(**params)
+
+        return resource.get(item_id)
+
+    @classmethod
+    def get_all(cls, client, **params):
+        return cls.get(client, **params)
+
+    @classmethod
+    def get_by_id(cls, client, item_id: int | str):
+        return cls.get(client, item_id)
+    
+
 class Company(HuduObject):
     pass
 
@@ -95,10 +134,10 @@ class Company(HuduObject):
 class Article(HuduObject):
     pass
 
-
 class Asset(HuduObject):
-    pass
-
+    @classmethod
+    def from_dict(cls, client, endpoint, data):
+        return cls(client, endpoint, data)
 
 class Folder(HuduObject):
     pass
@@ -110,6 +149,21 @@ class Website(HuduObject):
 
 class AssetLayout(HuduObject):
     pass
+
+class HuduCollection(list):
+    def first(self):
+        return self[0] if self else None
+
+    def ids(self):
+        return [obj.id for obj in self if getattr(obj, "id", None) is not None]
+
+    def to_dicts(self):
+        return [obj.to_dict() if hasattr(obj, "to_dict") else obj for obj in self]
+
+    def filter(self, **criteria):
+        def matches(obj):
+            return all(getattr(obj, key, None) == value for key, value in criteria.items())
+        return HuduCollection([obj for obj in self if matches(obj)])
 
 MODEL_MAP = {
     HuduEndpoint.COMPANIES: Company,

@@ -14,8 +14,11 @@ class BaseResource:
     def list(self, **params) -> Any:
         return self.client.get(self.endpoint, params=params or None)
 
-    def get(self, item_id: int | str) -> Any:
-        path = self.client.resolve_path(self.endpoint, item_id)
+    def get(self, item_id=None, **params):
+        if item_id is None:
+            return self.list(**params)
+
+        path = self.endpoint.item_path(item_id)
         return self.client.get(path, paginate=False)
 
     def create(self, payload: dict[str, Any], **kwargs) -> Any:
