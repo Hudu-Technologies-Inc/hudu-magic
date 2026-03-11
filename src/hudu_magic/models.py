@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 from .endpoints import HuduEndpoint
-from .constants import PROPERTIES_TO_POP_ON_SAVE
+from .payloads import transform_custom_fields_for_save, clean_payload, normalize_asset_payload_for_save
 
 class HuduObject:
     def __init__(self, client, endpoint, data):
@@ -59,9 +59,8 @@ class HuduObject:
                                   "update_endpoint",
                                   self._endpoint)
 
-        payload = self.to_dict()
-        for key in PROPERTIES_TO_POP_ON_SAVE:
-            payload.pop(key, None)
+        payload = clean_payload(self.to_dict())
+
 
         updated = self._client.update(
             update_endpoint,
@@ -170,24 +169,19 @@ class Asset(HuduObject):
         if self.id is None:
             raise ValueError("Cannot save object without an id")
 
-        payload = self.to_dict()
-        payload = self.to_dict()
-        for key in PROPERTIES_TO_POP_ON_SAVE:
-            payload.pop(key, None)
-            
+        payload = normalize_asset_payload_for_save(self.to_dict())
         company_id = payload.get("company_id") or self.get("company_id")
         if company_id is None:
             raise ValueError("Asset save() requires company_id")
 
         path = f"companies/{company_id}/assets/{self.id}"
         updated = self._client.put(path, json={"asset": payload})
-
-\
-        if hasattr(updated, "_data"):
-            self._data = dict(updated._data)
-        elif isinstance(updated, dict):
-            updated = self._client._extract_primary_object(updated)
-            self._data = dict(updated)
+        refreshed = self._client.get(path, paginate=False)
+        if hasattr(refreshed, "_data"):
+            self._data = dict(refreshed._data)
+        elif isinstance(refreshed, dict):
+            refreshed = self._client._extract_primary_object(refreshed)
+            self._data = dict(refreshed)
 
         return self
     @classmethod

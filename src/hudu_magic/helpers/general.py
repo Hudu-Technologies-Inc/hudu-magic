@@ -20,3 +20,4 @@ def ensure_https(value: str) -> str:
         return value
 
     return f"https://{value}"
+

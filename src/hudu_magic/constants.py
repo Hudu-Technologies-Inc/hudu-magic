@@ -38,7 +38,6 @@ NESTED_FIELD_TYPES=[
 ]
 
 PROPERTIES_TO_POP_ON_SAVE = {
-    "id",
     "created_on",
     "updated_on",
     "created_by",
@@ -47,4 +46,20 @@ PROPERTIES_TO_POP_ON_SAVE = {
     "asset_type",
     "object_type",
     "company_name",
+    "archived",
+    "url",
+    "cards",
+    "radar_id",
+}
+
+ASSET_PROPERTIES_TO_KEEP_ON_SAVE = {
+    "name",
+    "asset_layout_id",
+    "company_id",
+    "slug",
+    "primary_serial",
+    "primary_model",
+    "primary_mail",
+    "primary_manufacturer",
+    "custom_fields",
 }
