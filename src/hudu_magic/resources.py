@@ -5,7 +5,7 @@ from typing import Any
 from hudu_magic.payloads import clean_payload
 
 from .endpoints import HuduEndpoint
-from .models import Asset, Company, Article, Folder, Website, AssetLayout, PasswordFolder, AssetPassword, Network, IpAddress, vlan, vlanzone
+from .models import Asset, Company, Article, Folder, Website, AssetLayout, PasswordFolder, AssetPassword, Network, IPaddress, VLan, VLanZone
 
 class BaseResource:
     endpoint: HuduEndpoint

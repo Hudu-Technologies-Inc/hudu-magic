@@ -338,6 +338,19 @@ class PasswordFolder(HuduObject):
                     raise ValueError("password list must contain ints or HuduObjects")
         return True
 
+
+class Network(HuduObject):
+    pass
+
+class IPaddress(HuduObject):
+    pass
+
+class VLan(HuduObject):
+    pass
+
+class VLanZone(HuduObject):
+    pass
+
 class AssetPassword(HuduObject):
     endpoint = HuduEndpoint.ASSET_PASSWORDS
     
@@ -394,17 +407,7 @@ class HuduCollection(list):
         return HuduCollection([obj for obj in self if matches(obj)])
 
 
-class AssetLayout(Network):
-    pass
 
-class AssetLayout(IpAddress):
-    pass
-
-class AssetLayout(Vlan):
-    pass
-
-class AssetLayout(VlanZone):
-    pass
 
 MODEL_MAP = {
     HuduEndpoint.COMPANIES: Company,
@@ -424,10 +427,10 @@ MODEL_MAP = {
     HuduEndpoint.PASSWORD_FOLDERS_ID: Folder,
     HuduEndpoint.NETWORKS: Network,
     HuduEndpoint.NETWORKS_ID: Network,
-    HuduEndpoint.IP_ADDRESSES: IpAddress,
-    HuduEndpoint.IP_ADDRESSES_ID: IpAddress,
-    HuduEndpoint.VLANS: Vlan,
-    HuduEndpoint.VLANS_ID: Vlan,
-    HuduEndpoint.VLAN_ZONES: VlanZone,
-    HuduEndpoint.VLAN_ZONES_ID: VlanZone,
+    HuduEndpoint.IP_ADDRESSES: IPaddress,
+    HuduEndpoint.IP_ADDRESSES_ID: IPaddress,
+    HuduEndpoint.VLANS: VLan,
+    HuduEndpoint.VLANS_ID: VLan,
+    HuduEndpoint.VLAN_ZONES: VLanZone,
+    HuduEndpoint.VLAN_ZONES_ID: VLanZone,
 }
