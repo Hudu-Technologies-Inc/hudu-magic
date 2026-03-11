@@ -41,16 +41,81 @@ unit tests and integration tests run during build, so if you want the integratio
 
 
 newasset = client.assets.create(company_id=5,payload={"name": "Router", "asset_layout_id": 2},)
-print(newasset)
-print(newasset.id)
-print(newasset.name)
+print(f"created {newasset.name} with id {newasset.id}")
 
-newcompany = client.companies.create(payload={"name":f"masonmason{uuid.uuid4()}","nickname":"stelteSErstelter"})
-print(newcompany)
+newname = f"Router {str(uuid.uuid4())[:8]}"
+print(f"updating name to {newname}")
+newasset.name = newname
+
+newasset.save()
+print(f"updated {newasset.name} with id {newasset.id}")
+
+companyassets = client.assets.list_for_company(5)
+
+newasset.delete()
+print(f"deleted asset with id {newasset.id}")
+
+article = client.articles.create(payload={"name":"asdfasdf","content": "This is a test article.","company_id":5})
+print(f"created article with id {article.id}")
+
+article.content = "This is updated content for the test article."
+article.save()
+print(f"updated article with id {article.id}, new content: {article.content}")
+
+article.delete()
+print(f"deleted article with id {article.id}")
+
+newcompany = client.companies.create(payload={"name": f"Test Company {str(uuid.uuid4())[:8]}"})
+print(f"created company with id {newcompany.id}")
+
+newcompany.name = f"Updated Test Company {str(uuid.uuid4())[:8]}"
+newcompany.save()
+print(f"updated company with id {newcompany.id}, new name: {newcompany.name}")
+
 newcompany.delete()
-newarticle = client.articles.create(payload={"name":f"someartASDFicles{uuid.uuid4()}","content":"once upon a time"})
-print(newarticle)
-newarticle.delete()
+print(f"deleted company with id {newcompany.id}")
+
+client.folders.get()          # all folders
+client.folders.get(5)         # one folder
+
+Folder.get(client)            # all folders
+Folder.get(client, 5)         # one folder
+client.folders.get(name="IT")  # filtered list
+
+newpassword = client.asset_passwords.create(payload={"company_id": 5, "name": f"Test Password {str(uuid.uuid4())[:8]}", "username": "testuser", "password": "testpass"})
+print(f"created password with id {newpassword.id}")
+
+
+newpassword = client.asset_passwords.create(payload={"company_id": 5, "name": f"Test Password {str(uuid.uuid4())[:8]}", "username": "testuser", "password": "testpass"})
+print(f"created password with id {newpassword.id}")
+
+newpassword.name = f"Updated Test Password {str(uuid.uuid4())[:8]}"
+newpassword.save()
+print(f"updated password with id {newpassword.id}, new name: {newpassword.name}")
+
+passwordfolder = client.password_folders.create(payload={"company_id": 5, "name": f"Test Password Folder {str(uuid.uuid4())[:8]}","security": "all_users"})
+print(f"created password folder with id {passwordfolder.id}")
+
+newpassword.to_folder(passwordfolder.id)
+print(f"added password with id {newpassword.id} to folder with id {passwordfolder.id}")
+
+otherpasswordfolder = client.password_folders.create(payload={"company_id": 5, "name": f"Other Password Folder {str(uuid.uuid4())[:8]}","security": "all_users"})
+print(f"created other password folder with id {otherpasswordfolder.id}")
+
+newpassword.to_folder(otherpasswordfolder.id)
+print(f"moved password with id {newpassword.id} to folder with id {otherpasswordfolder.id}")
+
+newpassword.delete()
+print(f"deleted password with id {newpassword.id}")
+
+
+newwebsite.name = f"https://{str(uuid.uuid4())[:8]}"
+newwebsite.save()
+print(f"updated website with id {newwebsite.id}, new name: {newwebsite.name}")
+
+newwebsite.delete()
+print(f"deleted website with id {newwebsite.id}")
+
 
 ### Future
 
