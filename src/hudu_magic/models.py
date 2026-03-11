@@ -273,25 +273,59 @@ class AssetLayout(HuduObject):
     pass
 
 class PasswordFolder(HuduObject):
+    def save(self, item_id: int | str, payload: dict[str, Any], **kwargs) -> Any:
+        if self.id is None:
+            raise ValueError("Cannot save object without an id")
+        company_id = payload.get("company_id") or self.get("company_id")
+        if company_id is None:
+            raise ValueError("PasswordFolder save() requires company_id")
+        payload = normalize_password_payload_for_save(payload)
+        path = f"companies/{company_id}/password_folders/{self.id}"
+        updated = self._client.put(path, json=payload)
+        refreshed = self._client.get(path, paginate=False)
+        if hasattr(refreshed, "_data"):
+            self._data = dict(refreshed._data)
+        elif isinstance(refreshed, dict):
+            refreshed = self._client._extract_primary_object(refreshed)
+            self._data = dict(refreshed)
+        return self
     def add_passwords(self, password: int | list[int] | HuduObject.password | list[HuduObject.password]):
         if self.id is None:
             raise ValueError("Cannot add password to folder without an id")
         if password is None:
             raise ValueError("Must provide password_id to add_password")
         if isinstance(password, HuduObject):
-            password.password_folder_id = self.id
-            return password.save()
+            password.to_folder(self.id)
+        elif isinstance(password, int):
+            return self._client.asset_passwords.update(password, {"password_folder_id": self.id})
+        else:
+            raise ValueError("password must be an int or HuduObject")
         if isinstance(password, list):
-            returnvalues = []
             for p in password:
                 if isinstance(p, HuduObject):
-                    p.password_folder_id = self.id
-                    returnvalues.append(p.save())
+                    p.to_folder(self.id)
                 elif isinstance(p, int):
-                    returnvalues.append(self._client.asset_passwords.update(p, {"password_folder_id": self.id}))
-       
+                    self._client.asset_passwords.get(p).to_folder(self.id)
+                else:
+                    raise ValueError("password list must contain ints or HuduObjects")
+        return True
+
 class AssetPassword(HuduObject):
     endpoint = HuduEndpoint.ASSET_PASSWORDS
+    
+    def to_folder(self, folder: int | HuduObject.password_folder):
+        if self.id is None:
+            raise ValueError("Cannot add password to folder without an id")
+        if isinstance(folder, HuduObject):
+            folder_id = folder.id
+        elif isinstance(folder, int):
+            folder_id = folder
+        else:
+            raise ValueError("folder must be an int or HuduObject")
+
+        self.password_folder_id = folder_id
+        return self.save()
+    
     def save(self, **kwargs):
         if self.id is None:
             raise ValueError("Cannot save object without an id")

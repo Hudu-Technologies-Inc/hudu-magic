@@ -85,12 +85,37 @@ client.folders.get(name="IT")  # filtered list
 newpassword = client.asset_passwords.create(payload={"company_id": 5, "name": f"Test Password {str(uuid.uuid4())[:8]}", "username": "testuser", "password": "testpass"})
 print(f"created password with id {newpassword.id}")
 
+
+newpassword = client.asset_passwords.create(payload={"company_id": 5, "name": f"Test Password {str(uuid.uuid4())[:8]}", "username": "testuser", "password": "testpass"})
+print(f"created password with id {newpassword.id}")
+
 newpassword.name = f"Updated Test Password {str(uuid.uuid4())[:8]}"
 newpassword.save()
 print(f"updated password with id {newpassword.id}, new name: {newpassword.name}")
 
+passwordfolder = client.password_folders.create(payload={"company_id": 5, "name": f"Test Password Folder {str(uuid.uuid4())[:8]}","security": "all_users"})
+print(f"created password folder with id {passwordfolder.id}")
+
+newpassword.to_folder(passwordfolder.id)
+print(f"added password with id {newpassword.id} to folder with id {passwordfolder.id}")
+
+otherpasswordfolder = client.password_folders.create(payload={"company_id": 5, "name": f"Other Password Folder {str(uuid.uuid4())[:8]}","security": "all_users"})
+print(f"created other password folder with id {otherpasswordfolder.id}")
+
+newpassword.to_folder(otherpasswordfolder.id)
+print(f"moved password with id {newpassword.id} to folder with id {otherpasswordfolder.id}")
+
 newpassword.delete()
 print(f"deleted password with id {newpassword.id}")
+
+
+newwebsite.name = f"https://{str(uuid.uuid4())[:8]}"
+newwebsite.save()
+print(f"updated website with id {newwebsite.id}, new name: {newwebsite.name}")
+
+newwebsite.delete()
+print(f"deleted website with id {newwebsite.id}")
+
 
 ### Future
 
