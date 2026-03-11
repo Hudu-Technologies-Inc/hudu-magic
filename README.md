@@ -88,6 +88,18 @@ Folder.get(client)            # all folders
 Folder.get(client, 5)         # one folder
 client.folders.get(name="IT")  # filtered list
 ```
+
+#### IPAM objects
+
+```
+network = client.networks.create(payload={"company_id": 5, "address":"192.168.11.0/24", "name": f"Test Network {str(uuid.uuid4())[:8]}"})
+address = client.ipaddresses.create(payload={"company_id": 5, "network_id": network.id, "address": f"192.168.11.{str(uuid.uuid4().int)[:2]}"})
+
+address.delete()
+network.delete()
+```
+
+
 #### Passwords and Password Folders
 
 ```python
