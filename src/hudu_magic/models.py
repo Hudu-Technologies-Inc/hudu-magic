@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 from .endpoints import HuduEndpoint
-from .payloads import transform_custom_fields_for_save, clean_payload, normalize_asset_payload_for_save, normalize_company_payload_for_save, normalize_password_payload_for_save
+from .payloads import transform_custom_fields_for_save, clean_payload, normalize_asset_payload_for_save, normalize_company_payload_for_save, normalize_password_payload_for_save, normalize_website_payload_for_save
 
 class HuduObject:
     def __init__(self, client, endpoint, data):
@@ -232,7 +232,41 @@ class Folder(HuduObject):
 
 
 class Website(HuduObject):
-    pass
+    def update(self, payload: dict[str, Any], **kwargs):
+        if self.id is None:
+            raise ValueError("Cannot update object without an id")
+        if self.company_id is None:
+            raise ValueError("Cannot update object without a company_id")
+
+        payload = normalize_website_payload_for_save(payload)
+        path = f"websites/{self.id}"
+        updated = self._client.put(path, self.id, payload, **kwargs)
+
+        if isinstance(updated, HuduObject):
+            self._data = updated._data
+            return self
+
+        if isinstance(updated, dict):
+            self._data = updated
+            return self
+
+        return updated
+    def save(self, **kwargs):
+        if self.id is None:
+            raise ValueError("Cannot update object without an id")
+        if self.company_id is None:
+            raise ValueError("Cannot update object without a company_id")
+
+        payload = normalize_website_payload_for_save(self.to_dict())
+        path = f"websites/{self.id}"
+        updated = self._client.put(path, json=payload)
+        refreshed = self._client.get(path, paginate=False)
+        if hasattr(refreshed, "_data"):
+            self._data = dict(refreshed._data)
+        elif isinstance(refreshed, dict):
+            refreshed = self._client._extract_primary_object(refreshed)
+            self._data = dict(refreshed)
+        return self
 
 
 class AssetLayout(HuduObject):
@@ -259,6 +293,10 @@ class AssetPassword(HuduObject):
             self._data = dict(refreshed)
 
         return self
+
+    def update(self, item_id: int | str, payload: dict[str, Any], **kwargs) -> Any:
+        payload = normalize_password_payload_for_save(payload)
+        return self.save(item_id, payload, **kwargs)
 
 class HuduCollection(list):
     def first(self):

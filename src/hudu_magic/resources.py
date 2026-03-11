@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from hudu_magic.payloads import clean_payload
+
 from .endpoints import HuduEndpoint
 from .models import Asset, Company, Article, Folder, Website, AssetLayout
 
@@ -60,13 +62,9 @@ class AssetPasswordsResource(BaseResource):
         result = self.client.put(path, json=wrapped_payload)
         return self.client._wrap_result(self.endpoint, result)
     
-    def update(self, item_id: int | str, payload: dict[str, Any], **kwargs) -> Any:
-        payload = normalize_password_payload_for_save(payload)
-        return self.save(item_id, payload, **kwargs)
 
 class WebsitesResource(BaseResource):
     endpoint = HuduEndpoint.WEBSITES
-
 
 class AssetLayoutsResource(BaseResource):
     endpoint = HuduEndpoint.ASSET_LAYOUTS

@@ -78,11 +78,34 @@ COMPANY_PROPERTIES_TO_POP_ON_SAVE = {
 }
 
 PASSWORD_PROPERTIES_TO_POP_ON_SAVE = {
-"slug",
-"password_folder_name",
-"url",
-"archived",
-"created_at",
-"updated_at",
+    "slug",
+    "password_folder_name",
+    "url",
+    "archived",
+    "created_at",
+    "updated_at",
+    }
 
+WEBSITE_PROPERTIES_TO_POP_ON_SAVE = {
+    "code",
+    "message",
+    "keyword",
+    "monitor_type",
+    "status",
+    "monitoring_status",
+    "refreshed_at",
+    "monitored_at",
+    "slug",
+    "headers",
+    "account_id",
+    "asset_field_id",
+    "discarded_at",
+    "cloudflare_details",
+    "potentially_proxied",
+    "icon",
+    "asset_type",
+    "company_name",
+    "object_type",
+    "sent_notifications",
+    
 }
