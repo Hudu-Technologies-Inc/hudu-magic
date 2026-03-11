@@ -17,6 +17,10 @@ from .resources import (
     PasswordFoldersResource,
     WebsitesResource,
     AssetPasswordsResource,
+    IpAddressesResource,
+    VlansResource,
+    VlanZonesResource,
+    NetworkResource
 
 )
 from .models import HuduObject, MODEL_MAP
@@ -36,7 +40,22 @@ class HuduClient:
         self.assets = AssetsResource(self)
         self.asset_passwords = AssetPasswordsResource(self)
         self.password_folders = PasswordFoldersResource(self)
+        
+        self.ipaddresses = IpAddressesResource(self)
+        self.vlans = VlansResource(self)
+        self.vlan_zones = VlanZonesResource(self)
+        self.networks = NetworkResource(self)
+
         # aliases
+        self.addresses = self.ipaddresses
+        self.ip_addresses = self.ipaddresses
+        self.address = self.ipaddresses
+        self.ip_address = self.ipaddresses
+        self.vlan = self.vlans
+        self.zone = self.vlan_zones
+        self.vlanzone = self.vlan_zones
+        self.vlan_zone = self.vlan_zones
+        self.network = self.networks
         self.password_folder = self.password_folders
         self.passwordfolders = self.password_folders
         self.passwordfolder = self.password_folders

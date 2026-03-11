@@ -393,6 +393,19 @@ class HuduCollection(list):
             return all(getattr(obj, key, None) == value for key, value in criteria.items())
         return HuduCollection([obj for obj in self if matches(obj)])
 
+
+class AssetLayout(Network):
+    pass
+
+class AssetLayout(IpAddress):
+    pass
+
+class AssetLayout(Vlan):
+    pass
+
+class AssetLayout(VlanZone):
+    pass
+
 MODEL_MAP = {
     HuduEndpoint.COMPANIES: Company,
     HuduEndpoint.COMPANIES_ID: Company,
@@ -409,4 +422,12 @@ MODEL_MAP = {
     HuduEndpoint.ASSET_PASSWORDS_ID: AssetPassword,
     HuduEndpoint.PASSWORD_FOLDERS: Folder,
     HuduEndpoint.PASSWORD_FOLDERS_ID: Folder,
+    HuduEndpoint.NETWORKS: Network,
+    HuduEndpoint.NETWORKS_ID: Network,
+    HuduEndpoint.IP_ADDRESSES: IpAddress,
+    HuduEndpoint.IP_ADDRESSES_ID: IpAddress,
+    HuduEndpoint.VLANS: Vlan,
+    HuduEndpoint.VLANS_ID: Vlan,
+    HuduEndpoint.VLAN_ZONES: VlanZone,
+    HuduEndpoint.VLAN_ZONES_ID: VlanZone,
 }

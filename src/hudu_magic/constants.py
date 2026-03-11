@@ -74,6 +74,7 @@ COMPANY_PROPERTIES_TO_POP_ON_SAVE = {
     "knowledge_base_url",
     "created_at",
     "updated_at",
+    "discarded_at",    
     "integrations",
 }
 
@@ -84,6 +85,7 @@ PASSWORD_PROPERTIES_TO_POP_ON_SAVE = {
     "archived",
     "created_at",
     "updated_at",
+    "discarded_at",    
     }
 
 WEBSITE_PROPERTIES_TO_POP_ON_SAVE = {
@@ -99,6 +101,8 @@ WEBSITE_PROPERTIES_TO_POP_ON_SAVE = {
     "headers",
     "account_id",
     "asset_field_id",
+    "created_at",
+    "updated_at",    
     "discarded_at",
     "cloudflare_details",
     "potentially_proxied",
@@ -115,7 +119,20 @@ FOLDER_PROPERTIES_TO_POP_ON_SAVE = {
     "folder_type",
     "updated_at",
     "created_at",
+    "discarded_at",    
     "archived",
     "url",
+    "object_type",    
     "icon",
+}
+
+IPAM_PROPERTIES_TO_POP_ON_SAVE = {
+    "asset_url",
+    "asset_id",
+    "asset_name",
+    "fqdn",
+    "object_type",
+    "created_at",
+    "updated_at",
+    "discarded_at",
 }

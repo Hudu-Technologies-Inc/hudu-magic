@@ -5,7 +5,7 @@ from typing import Any
 from hudu_magic.payloads import clean_payload
 
 from .endpoints import HuduEndpoint
-from .models import Asset, Company, Article, Folder, Website, AssetLayout, PasswordFolder, AssetPassword
+from .models import Asset, Company, Article, Folder, Website, AssetLayout, PasswordFolder, AssetPassword, Network, IpAddress, vlan, vlanzone
 
 class BaseResource:
     endpoint: HuduEndpoint
@@ -50,7 +50,6 @@ class CompaniesResource(BaseResource):
 class ArticlesResource(BaseResource):
     endpoint = HuduEndpoint.ARTICLES
 
-
 class FoldersResource(BaseResource):
     endpoint = HuduEndpoint.FOLDERS
 
@@ -91,3 +90,16 @@ class AssetsResource(BaseResource):
     def list_for_company(self, company_id: int | str, **params) -> Any:
         path = f"companies/{company_id}/assets"
         return self.client.get(path, params=params or None, paginate=False)
+    
+    
+class NetworkResource(BaseResource):
+    endpoint = HuduEndpoint.NETWORKS
+    
+class IpAddressesResource(BaseResource):
+    endpoint = HuduEndpoint.IP_ADDRESSES
+    
+class VlansResource(BaseResource):
+    endpoint = HuduEndpoint.VLANS
+
+class VlanZonesResource(BaseResource):
+    endpoint = HuduEndpoint.VLAN_ZONES
