@@ -9,10 +9,7 @@ for endpoint in HuduEndpoint:
     print(f"\n=== {endpoint.name} ({endpoint.endpoint}) ===")
 
     try:
-        if endpoint.is_paginated:
-            data = client.get_all_pages(endpoint)
-        else:
-            data = client.get(endpoint)
+        data = client.get(endpoint)
 
         print(data)
 
