@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 from .endpoints import HuduEndpoint
-from .payloads import transform_custom_fields_for_save, clean_payload, normalize_asset_payload_for_save, normalize_company_payload_for_save, normalize_password_payload_for_save, normalize_website_payload_for_save
+from .payloads import transform_custom_fields_for_save, clean_payload, normalize_asset_payload_for_save, normalize_company_payload_for_save, normalize_password_payload_for_save, normalize_website_payload_for_save, normalize_folder_payload_for_save
 
 class HuduObject:
     def __init__(self, client, endpoint, data):
@@ -167,6 +167,19 @@ class Company(HuduObject):
 
 
 class Article(HuduObject):
+    def to_folder(self, folder: int | HuduObject.folder):
+        if self.id is None:
+            raise ValueError("Cannot add article to folder without an id")
+        if isinstance(folder, HuduObject):
+            folder_id = folder.id
+        elif isinstance(folder, int):
+            folder_id = folder
+        else:
+            raise ValueError("folder must be an int or HuduObject")
+
+        self.folder_id = folder_id
+        return self.save()
+    
     def save(self, **kwargs):
         if self.id is None:
             raise ValueError("Cannot save object without an id")
@@ -228,7 +241,22 @@ class Asset(HuduObject):
         return cls(client, endpoint, data)
 
 class Folder(HuduObject):
-    pass
+    def save(self, **kwargs):
+        if self.id is None:
+            raise ValueError("Cannot save object without an id")
+
+        payload = normalize_folder_payload_for_save(self.to_dict())
+
+        path = f"folders/{self.id}"
+        updated = self._client.put(path, json=payload)
+        refreshed = self._client.get(path, paginate=False)
+        if hasattr(refreshed, "_data"):
+            self._data = dict(refreshed._data)
+        elif isinstance(refreshed, dict):
+            refreshed = self._client._extract_primary_object(refreshed)
+            self._data = dict(refreshed)
+
+        return self
 
 
 class Website(HuduObject):

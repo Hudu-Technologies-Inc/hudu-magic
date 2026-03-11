@@ -109,3 +109,13 @@ WEBSITE_PROPERTIES_TO_POP_ON_SAVE = {
     "sent_notifications",
     
 }
+
+FOLDER_PROPERTIES_TO_POP_ON_SAVE = {
+    "slug",
+    "folder_type",
+    "updated_at",
+    "created_at",
+    "archived",
+    "url",
+    "icon",
+}
