@@ -1,9 +1,8 @@
 from __future__ import annotations
 import ipaddress
-import re
 from typing import Any
 from .endpoints import HuduEndpoint
-from .constants import TRUTHY_VALUES, FALSY_VALUES
+from .constants import TRUTHY_VALUES, FALSY_VALUES, VLAN_ID_RANGES_PATTERN
 
 class HuduValidationError(ValueError):
     """Raised when a request payload fails local SDK validation."""
@@ -52,17 +51,6 @@ def validate_payload(
         raise HuduValidationError(
             f"Missing required field(s) for {endpoint.name} {operation}: {', '.join(missing_required)}"
         )
-
-from __future__ import annotations
-
-import ipaddress
-import re
-
-
-VLAN_ID_RANGES_PATTERN = re.compile(
-    r"^([1-9][0-9]{0,3}-[1-9][0-9]{0,3})(,([1-9][0-9]{0,3}-[1-9][0-9]{0,3}))*$"
-)
-
 
 def validate_required_string(value: str, field_name: str) -> str:
     if not isinstance(value, str) or not value.strip():

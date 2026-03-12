@@ -1,3 +1,6 @@
+import re
+
+
 ASSET_LAYOUT_ALLOWED_FIELDS = ["label", "field_type", "required", "show_in_list", "position"]
 
 FROMABLE_TOABLE_TYPES = {
@@ -139,3 +142,7 @@ IPAM_PROPERTIES_TO_POP_ON_SAVE = {
 
 TRUTHY_VALUES = {"true", "1", "yes", "y", "on", "t"}
 FALSY_VALUES  = {"false", "0", "no", "n", "off", "f", "", "none", "null"}
+
+VLAN_ID_RANGES_PATTERN = re.compile(
+    r"^([1-9][0-9]{0,3}-[1-9][0-9]{0,3})(,([1-9][0-9]{0,3}-[1-9][0-9]{0,3}))*$"
+)

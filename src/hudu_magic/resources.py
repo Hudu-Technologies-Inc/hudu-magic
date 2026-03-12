@@ -4,12 +4,11 @@ from hudu_magic.payloads import clean_payload
 from .endpoints import HuduEndpoint
 from .models import Asset, Company, Article, Folder, Website, AssetLayout, PasswordFolder, AssetPassword, Network, IPaddress, VLan, VLanZone
 from .validation import (
-    validate_required_string,
-    validate_required_int,
     validate_vlan_id,
     validate_vlan_id_ranges,
     validate_network_address,
-    validate_ip_address
+    validate_ip_address,
+    to_bool
 )
 
 class BaseResource:
@@ -101,8 +100,6 @@ class NetworksResource(BaseResource):
     endpoint = HuduEndpoint.NETWORKS
 
     def create(self, payload: dict, **kwargs):
-        validate_required_string(payload.get("name"), "name")
-        validate_required_int(payload.get("company_id"), "company_id")
         validate_network_address(payload.get("address"))
 
         return self.client.create(self.endpoint, payload, **kwargs)
@@ -112,8 +109,6 @@ class IPAddressesResource(BaseResource):
 
     def create(self, payload: dict, **kwargs):
         validate_ip_address(payload.get("address"))
-        validate_required_int(payload.get("network_id"), "network_id")
-        validate_required_int(payload.get("company_id"), "company_id")
 
         return self.client.create(self.endpoint, payload, **kwargs)
     
@@ -122,12 +117,9 @@ class VlansResource(BaseResource):
     endpoint = HuduEndpoint.VLANS
 
     def create(self, payload: dict, **kwargs):
-        validate_required_string(payload.get("name"), "name")
-        validate_required_int(payload.get("company_id"), "company_id")
         validate_vlan_id(payload.get("vlan_id"))
 
-        if payload.get("archived") is not None:
-            validate_bool_string(payload["archived"], "archived")
+        payload["archived"]=to_bool(f"{payload.get("archived")}", default=False)
 
         return self.client.create(self.endpoint, payload, **kwargs)
     
@@ -135,11 +127,8 @@ class VLANZonesResource(BaseResource):
     endpoint = HuduEndpoint.VLAN_ZONES
 
     def create(self, payload: dict, **kwargs):
-        validate_required_string(payload.get("name"), "name")
-        validate_required_int(payload.get("company_id"), "company_id")
         validate_vlan_id_ranges(payload.get("vlan_id_ranges"))
 
-        if payload.get("archived") is not None:
-            validate_bool_string(payload["archived"], "archived")
+        payload["archived"]=to_bool(f"{payload.get("archived")}", default=False)
 
         return self.client.create(self.endpoint, payload, **kwargs)
