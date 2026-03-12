@@ -1,9 +1,9 @@
 from __future__ import annotations
-
+import ipaddress
+import re
 from typing import Any
-
 from .endpoints import HuduEndpoint
-
+from .constants import TRUTHY_VALUES, FALSY_VALUES
 
 class HuduValidationError(ValueError):
     """Raised when a request payload fails local SDK validation."""
@@ -52,3 +52,84 @@ def validate_payload(
         raise HuduValidationError(
             f"Missing required field(s) for {endpoint.name} {operation}: {', '.join(missing_required)}"
         )
+
+from __future__ import annotations
+
+import ipaddress
+import re
+
+
+VLAN_ID_RANGES_PATTERN = re.compile(
+    r"^([1-9][0-9]{0,3}-[1-9][0-9]{0,3})(,([1-9][0-9]{0,3}-[1-9][0-9]{0,3}))*$"
+)
+
+
+def validate_required_string(value: str, field_name: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{field_name} is required and must be a non-empty string")
+    return value
+
+
+def validate_required_int(value: int, field_name: str) -> int:
+    if not isinstance(value, int):
+        raise ValueError(f"{field_name} is required and must be an integer")
+    return value
+
+
+def validate_int_range(value: int, field_name: str, minimum: int, maximum: int) -> int:
+    validate_required_int(value, field_name)
+    if not (minimum <= value <= maximum):
+        raise ValueError(f"{field_name} must be between {minimum} and {maximum}")
+    return value
+
+
+def validate_choice(value: str, field_name: str, allowed: set[str]) -> str:
+    if value not in allowed:
+        raise ValueError(f"{field_name} must be one of: {', '.join(sorted(allowed))}")
+    return value
+
+
+def validate_vlan_id(value: int) -> int:
+    return validate_int_range(value, "vlan_id", 4, 4094)
+
+
+def validate_vlan_id_ranges(value: str) -> str:
+    validate_required_string(value, "vlan_id_ranges")
+    if not VLAN_ID_RANGES_PATTERN.fullmatch(value):
+        raise ValueError(
+            "vlan_id_ranges must look like '1-4' or '200-300,400-450'"
+        )
+    return value
+
+
+def validate_network_address(value: str) -> str:
+    validate_required_string(value, "address")
+    try:
+        ipaddress.ip_network(value, strict=False)
+    except ValueError as exc:
+        raise ValueError(f"address must be a valid CIDR network: {value}") from exc
+    return value
+
+
+def validate_ip_address(value: str) -> str:
+    validate_required_string(value, "address")
+    try:
+        ipaddress.ip_address(value)
+    except ValueError as exc:
+        raise ValueError(f"address must be a valid IP address: {value}") from exc
+    return value
+
+
+def to_bool(value: object, default: bool = False) -> bool:
+    try:
+        if isinstance(value, bool):
+            return value
+        s = str(value).strip().lower()
+        if s in TRUTHY_VALUES:
+            return True
+        if s in FALSY_VALUES:
+            return False
+    except Exception:
+        pass
+
+    return default

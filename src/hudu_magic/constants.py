@@ -136,3 +136,6 @@ IPAM_PROPERTIES_TO_POP_ON_SAVE = {
     "updated_at",
     "discarded_at",
 }
+
+TRUTHY_VALUES = {"true", "1", "yes", "y", "on", "t"}
+FALSY_VALUES  = {"false", "0", "no", "n", "off", "f", "", "none", "null"}

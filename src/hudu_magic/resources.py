@@ -1,11 +1,16 @@
 from __future__ import annotations
-
 from typing import Any
-
 from hudu_magic.payloads import clean_payload
-
 from .endpoints import HuduEndpoint
 from .models import Asset, Company, Article, Folder, Website, AssetLayout, PasswordFolder, AssetPassword, Network, IPaddress, VLan, VLanZone
+from .validation import (
+    validate_required_string,
+    validate_required_int,
+    validate_vlan_id,
+    validate_vlan_id_ranges,
+    validate_network_address,
+    validate_ip_address
+)
 
 class BaseResource:
     endpoint: HuduEndpoint
@@ -92,14 +97,49 @@ class AssetsResource(BaseResource):
         return self.client.get(path, params=params or None, paginate=False)
     
     
-class NetworkResource(BaseResource):
+class NetworksResource(BaseResource):
     endpoint = HuduEndpoint.NETWORKS
+
+    def create(self, payload: dict, **kwargs):
+        validate_required_string(payload.get("name"), "name")
+        validate_required_int(payload.get("company_id"), "company_id")
+        validate_network_address(payload.get("address"))
+
+        return self.client.create(self.endpoint, payload, **kwargs)
     
-class IpAddressesResource(BaseResource):
+class IPAddressesResource(BaseResource):
     endpoint = HuduEndpoint.IP_ADDRESSES
+
+    def create(self, payload: dict, **kwargs):
+        validate_ip_address(payload.get("address"))
+        validate_required_int(payload.get("network_id"), "network_id")
+        validate_required_int(payload.get("company_id"), "company_id")
+
+        return self.client.create(self.endpoint, payload, **kwargs)
+    
     
 class VlansResource(BaseResource):
     endpoint = HuduEndpoint.VLANS
 
-class VlanZonesResource(BaseResource):
+    def create(self, payload: dict, **kwargs):
+        validate_required_string(payload.get("name"), "name")
+        validate_required_int(payload.get("company_id"), "company_id")
+        validate_vlan_id(payload.get("vlan_id"))
+
+        if payload.get("archived") is not None:
+            validate_bool_string(payload["archived"], "archived")
+
+        return self.client.create(self.endpoint, payload, **kwargs)
+    
+class VLANZonesResource(BaseResource):
     endpoint = HuduEndpoint.VLAN_ZONES
+
+    def create(self, payload: dict, **kwargs):
+        validate_required_string(payload.get("name"), "name")
+        validate_required_int(payload.get("company_id"), "company_id")
+        validate_vlan_id_ranges(payload.get("vlan_id_ranges"))
+
+        if payload.get("archived") is not None:
+            validate_bool_string(payload["archived"], "archived")
+
+        return self.client.create(self.endpoint, payload, **kwargs)
