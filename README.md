@@ -4,38 +4,62 @@ purposefully tiny, enum-driven, and class-based API client library for Hudu
 
 **Low-Maintenance, generated from openapi spec**
 
-## Install
+---
+
+# Getting Started - Installing
+
+## Installing Python
+
+#### Windows 11 Windows 10 version 2004 or newer with (May 2020 Update, which contains winget) Windows 8.1 (non-ARM architecture) with (May 2020 Update, which contains winget)
+
+```powershell
+. .\install-python.ps1
+```
+
+#### Linux and MacOS
+Ubuntu, Debian, Linux mint, MX Linux, Zorin OS, Pop! OS, KDE Neon, Antix, or any other Debian-based distro that uses apt for package management can run the start.sh bash script.
+
+```bash/zsh/csh/sh
+chmod +x ./install-python.sh && ./install-python.sh
+```
+
+---
+
+## Install hudu-magic package in Python
+if you already have python 3.11 - 3.14, you can install to system packages or your virtual environment packages (reccomended) with:
 
 for now, first build with the below script
 ```
 ./build.sh
 ```
 
-future:
+after this is published to pypi:
+
 ```bash
 pip install hudu-magic
 ```
 
-## Generating builds for new hudu versions
+---
+
+## Generating builds for new Hudu versions or previous versions
 
 1. Place openapi spec file https://yoururl.huducloud.com/api-docs.json in project directory as hudu-openapiv1.json
 
 2. run `python generate-endpoints.py` after sourcing virtual environment (that has dev dependencies installed)
 
-3. run ./build
+3. run `./build.sh` or `.\build.ps1`
 
 this is designed to be suyper simple so that subsequent releases can eventually just be automatically generated, tested, validated, and pushed to pypi.
 
-## Building
-
-run the below script with zsh, sh, or bash
-
-```
-./build.sh
-```
+#### Note on Building:
 
 unit tests and integration tests run during build, so if you want the integration tests to actually run (and succeed), ensure you've filled out testenv from template testenv.example.
 
+---
+
+# Usage Info and Guide
+
+There are several examples in the examples folder that might be helpful if you're just starting out
 
 ## interacting with classes
 
@@ -113,17 +137,6 @@ newwebsite.save()
 newwebsite.delete()
 print(f"deleted website with id {newwebsite.id}")
 ```
-
-### Future
-
-in the future, once we get all the class methods built in, we'll be able to interact with different objects in new and exciting ways
-
-companyrelation = client.companies.get(45).relate_to(client.get.network(1))
-
-newarticleinfolder = client.folder.new({name="myfolder}).assign(client.articles.get(55))
-
-networkassets.move_to(client.companies.get("roberts company"))
-
 
 ## using in your project
 
