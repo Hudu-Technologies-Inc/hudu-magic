@@ -2,7 +2,21 @@ from __future__ import annotations
 
 from typing import Any
 from .endpoints import HuduEndpoint
-from .payloads import transform_custom_fields_for_save, clean_payload, normalize_asset_payload_for_save, normalize_company_payload_for_save, normalize_password_payload_for_save, normalize_website_payload_for_save, normalize_folder_payload_for_save
+from .payloads import (transform_custom_fields_for_save,
+                       clean_payload, normalize_asset_payload_for_save,
+                       normalize_company_payload_for_save,
+                       normalize_password_payload_for_save,
+                       normalize_website_payload_for_save,
+                       normalize_folder_payload_for_save,
+                       normalize_ipam_payload_for_save
+)
+from .validation import (
+    validate_vlan_id,
+    validate_vlan_id_ranges,
+    validate_network_address,
+    validate_ip_address,
+    to_bool
+)
 
 class HuduObject:
     def __init__(self, client, endpoint, data):
@@ -340,16 +354,57 @@ class PasswordFolder(HuduObject):
 
 
 class Network(HuduObject):
-    pass
+    endpoint = HuduEndpoint.NETWORKS
 
 class IPaddress(HuduObject):
-    pass
+    endpoint = HuduEndpoint.IP_ADDRESSES
 
 class VLan(HuduObject):
-    pass
+    endpoint = HuduEndpoint.VLANS
+    def save(self, **kwargs):
+        if self.id is None:
+            raise ValueError("Cannot update object without an id")
+        if self.company_id is None:
+            raise ValueError("Cannot update object without a company_id")    
+    
+    def update(self, payload: dict[str, Any], **kwargs):
+        if self.id is None:
+            raise ValueError("Cannot update object without an id")
+        payload = normalize_ipam_payload_for_save(payload)
+        path = f"vlans/{self.id}"
+        updated = self._client.put(path, self.id, payload, **kwargs)
+        refreshed = self._client.get(path, paginate=False)
+        if hasattr(refreshed, "_data"):
+            self._data = dict(refreshed._data)
+            return self
+        if isinstance(refreshed, dict):
+            self._data = dict(refreshed)
+            return self
+        return updated
 
 class VLanZone(HuduObject):
-    pass
+    endpoint = HuduEndpoint.VLAN_ZONES
+    def save(self, **kwargs):
+        if self.id is None:
+            raise ValueError("Cannot update object without an id")
+        if self.company_id is None:
+            raise ValueError("Cannot update object without a company_id")
+        
+    
+    def update(self, payload: dict[str, Any], **kwargs):
+        if self.id is None:
+            raise ValueError("Cannot update object without an id")
+        payload = normalize_ipam_payload_for_save(payload)
+        path = f"vlan_zones/{self.id}"
+        updated = self._client.put(path, self.id, payload, **kwargs)
+        refreshed = self._client.get(path, paginate=False)
+        if hasattr(refreshed, "_data"):
+            self._data = dict(refreshed._data)
+            return self
+        if isinstance(refreshed, dict):
+            self._data = dict(refreshed)
+            return self
+        return updated
 
 class AssetPassword(HuduObject):
     endpoint = HuduEndpoint.ASSET_PASSWORDS

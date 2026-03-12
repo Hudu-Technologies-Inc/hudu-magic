@@ -137,7 +137,13 @@ IPAM_PROPERTIES_TO_POP_ON_SAVE = {
     "object_type",
     "created_at",
     "updated_at",
+    "archived_at",
     "discarded_at",
+    "url",
+    "slug",
+    "vlans_count",
+    "networks_count",
+    
 }
 
 TRUTHY_VALUES = {"true", "1", "yes", "y", "on", "t"}
