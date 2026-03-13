@@ -1,11 +1,15 @@
 from __future__ import annotations
-
 from typing import Any
-
 from hudu_magic.payloads import clean_payload
-
 from .endpoints import HuduEndpoint
-from .models import Asset, Company, Article, Folder, Website, AssetLayout, PasswordFolder, AssetPassword
+from .models import Asset, Company, Article, Folder, Website, AssetLayout, PasswordFolder, AssetPassword, Network, IPaddress, VLan, VLanZone
+from .validation import (
+    validate_vlan_id,
+    validate_vlan_id_ranges,
+    validate_network_address,
+    validate_ip_address,
+    to_bool
+)
 
 class BaseResource:
     endpoint: HuduEndpoint
@@ -50,7 +54,6 @@ class CompaniesResource(BaseResource):
 class ArticlesResource(BaseResource):
     endpoint = HuduEndpoint.ARTICLES
 
-
 class FoldersResource(BaseResource):
     endpoint = HuduEndpoint.FOLDERS
 
@@ -91,3 +94,41 @@ class AssetsResource(BaseResource):
     def list_for_company(self, company_id: int | str, **params) -> Any:
         path = f"companies/{company_id}/assets"
         return self.client.get(path, params=params or None, paginate=False)
+    
+    
+class NetworksResource(BaseResource):
+    endpoint = HuduEndpoint.NETWORKS
+
+    def create(self, payload: dict, **kwargs):
+        validate_network_address(payload.get("address"))
+
+        return self.client.create(self.endpoint, payload, **kwargs)
+    
+class IPAddressesResource(BaseResource):
+    endpoint = HuduEndpoint.IP_ADDRESSES
+
+    def create(self, payload: dict, **kwargs):
+        validate_ip_address(payload.get("address"))
+
+        return self.client.create(self.endpoint, payload, **kwargs)
+    
+    
+class VlansResource(BaseResource):
+    endpoint = HuduEndpoint.VLANS
+
+    def create(self, payload: dict, **kwargs):
+        validate_vlan_id(payload.get("vlan_id"))
+
+        payload["archived"]=to_bool(f"{payload.get("archived")}", default=False)
+
+        return self.client.create(self.endpoint, payload, **kwargs)
+    
+class VLANZonesResource(BaseResource):
+    endpoint = HuduEndpoint.VLAN_ZONES
+
+    def create(self, payload: dict, **kwargs):
+        validate_vlan_id_ranges(payload.get("vlan_id_ranges"))
+
+        payload["archived"]=to_bool(f"{payload.get("archived")}", default=False)
+
+        return self.client.create(self.endpoint, payload, **kwargs)

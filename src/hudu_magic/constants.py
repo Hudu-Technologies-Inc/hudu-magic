@@ -1,3 +1,6 @@
+import re
+
+
 ASSET_LAYOUT_ALLOWED_FIELDS = ["label", "field_type", "required", "show_in_list", "position"]
 
 FROMABLE_TOABLE_TYPES = {
@@ -74,6 +77,7 @@ COMPANY_PROPERTIES_TO_POP_ON_SAVE = {
     "knowledge_base_url",
     "created_at",
     "updated_at",
+    "discarded_at",    
     "integrations",
 }
 
@@ -84,6 +88,7 @@ PASSWORD_PROPERTIES_TO_POP_ON_SAVE = {
     "archived",
     "created_at",
     "updated_at",
+    "discarded_at",    
     }
 
 WEBSITE_PROPERTIES_TO_POP_ON_SAVE = {
@@ -99,6 +104,8 @@ WEBSITE_PROPERTIES_TO_POP_ON_SAVE = {
     "headers",
     "account_id",
     "asset_field_id",
+    "created_at",
+    "updated_at",    
     "discarded_at",
     "cloudflare_details",
     "potentially_proxied",
@@ -115,7 +122,33 @@ FOLDER_PROPERTIES_TO_POP_ON_SAVE = {
     "folder_type",
     "updated_at",
     "created_at",
+    "discarded_at",    
     "archived",
     "url",
+    "object_type",    
     "icon",
 }
+
+IPAM_PROPERTIES_TO_POP_ON_SAVE = {
+    "asset_url",
+    "asset_id",
+    "asset_name",
+    "fqdn",
+    "object_type",
+    "created_at",
+    "updated_at",
+    "archived_at",
+    "discarded_at",
+    "url",
+    "slug",
+    "vlans_count",
+    "networks_count",
+    
+}
+
+TRUTHY_VALUES = {"true", "1", "yes", "y", "on", "t"}
+FALSY_VALUES  = {"false", "0", "no", "n", "off", "f", "", "none", "null"}
+
+VLAN_ID_RANGES_PATTERN = re.compile(
+    r"^([1-9][0-9]{0,3}-[1-9][0-9]{0,3})(,([1-9][0-9]{0,3}-[1-9][0-9]{0,3}))*$"
+)

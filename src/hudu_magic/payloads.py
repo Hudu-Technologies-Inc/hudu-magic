@@ -1,5 +1,5 @@
 from hudu_magic.endpoints import HuduEndpoint
-from hudu_magic.constants import PROPERTIES_TO_POP_ON_SAVE, COMPANY_PROPERTIES_TO_POP_ON_SAVE, PASSWORD_PROPERTIES_TO_POP_ON_SAVE, WEBSITE_PROPERTIES_TO_POP_ON_SAVE, FOLDER_PROPERTIES_TO_POP_ON_SAVE
+from hudu_magic.constants import PROPERTIES_TO_POP_ON_SAVE, COMPANY_PROPERTIES_TO_POP_ON_SAVE, PASSWORD_PROPERTIES_TO_POP_ON_SAVE, WEBSITE_PROPERTIES_TO_POP_ON_SAVE, FOLDER_PROPERTIES_TO_POP_ON_SAVE, IPAM_PROPERTIES_TO_POP_ON_SAVE
 RESOURCE_WRAPPERS = {
     "asset_layouts": "asset_layout",
     "companies": "company",
@@ -126,3 +126,6 @@ def normalize_website_payload_for_save(data: dict) -> dict:
 
 def normalize_folder_payload_for_save(data: dict) -> dict:
     return {k: v for k, v in data.items() if k not in FOLDER_PROPERTIES_TO_POP_ON_SAVE and v is not None}
+
+def normalize_ipam_payload_for_save(data: dict) -> dict:
+    return {k: v for k, v in data.items() if k not in IPAM_PROPERTIES_TO_POP_ON_SAVE and v is not None}
