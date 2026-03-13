@@ -2,7 +2,24 @@ from __future__ import annotations
 from typing import Any
 from hudu_magic.payloads import clean_payload
 from .endpoints import HuduEndpoint
-from .models import Asset, Company, Article, Folder, Website, AssetLayout, PasswordFolder, AssetPassword, Network, IPaddress, VLan, VLanZone
+from .models import (
+    Article,
+    Asset,
+    AssetLayout,
+    AssetPassword,
+    Company,
+    Folder,
+    IPaddress,
+    PasswordFolder,
+    PublicPhoto,
+    Photo,
+    Relation,
+    Network,
+    Upload,
+    VLan,
+    VLanZone,
+    Website,
+)
 from .validation import (
     validate_vlan_id,
     validate_vlan_id_ranges,
@@ -10,6 +27,7 @@ from .validation import (
     validate_ip_address,
     to_bool
 )
+
 
 class BaseResource:
     endpoint: HuduEndpoint
@@ -22,7 +40,9 @@ class BaseResource:
 
     def get(self, item_id=None, **params):
         if item_id is not None and params:
-            raise ValueError("Provide either item_id or query params, not both")
+            raise ValueError(
+                "Provide either item_id or query params, not both"
+                )
 
         if item_id is None:
             return self.list(**params)
@@ -51,20 +71,41 @@ class CompaniesResource(BaseResource):
     endpoint = HuduEndpoint.COMPANIES
 
 
+class PhotosResource(BaseResource):
+    endpoint = HuduEndpoint.PHOTOS
+
+
+class PublicPhotosResource(BaseResource):
+    endpoint = HuduEndpoint.PUBLIC_PHOTOS
+
+
+class UploadsResource(BaseResource):
+    endpoint = HuduEndpoint.UPLOADS
+
+
+class RelationsResource(BaseResource):
+    endpoint = HuduEndpoint.RELATIONS
+
+
 class ArticlesResource(BaseResource):
     endpoint = HuduEndpoint.ARTICLES
+
 
 class FoldersResource(BaseResource):
     endpoint = HuduEndpoint.FOLDERS
 
+
 class AssetPasswordsResource(BaseResource):
     endpoint = HuduEndpoint.ASSET_PASSWORDS
+
 
 class WebsitesResource(BaseResource):
     endpoint = HuduEndpoint.WEBSITES
 
+
 class AssetLayoutsResource(BaseResource):
     endpoint = HuduEndpoint.ASSET_LAYOUTS
+
 
 class PasswordFoldersResource(BaseResource):
     endpoint = HuduEndpoint.PASSWORD_FOLDERS
@@ -76,7 +117,7 @@ class PasswordFoldersResource(BaseResource):
         if payload.security is None:
             payload["security"] = "all_users"
         wrapped_payload = {"password_folder": payload}
-
+        return self.client.update(self.endpoint, item_id, wrapped_payload, **kwargs)
 
 class AssetsResource(BaseResource):
     endpoint = HuduEndpoint.ASSETS

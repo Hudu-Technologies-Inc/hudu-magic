@@ -254,6 +254,23 @@ class Asset(HuduObject):
     def from_dict(cls, client, endpoint, data):
         return cls(client, endpoint, data)
 
+
+class PublicPhoto(HuduObject):
+    pass
+
+
+class Photo(HuduObject):
+    pass
+
+
+class Relation(HuduObject):
+    pass
+
+
+class Upload(HuduObject):
+    pass
+
+
 class Folder(HuduObject):
     def save(self, **kwargs):
         if self.id is None:

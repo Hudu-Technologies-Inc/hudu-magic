@@ -9,19 +9,22 @@ from hudu_magic.instance import Instance
 from .validation import validate_payload
 from .payloads import maybe_wrap_payload
 from .resources import (
-    ArticlesResource,
-    AssetLayoutsResource,
     AssetsResource,
+    AssetPasswordsResource,
+    AssetLayoutsResource,
+    ArticlesResource,
     CompaniesResource,
     FoldersResource,
     PasswordFoldersResource,
-    WebsitesResource,
-    AssetPasswordsResource,
+    NetworksResource,
     IPAddressesResource,
+    PhotosResource,
+    PublicPhotosResource,
+    RelationsResource,
+    UploadsResource,
     VlansResource,
     VLANZonesResource,
-    NetworksResource
-
+    WebsitesResource,
 )
 from .models import HuduObject, MODEL_MAP
 
@@ -40,13 +43,20 @@ class HuduClient:
         self.assets = AssetsResource(self)
         self.asset_passwords = AssetPasswordsResource(self)
         self.password_folders = PasswordFoldersResource(self)
-        
+        self.uploads = UploadsResource(self)
+        self.photos = PhotosResource(self)
+        self.public_photos = PublicPhotosResource(self)
+        self.relations = RelationsResource(self)
         self.ipaddresses = IPAddressesResource(self)
         self.vlans = VlansResource(self)
         self.vlan_zones = VLANZonesResource(self)
         self.networks = NetworksResource(self)
 
         # aliases
+        self.photo = self.photos
+        self.public_photo = self.public_photos
+        self.relation = self.relations
+        self.upload = self.uploads
         self.addresses = self.ipaddresses
         self.ip_addresses = self.ipaddresses
         self.address = self.ipaddresses
