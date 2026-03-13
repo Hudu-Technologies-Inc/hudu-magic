@@ -3,15 +3,11 @@ import re
 
 ASSET_LAYOUT_ALLOWED_FIELDS = ["label", "field_type", "required", "show_in_list", "position"]
 
-FROMABLE_TOABLE_TYPES = {
-    "RackStorage": "rack_storages",
-    "Password": "asset_passwords",
-    "Asset": "assets",
-    "IpAddress": "ip_addresses",
-    "Network": "networks",
-}
+FROMABLE_TOABLE_TYPES = (
+"VlanZone", "Vlan", "Procedure", "Website", "RackStorage", "Network",
+"IpAddress", "Article", "Company", "Asset", "AssetPassword"
+)
 
-TOABLE_FROMABLE_TYPES = {v: k for k, v in FROMABLE_TOABLE_TYPES.items()}
 
 MATCH_FOUND_OPTIONS = [
     "always ask me if matching",
@@ -152,3 +148,17 @@ FALSY_VALUES  = {"false", "0", "no", "n", "off", "f", "", "none", "null"}
 VLAN_ID_RANGES_PATTERN = re.compile(
     r"^([1-9][0-9]{0,3}-[1-9][0-9]{0,3})(,([1-9][0-9]{0,3}-[1-9][0-9]{0,3}))*$"
 )
+
+ALLOWED_UPLOADABLE_TYPES = {
+    "VlanZone",
+    "Vlan",
+    "Procedure",
+    "Website",
+    "RackStorage",
+    "Network",
+    "IpAddress",
+    "Article",
+    "Company",
+    "Asset",
+    "AssetPassword",
+}

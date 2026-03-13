@@ -11,11 +11,13 @@ from .payloads import (transform_custom_fields_for_save,
                        normalize_ipam_payload_for_save
 )
 from .validation import (
+    HuduValidationError,
     validate_vlan_id,
     validate_vlan_id_ranges,
     validate_network_address,
     validate_ip_address,
-    to_bool
+    to_bool,
+    validate_relatables,
 )
 
 class HuduObject:
@@ -75,7 +77,6 @@ class HuduObject:
 
         payload = clean_payload(self.to_dict())
 
-
         updated = self._client.update(
             update_endpoint,
             self.id,
@@ -92,6 +93,17 @@ class HuduObject:
             return self
 
         return updated
+
+    def to_relation_ref(self) -> dict[str, object]:
+        if self.id is None:
+            raise ValueError(f"{self.__class__.__name__} has no id")
+        if not self.relation_type:
+            raise ValueError(f"{self.__class__.__name__} not relateable")
+
+        return {
+            "id": self.id,
+            "type": self.relation_type,
+        }    
 
 
     @property
@@ -162,6 +174,8 @@ class HuduObject:
     
 
 class Company(HuduObject):
+    relation_type = "Company"
+    
     def save(self, **kwargs):
         if self.id is None:
             raise ValueError("Cannot save object without an id")
@@ -181,6 +195,9 @@ class Company(HuduObject):
 
 
 class Article(HuduObject):
+    relation_type = "Article"
+    
+
     def to_folder(self, folder: int | HuduObject.folder):
         if self.id is None:
             raise ValueError("Cannot add article to folder without an id")
@@ -211,15 +228,11 @@ class Article(HuduObject):
 
         return self
 
+
 class Asset(HuduObject):
-    # Note: Asset has a custom save() method because the API requires
-    # a different payload structure for updates vs creates, and the endpoint
-    # is also different (nested under company)
-    # in the future, when models are isomorphic with API endpoints,
-    # we may want to move this logic into the client or resources layer
-    # instead of the model layer
-    endpoint = HuduEndpoint.ASSETS
+    relation_type = "Asset"
     resource_attr = "assets"
+    endpoint = HuduEndpoint.ASSETS
 
     def delete(self):
         if self.id is None:
@@ -231,6 +244,7 @@ class Asset(HuduObject):
 
         path = f"companies/{company_id}/assets/{self.id}"
         return self._client.delete(path)
+
     def save(self, **kwargs):
         if self.id is None:
             raise ValueError("Cannot save object without an id")
@@ -256,6 +270,7 @@ class Asset(HuduObject):
 
 
 class PublicPhoto(HuduObject):
+    
     pass
 
 
@@ -264,9 +279,22 @@ class Photo(HuduObject):
 
 
 class Relation(HuduObject):
-    pass
+    def create(self, fromable: HuduObject, toable: HuduObject, **kwargs) -> Any:
+        if fromable.id is None or toable.id is None:
+            raise ValueError("Both objects in a relation must have an id")
+        try:
+            validate_relatables(fromable._endpoint, toable._endpoint)
+        except HuduValidationError as e:
+            raise ValueError(f"Invalid relation: {e}")
 
-
+        payload = {"relation": {
+            "from_type": fromable._endpoint,
+            "from_id": fromable.id,
+            "to_type": toable._endpoint,
+            "to_id": toable.id,
+        }}
+        return self._client.post(self._endpoint, payload, **kwargs)
+    
 class Upload(HuduObject):
     pass
 
@@ -291,6 +319,8 @@ class Folder(HuduObject):
 
 
 class Website(HuduObject):
+    relation_type = "Website"
+    
     def update(self, payload: dict[str, Any], **kwargs):
         if self.id is None:
             raise ValueError("Cannot update object without an id")
@@ -371,12 +401,15 @@ class PasswordFolder(HuduObject):
 
 
 class Network(HuduObject):
+    relation_type = "Network"    
     endpoint = HuduEndpoint.NETWORKS
 
 class IPaddress(HuduObject):
+    relation_type = "IpAddress"
     endpoint = HuduEndpoint.IP_ADDRESSES
 
 class VLan(HuduObject):
+    relation_type = "Vlan"
     endpoint = HuduEndpoint.VLANS
     def save(self, **kwargs):
         if self.id is None:
@@ -400,6 +433,7 @@ class VLan(HuduObject):
         return updated
 
 class VLanZone(HuduObject):
+    relation_type = "VlanZone"
     endpoint = HuduEndpoint.VLAN_ZONES
     def save(self, **kwargs):
         if self.id is None:
@@ -424,6 +458,7 @@ class VLanZone(HuduObject):
         return updated
 
 class AssetPassword(HuduObject):
+    relation_type = "AssetPassword"
     endpoint = HuduEndpoint.ASSET_PASSWORDS
     
     def to_folder(self, folder: int | HuduObject.password_folder):
@@ -479,8 +514,6 @@ class HuduCollection(list):
         return HuduCollection([obj for obj in self if matches(obj)])
 
 
-
-
 MODEL_MAP = {
     HuduEndpoint.COMPANIES: Company,
     HuduEndpoint.COMPANIES_ID: Company,
@@ -497,6 +530,14 @@ MODEL_MAP = {
     HuduEndpoint.ASSET_PASSWORDS_ID: AssetPassword,
     HuduEndpoint.PASSWORD_FOLDERS: Folder,
     HuduEndpoint.PASSWORD_FOLDERS_ID: Folder,
+    HuduEndpoint.RELATIONS: Relation,
+    HuduEndpoint.RELATIONS_ID: Relation,
+    HuduEndpoint.PUBLIC_PHOTOS: PublicPhoto,
+    HuduEndpoint.PUBLIC_PHOTOS_ID: PublicPhoto,
+    HuduEndpoint.PHOTOS: Photo,
+    HuduEndpoint.PHOTOS_ID: Photo,
+    HuduEndpoint.UPLOADS: Upload,
+    HuduEndpoint.UPLOADS_ID: Upload,
     HuduEndpoint.NETWORKS: Network,
     HuduEndpoint.NETWORKS_ID: Network,
     HuduEndpoint.IP_ADDRESSES: IPaddress,

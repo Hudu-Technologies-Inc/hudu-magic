@@ -56,7 +56,8 @@ class BaseResource:
     def create(self, payload: dict[str, Any], **kwargs) -> Any:
         return self.client.create(self.endpoint, payload, **kwargs)
 
-    def update(self, item_id: int | str, payload: dict[str, Any], **kwargs) -> Any:
+    def update(self, item_id: int | str,
+               payload: dict[str, Any], **kwargs) -> Any:
         return self.client.update(self.endpoint, item_id, payload, **kwargs)
 
     def delete(self, item_id: int | str) -> Any:
@@ -109,22 +110,28 @@ class AssetLayoutsResource(BaseResource):
 
 class PasswordFoldersResource(BaseResource):
     endpoint = HuduEndpoint.PASSWORD_FOLDERS
-    def save(self, item_id: int | str, payload: dict[str, Any], **kwargs) -> Any:
+    def save(self, item_id: int | str, payload: dict[str, Any],
+             **kwargs) -> Any:
         company_id = payload.get("company_id")
         if not company_id:
-            raise ValueError("company_id is required in payload to update a password folder")
+            raise ValueError(
+                "company_id is required in payload to update a password folder"
+                )
         path = f"companies/{company_id}/password_folders/{item_id}"
         if payload.security is None:
             payload["security"] = "all_users"
         wrapped_payload = {"password_folder": payload}
-        return self.client.update(self.endpoint, item_id, wrapped_payload, **kwargs)
+        return self.client.update(self.endpoint, item_id,
+                                  wrapped_payload, **kwargs)
 
 class AssetsResource(BaseResource):
     endpoint = HuduEndpoint.ASSETS
 
-    def create(self, company_id: int | str, payload: dict[str, Any], **kwargs) -> Any:
+    def create(self, company_id: int | str, payload: dict[str, Any],
+               **kwargs) -> Any:
         wrapped = {"asset": payload}
-        result = self.client.post(f"companies/{company_id}/assets", json=wrapped)
+        result = self.client.post(f"companies/{company_id}/assets",
+                                  json=wrapped)
 
         if isinstance(result, dict):
             result = self.client._extract_primary_object(result)
@@ -158,18 +165,26 @@ class VlansResource(BaseResource):
     endpoint = HuduEndpoint.VLANS
 
     def create(self, payload: dict, **kwargs):
-        validate_vlan_id(payload.get("vlan_id"))
+        try:
+            vlanid = int(str(payload.get("vlan_id")))
+        except ValueError:
+            raise ValueError("vlan_id must be an integer")
+        validate_vlan_id(vlanid)
 
-        payload["archived"]=to_bool(f"{payload.get("archived")}", default=False)
+        payload["archived"] = to_bool(
+            f"{payload.get("archived")}", default = False)
 
         return self.client.create(self.endpoint, payload, **kwargs)
+
     
 class VLANZonesResource(BaseResource):
     endpoint = HuduEndpoint.VLAN_ZONES
 
     def create(self, payload: dict, **kwargs):
-        validate_vlan_id_ranges(payload.get("vlan_id_ranges"))
+        validate_vlan_id_ranges(
+            str(payload.get("vlan_id_ranges")))
 
-        payload["archived"]=to_bool(f"{payload.get("archived")}", default=False)
+        payload["archived"]=to_bool(
+            f"{payload.get("archived")}", default=False)
 
         return self.client.create(self.endpoint, payload, **kwargs)
