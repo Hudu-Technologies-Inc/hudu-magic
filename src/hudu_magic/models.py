@@ -574,72 +574,28 @@ class AssetPassword(HuduObject):
         return self.save(item_id, payload, **kwargs)
 
 
-class PublicPhoto(HuduObject):
-    endpoint = HuduEndpoint.PUBLIC_PHOTOS
-    
-    def create(self, endpoint, *, json=None, files=None, data=None):
-        response = self.session.post(
-            self.build_url(endpoint),
-            json=json if files is None else None,
-            data=data,
-            files=files,
-            timeout=self.timeout,
-        )
-        return self._handle_response(response)
-
-    def download(self, out_dir="."):
-        return self._client.uploads.download(self.id, out_dir)
-
-
 class Photo(HuduObject):
     endpoint = HuduEndpoint.PHOTOS
-    
-    def create(self, endpoint, *, json=None, files=None, data=None):
-        response = self.session.post(
-            self.build_url(endpoint),
-            json=json if files is None else None,
-            data=data,
-            files=files,
-            timeout=self.timeout,
-        )
-        return self._handle_response(response)
-    
+    resource_attr = "photos"
+
     def download(self, out_dir="."):
-        return self._client.uploads.download(self.id, out_dir)
+        return self._client.photos.download(self, out_dir)
+
+
+class PublicPhoto(HuduObject):
+    endpoint = HuduEndpoint.PUBLIC_PHOTOS
+    resource_attr = "public_photos"
+
+    def download(self, out_dir="."):
+        return self._client.public_photos.download(self, out_dir)
 
 
 class Upload(HuduObject):
-    relation_type = "Upload"
     endpoint = HuduEndpoint.UPLOADS
-    
-    def create(self, endpoint, *, json=None, files=None, data=None):
-        response = self.session.post(
-            self.build_url(endpoint),
-            json=json if files is None else None,
-            data=data,
-            files=files,
-            timeout=self.timeout,
-        )
-        return self._handle_response(response)
-    
-    def download(self, out_dir: str | Path = ".") -> Path:
-        if self.id is None:
-            raise ValueError("Cannot download upload without an id")
+    resource_attr = "uploads"
 
-        out_dir = Path(out_dir)
-        out_dir.mkdir(parents=True, exist_ok=True)
-
-        filename = self.name or f"upload-{self.id}"
-        safe_name = "".join("_" if c in '<>:"/\\|?*' else c for c in filename)
-        destination = out_dir / safe_name
-
-        url = self._client.build_url(f"uploads/{self.id}?download=true")
-        response = self._client.session.get(url, timeout=self._client.timeout)
-        response.raise_for_status()
-
-        destination.write_bytes(response.content)
-        return destination
-
+    def download(self, out_dir="."):
+        return self._client.uploads.download(self, out_dir)
 
 class HuduCollection(list):
     def first(self):

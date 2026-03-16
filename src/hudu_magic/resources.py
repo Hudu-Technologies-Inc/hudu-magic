@@ -3,9 +3,14 @@ from pathlib import Path
 from typing import Any
 from hudu_magic.payloads import clean_payload
 from .endpoints import HuduEndpoint
+from pathlib import Path
+from typing import Any, ClassVar
 from .models import (
     Asset,
-    Upload
+    Upload,
+    Photo,
+    PublicPhoto,
+    HuduObject,
 )
 from .validation import (
     validate_vlan_id,
@@ -58,126 +63,168 @@ class BaseResource:
         return self.create(payload, **kwargs)
 
 
+class BaseFileResource(BaseResource):
+    endpoint: ClassVar[HuduEndpoint]
+    model_cls: ClassVar[type]
+    file_form_field: ClassVar[str] = "file"
+
+    def _validate_file_path(self, file_path: str | Path) -> Path:
+        file_path = Path(file_path)
+        if not file_path.is_file():
+            raise FileNotFoundError(f"File not found: {file_path}")
+        return file_path
+
+    def _safe_filename(self, filename: str | None, fallback: str) -> str:
+        filename = filename or fallback
+        return "".join("_" if c in '<>:"/\\|?*' else c for c in filename)
+
+    def _wrap_model(self, result: Any) -> Any:
+        if isinstance(result, dict):
+            result = self.client._extract_primary_object(result)
+            return self.model_cls(self.client, self.endpoint, result)
+        return result
+
+    def _post_file(
+        self,
+        file_path: str | Path,
+        *,
+        data: dict[str, str],
+    ) -> Any:
+        file_path = self._validate_file_path(file_path)
+
+        with file_path.open("rb") as fh:
+            result = self.client.post(
+                self.endpoint,
+                files={self.file_form_field: (file_path.name, fh)},
+                data=data,
+            )
+
+        return self._wrap_model(result)
+
+    def _download_file(
+        self,
+        object_or_id,
+        out_dir: str | Path = ".",
+        *,
+        download_path_template: str,
+        fallback_prefix: str,
+    ) -> Path:
+        if hasattr(object_or_id, "id"):
+            obj = object_or_id
+            object_id = obj.id
+        else:
+            object_id = object_or_id
+            obj = self.get(object_id)
+
+        out_dir = Path(out_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        filename = getattr(obj, "name", None) or \
+            getattr(obj, "file_name", None) or str(object_id)
+        
+        
+        safe_name = self._safe_filename(filename, f"{fallback_prefix}-{object_id}")
+        destination = out_dir / safe_name
+
+        url = self.client.build_url(download_path_template.format(id=object_id))
+        response = self.client.session.get(url, timeout=self.client.timeout)
+        response.raise_for_status()
+
+        destination.write_bytes(response.content)
+        return destination
+
+
 class CompaniesResource(BaseResource):
     endpoint = HuduEndpoint.COMPANIES
 
 
-class PhotosResource(BaseResource):
+class PhotosResource(BaseFileResource):
     endpoint = HuduEndpoint.PHOTOS
+    model_cls = Photo
+    file_form_field = "file"
 
     def create(
         self,
         file_path: str | Path,
         to_object: HuduObject,
+        caption: str | None = None,
     ) -> Any:
-        file_path = Path(file_path)
-        
         validate_pubphoto_file(file_path)
-        photoable_type = to_object.to_upload_ref()
 
-        with file_path.open("rb") as fh:
-            result = self.client.post(
-                self.endpoint,
-                files={"file": (file_path.name, fh)},
-                data={
-                    "upload[photoable_id]": str(to_object.id),
-                    "upload[photoable_type]": photoable_type,
-                },
-            )
+        photoable_type = to_object.to_photo_ref()
 
-        if isinstance(result, dict):
-            result = self.client._extract_primary_object(result)
-            return Upload(self.client, self.endpoint, result)
+        if not caption or not str(caption).strip():
+            caption = f"uploaded photo to {photoable_type} with id {to_object.id} without caption"
 
-        return result
+        return self._post_file(
+            file_path,
+            data={
+                "caption": caption,
+                "photoable_id": str(to_object.id),
+                "photoable_type": photoable_type,
+            },
+        )
 
     def download(self, photo_or_id, out_dir: str | Path = ".") -> Path:
-        if hasattr(photo_or_id, "url"):
-            return photo_or_id.download(out_dir)
+        return self._download_file(
+            photo_or_id,
+            out_dir=out_dir,
+            download_path_template="photos/{id}?download=true",
+            fallback_prefix="photo",
+        )
 
-        photo = self.get(photo_or_id)
-        return photo.download(out_dir)
-
-
-class PublicPhotosResource(BaseResource):
+class PublicPhotosResource(BaseFileResource):
     endpoint = HuduEndpoint.PUBLIC_PHOTOS
-
+    model_cls = PublicPhoto
+    file_form_field = "photo"
     def create(
         self,
         file_path: str | Path,
         to_object: HuduObject,
     ) -> Any:
-        file_path = Path(file_path)
-        
         validate_pubphoto_file(file_path)
-        
+
         photoable_type = to_object.to_pubphoto_ref()
 
-        with file_path.open("rb") as fh:
-            result = self.client.post(
-                self.endpoint,
-                files={"file": (file_path.name, fh)},
-                data={
-                    "upload[photoable_id]": str(to_object.id),
-                    "upload[photoable_type]": photoable_type,
-                },
-            )
-
-        if isinstance(result, dict):
-            result = self.client._extract_primary_object(result)
-            return Upload(self.client, self.endpoint, result)
-
-        return result
+        return self._post_file(
+            file_path,
+            data={
+                "record_id": str(to_object.id),
+                "record_type": photoable_type,
+            },
+        )
 
     def download(self, photo_or_id, out_dir: str | Path = ".") -> Path:
-        if hasattr(photo_or_id, "download"):
-            return photo_or_id.download(out_dir)
+        raise NotImplementedError("Hudu API does not currently support downloading public photos")
 
-        photo = self.get(photo_or_id)
-        return photo.download(out_dir)
-
-
-class UploadsResource(BaseResource):
+class UploadsResource(BaseFileResource):
     endpoint = HuduEndpoint.UPLOADS
+    model_cls = Upload
 
     def create(
         self,
         file_path: str | Path,
         to_object: HuduObject,
     ) -> Any:
-        file_path = Path(file_path)
-        
-        if not file_path.is_file():
-            raise FileNotFoundError(f"File not found: {file_path}")
         uploadable_type = to_object.to_upload_ref()
-        if not uploadable_type or \
-                validate_uploadable_type(uploadable_type) is False:
-            raise ValueError(
-                f"object is not of uploadable type {uploadable_type}"
-            )
+        if not uploadable_type or validate_uploadable_type(uploadable_type) is False:
+            raise ValueError(f"object is not of uploadable type {uploadable_type}")
 
-        with file_path.open("rb") as fh:
-            result = self.client.post(
-                self.endpoint,
-                files={"file": (file_path.name, fh)},
-                data={
-                    "upload[uploadable_id]": str(to_object.id),
-                    "upload[uploadable_type]": uploadable_type,
-                },
-            )
-
-        if isinstance(result, dict):
-            result = self.client._extract_primary_object(result)
-            return Upload(self.client, self.endpoint, result)
-
-        return result
+        return self._post_file(
+            file_path,
+            data={
+                "upload[uploadable_id]": str(to_object.id),
+                "upload[uploadable_type]": uploadable_type,
+            },
+        )
 
     def download(self, upload_or_id, out_dir: str | Path = ".") -> Path:
-        if hasattr(upload_or_id, "download"):
-            return upload_or_id.download(out_dir)
-
-        upload = self.get(upload_or_id)
-        return upload.download(out_dir)
+        return self._download_file(
+            upload_or_id,
+            out_dir=out_dir,
+            download_path_template="uploads/{id}?download=true",
+            fallback_prefix="upload",
+        )
 
 
 class ArticlesResource(BaseResource):
