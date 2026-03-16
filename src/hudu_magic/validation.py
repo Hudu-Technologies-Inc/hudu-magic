@@ -1,13 +1,16 @@
 from __future__ import annotations
 import ipaddress
+from pathlib import Path
 from typing import Any
 
 from .endpoints import HuduEndpoint
-from .constants import (TRUTHY_VALUES,
+from .constants import (ALLOWED_PHOTOABLE_TYPES, ALLOWED_PUBLIC_PHOTOABLE_TYPES, TRUTHY_VALUES,
                         FALSY_VALUES,
                         VLAN_ID_RANGES_PATTERN,
                         FROMABLE_TOABLE_TYPES,
-                        ALLOWED_UPLOADABLE_TYPES
+                        ALLOWED_UPLOADABLE_TYPES,
+                        ALLOWED_PHOTO_EXTS,
+                        ALLOWED_PUBPHOTO_EXTS
                         )
 
 class HuduValidationError(ValueError):
@@ -138,3 +141,37 @@ def to_bool(value: object, default: bool = False) -> bool:
 def validate_uploadable_type(value: str) -> bool:
     uploadable = value in ALLOWED_UPLOADABLE_TYPES
     return uploadable
+
+
+def validate_photo_file(file_path: str | Path) -> Path:
+    file_path = Path(file_path)
+
+    if not file_path.is_file():
+        raise FileNotFoundError(file_path)
+
+    if Path(file_path).suffix.lower() not in ALLOWED_PHOTO_EXTS:
+        raise ValueError("Photo file must be a supported image format")
+
+    return file_path
+
+
+def validate_pubphoto_file(file_path: str | Path) -> Path:
+    file_path = Path(file_path)
+
+    if not file_path.is_file():
+        raise FileNotFoundError(file_path)
+
+    if Path(file_path).suffix.lower() not in ALLOWED_PUBPHOTO_EXTS:
+        raise ValueError("Public photo file must be a supported image format")
+
+    return file_path
+
+
+def validate_photoable_type(value: str) -> bool:
+    photoable = value in ALLOWED_PHOTOABLE_TYPES
+    return photoable
+
+
+def validate_pubphotoable_type(value: str) -> bool:
+    pubphotoable = value in ALLOWED_PUBLIC_PHOTOABLE_TYPES
+    return pubphotoable

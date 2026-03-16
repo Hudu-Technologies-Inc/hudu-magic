@@ -13,7 +13,9 @@ from .validation import (
     validate_network_address,
     validate_ip_address,
     to_bool,
-    validate_uploadable_type
+    validate_uploadable_type,
+    validate_photo_file,
+    validate_pubphoto_file
 )
 
 
@@ -66,31 +68,73 @@ class PhotosResource(BaseResource):
     def create(
         self,
         file_path: str | Path,
-        record_id: int,
-        record_type: str,
-    ):
+        to_object: HuduObject,
+    ) -> Any:
         file_path = Path(file_path)
-        if not file_path.is_file():
-            raise FileNotFoundError(f"File not found: {file_path}")
+        
+        validate_pubphoto_file(file_path)
+        photoable_type = to_object.to_upload_ref()
 
-        with file_path.open("rb") as f:
+        with file_path.open("rb") as fh:
             result = self.client.post(
                 self.endpoint,
-                files={"file": (file_path.name, f)},
+                files={"file": (file_path.name, fh)},
                 data={
-                    "photo[record_id]": str(record_id),
-                    "photo[record_type]": record_type,
+                    "upload[photoable_id]": str(to_object.id),
+                    "upload[photoable_type]": photoable_type,
                 },
             )
 
         if isinstance(result, dict):
             result = self.client._extract_primary_object(result)
-            return Photo(self.client, self.endpoint, result)
+            return Upload(self.client, self.endpoint, result)
 
         return result
 
+    def download(self, photo_or_id, out_dir: str | Path = ".") -> Path:
+        if hasattr(photo_or_id, "download"):
+            return photo_or_id.download(out_dir)
+
+        photo = self.get(photo_or_id)
+        return photo.download(out_dir)
+
+
 class PublicPhotosResource(BaseResource):
     endpoint = HuduEndpoint.PUBLIC_PHOTOS
+
+    def create(
+        self,
+        file_path: str | Path,
+        to_object: HuduObject,
+    ) -> Any:
+        file_path = Path(file_path)
+        
+        validate_pubphoto_file(file_path)
+        
+        photoable_type = to_object.to_pubphoto_ref()
+
+        with file_path.open("rb") as fh:
+            result = self.client.post(
+                self.endpoint,
+                files={"file": (file_path.name, fh)},
+                data={
+                    "upload[photoable_id]": str(to_object.id),
+                    "upload[photoable_type]": photoable_type,
+                },
+            )
+
+        if isinstance(result, dict):
+            result = self.client._extract_primary_object(result)
+            return Upload(self.client, self.endpoint, result)
+
+        return result
+
+    def download(self, photo_or_id, out_dir: str | Path = ".") -> Path:
+        if hasattr(photo_or_id, "download"):
+            return photo_or_id.download(out_dir)
+
+        photo = self.get(photo_or_id)
+        return photo.download(out_dir)
 
 
 class UploadsResource(BaseResource):
@@ -142,6 +186,10 @@ class ArticlesResource(BaseResource):
 
 class FoldersResource(BaseResource):
     endpoint = HuduEndpoint.FOLDERS
+
+
+class RackStoragesResource(BaseResource):
+    endpoint = HuduEndpoint.RACK_STORAGES
 
 
 class AssetPasswordsResource(BaseResource):

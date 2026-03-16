@@ -128,6 +128,22 @@ class HuduObject:
 
         return self.resource_upl_type
 
+    def to_photo_ref(self) -> str:
+        if self.id is None:
+            raise ValueError(f"{self.__class__.__name__} has no id")
+        if not hasattr(self, "resource_photo_type"):
+            raise ValueError(f"{self.__class__.__name__} not photoable")
+
+        return self.resource_photo_type
+
+    def to_pubphoto_ref(self) -> str:
+        if self.id is None:
+            raise ValueError(f"{self.__class__.__name__} has no id")
+        if not hasattr(self, "resource_pubphoto_type"):
+            raise ValueError(f"{self.__class__.__name__} not public photoable")
+
+        return self.resource_pubphoto_type
+
     @property
     def id(self):
         return self._data.get("id")
@@ -203,8 +219,10 @@ class HuduObject:
     
 
 class Company(HuduObject):
+    endpoint = HuduEndpoint.COMPANIES
     relation_type = "Company"
     resource_upl_type = "Company"
+    resource_photo_type = "Company"
     
     def save(self, **kwargs):
         if self.id is None:
@@ -227,6 +245,9 @@ class Company(HuduObject):
 class Article(HuduObject):
     relation_type = "Article"
     resource_upl_type = "Article"
+    resource_pubphoto_type = "Article"
+    resource_photo_type = "Article"
+    
 
     def to_folder(self, folder: int | HuduObject.folder):
         if self.id is None:
@@ -263,6 +284,9 @@ class Asset(HuduObject):
     relation_type = "Asset"
     resource_attr = "assets"
     resource_upl_type = "Asset"
+    resource_pubphoto_type = "Asset"
+    resource_photo_type = "Asset"
+    
     endpoint = HuduEndpoint.ASSETS
 
     def delete(self):
@@ -303,6 +327,8 @@ class Asset(HuduObject):
 class RackStorage(HuduObject):
     relation_type = "RackStorage"
     resource_upl_type = "RackStorage"
+    resource_photo_type = "RackStorage"
+    resource_pubphoto_type = "RackStorage"
     endpoint = HuduEndpoint.RACK_STORAGES
 
 
@@ -444,6 +470,8 @@ class Network(HuduObject):
 class IPaddress(HuduObject):
     relation_type = "IpAddress"
     resource_upl_type = "IpAddress"
+    resource_photo_type = "IPAddress"
+
     endpoint = HuduEndpoint.IP_ADDRESSES
 
 
@@ -503,7 +531,9 @@ class VLanZone(HuduObject):
 
 class AssetPassword(HuduObject):
     relation_type = "AssetPassword"
-    resource_upl_type = "AssetPassword"    
+    resource_upl_type = "AssetPassword"
+    resource_photo_type = "AssetPassword"
+    
     endpoint = HuduEndpoint.ASSET_PASSWORDS
     
     def to_folder(self, folder: int | HuduObject.password_folder):
@@ -543,22 +573,10 @@ class AssetPassword(HuduObject):
         payload = normalize_password_payload_for_save(payload)
         return self.save(item_id, payload, **kwargs)
 
-class HuduCollection(list):
-    def first(self):
-        return self[0] if self else None
-
-    def ids(self):
-        return [obj.id for obj in self if getattr(obj, "id", None) is not None]
-
-    def to_dicts(self):
-        return [obj.to_dict() if hasattr(obj, "to_dict") else obj for obj in self]
-
-    def filter(self, **criteria):
-        def matches(obj):
-            return all(getattr(obj, key, None) == value for key, value in criteria.items())
-        return HuduCollection([obj for obj in self if matches(obj)])
 
 class PublicPhoto(HuduObject):
+    endpoint = HuduEndpoint.PUBLIC_PHOTOS
+    
     def create(self, endpoint, *, json=None, files=None, data=None):
         response = self.session.post(
             self.build_url(endpoint),
@@ -574,6 +592,8 @@ class PublicPhoto(HuduObject):
 
 
 class Photo(HuduObject):
+    endpoint = HuduEndpoint.PHOTOS
+    
     def create(self, endpoint, *, json=None, files=None, data=None):
         response = self.session.post(
             self.build_url(endpoint),
@@ -619,6 +639,23 @@ class Upload(HuduObject):
 
         destination.write_bytes(response.content)
         return destination
+
+
+class HuduCollection(list):
+    def first(self):
+        return self[0] if self else None
+
+    def ids(self):
+        return [obj.id for obj in self if getattr(obj, "id", None) is not None]
+
+    def to_dicts(self):
+        return [obj.to_dict() if hasattr(obj, "to_dict") else obj for obj in self]
+
+    def filter(self, **criteria):
+        def matches(obj):
+            return all(getattr(obj, key, None) == value for key, value in criteria.items())
+        return HuduCollection([obj for obj in self if matches(obj)])
+
 
 
 MODEL_MAP = {
