@@ -105,7 +105,8 @@ upload = client.uploads.create(file_path="somefile.zip", to_object=newasset)
 or, if easier, you can upload a file with
 
 ```python
-newasset.Upload(somefile.zip)
+newasset.Upload_to(somefile.zip)
+newwebsite.upload_to(fileupload)
 ```
 
 #### Photos and Public Photos

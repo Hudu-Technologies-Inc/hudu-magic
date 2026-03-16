@@ -448,7 +448,7 @@ class IPaddress(HuduObject):
 
 
 class VLan(HuduObject):
-    relation_type = "Vlan"\
+    relation_type = "Vlan"
     resource_upl_type = "Vlan"
     endpoint = HuduEndpoint.VLANS
 
