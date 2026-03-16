@@ -119,7 +119,7 @@ class HuduObject:
             "id": self.id,
             "type": self.relation_type,
         }
-    
+
     def to_upload_ref(self) -> str:
         if self.id is None:
             raise ValueError(f"{self.__class__.__name__} has no id")
@@ -135,14 +135,6 @@ class HuduObject:
             raise ValueError(f"{self.__class__.__name__} not photoable")
 
         return self.resource_photo_type
-
-    def to_pubphoto_ref(self) -> str:
-        if self.id is None:
-            raise ValueError(f"{self.__class__.__name__} has no id")
-        if not hasattr(self, "resource_pubphoto_type"):
-            raise ValueError(f"{self.__class__.__name__} not public photoable")
-
-        return self.resource_pubphoto_type
 
     @property
     def id(self):
@@ -197,6 +189,15 @@ class HuduObject:
             to_object=self,
         )
 
+    def add_photo(self, file_path: str | Path, caption: str | None = None):
+        if not hasattr(self, "resource_photo_type"):
+            raise ValueError(f"{self.__class__.__name__} not photoable")
+        return self._client.photos.create(
+            file_path=file_path,
+            to_object=self,
+            caption=caption,
+        )
+
     @classmethod
     def get(cls, client, item_id: int | str | None = None, **params):
         if not cls.resource_attr:
@@ -247,8 +248,21 @@ class Article(HuduObject):
     resource_upl_type = "Article"
     resource_pubphoto_type = "Article"
     resource_photo_type = "Article"
-    
 
+    def to_pubphoto_ref(self) -> str:
+        if self.id is None:
+            raise ValueError(f"{self.__class__.__name__} has no id")
+        if not hasattr(self, "resource_pubphoto_type"):
+            raise ValueError(f"{self.__class__.__name__} not public photoable")
+
+        return self.resource_pubphoto_type
+
+    def add_public_photo(self, file_path: str | Path):
+        return self._client.public_photos.create(
+            file_path=file_path,
+            to_object=self,
+        )
+    
     def to_folder(self, folder: int | HuduObject.folder):
         if self.id is None:
             raise ValueError("Cannot add article to folder without an id")
@@ -286,8 +300,21 @@ class Asset(HuduObject):
     resource_upl_type = "Asset"
     resource_pubphoto_type = "Asset"
     resource_photo_type = "Asset"
-    
     endpoint = HuduEndpoint.ASSETS
+
+    def to_pubphoto_ref(self) -> str:
+        if self.id is None:
+            raise ValueError(f"{self.__class__.__name__} has no id")
+        if not hasattr(self, "resource_pubphoto_type"):
+            raise ValueError(f"{self.__class__.__name__} not public photoable")
+
+        return self.resource_pubphoto_type
+
+    def add_public_photo(self, file_path: str | Path):
+        return self._client.public_photos.create(
+            file_path=file_path,
+            to_object=self,
+        )
 
     def delete(self):
         if self.id is None:
