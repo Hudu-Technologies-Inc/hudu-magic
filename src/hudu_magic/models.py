@@ -173,6 +173,13 @@ class HuduObject:
             self._client.resolve_path(self._endpoint, self.id)
         )
 
+    def upload_to(self, file_path: str | Path):
+        if not hasattr(self, "resource_upl_type"):
+            raise ValueError(f"{self.__class__.__name__} not uploadable")
+        return self._client.uploads.create(
+            file_path=file_path,
+            to_object=self,
+        )
 
     @classmethod
     def get(cls, client, item_id: int | str | None = None, **params):
@@ -197,6 +204,7 @@ class HuduObject:
 
 class Company(HuduObject):
     relation_type = "Company"
+    resource_upl_type = "Company"
     
     def save(self, **kwargs):
         if self.id is None:
@@ -218,7 +226,7 @@ class Company(HuduObject):
 
 class Article(HuduObject):
     relation_type = "Article"
-    
+    resource_upl_type = "Article"
 
     def to_folder(self, folder: int | HuduObject.folder):
         if self.id is None:
@@ -292,6 +300,12 @@ class Asset(HuduObject):
         return cls(client, endpoint, data)
 
 
+class RackStorage(HuduObject):
+    relation_type = "RackStorage"
+    resource_upl_type = "RackStorage"
+    endpoint = HuduEndpoint.RACK_STORAGES
+
+
 class Relation(HuduObject):
     def create(self, fromable: HuduObject, toable: HuduObject, **kwargs) -> Any:
         if fromable.id is None or toable.id is None:
@@ -329,9 +343,17 @@ class Folder(HuduObject):
         return self
 
 
+class Procedure(HuduObject):
+    relation_type = "Procedure"
+    resource_upl_type = "Procedure"
+    endpoint = HuduEndpoint.PROCEDURES
+
+
 class Website(HuduObject):
     relation_type = "Website"
-    
+    resource_upl_type = "Website"
+    endpoint = HuduEndpoint.WEBSITES
+
     def update(self, payload: dict[str, Any], **kwargs):
         if self.id is None:
             raise ValueError("Cannot update object without an id")
@@ -415,16 +437,19 @@ class PasswordFolder(HuduObject):
 
 class Network(HuduObject):
     relation_type = "Network"
+    resource_upl_type = "Network"    
     endpoint = HuduEndpoint.NETWORKS
 
 
 class IPaddress(HuduObject):
     relation_type = "IpAddress"
+    resource_upl_type = "IpAddress"
     endpoint = HuduEndpoint.IP_ADDRESSES
 
 
 class VLan(HuduObject):
-    relation_type = "Vlan"
+    relation_type = "Vlan"\
+    resource_upl_type = "Vlan"
     endpoint = HuduEndpoint.VLANS
 
     def save(self, **kwargs):
@@ -451,6 +476,7 @@ class VLan(HuduObject):
 
 class VLanZone(HuduObject):
     relation_type = "VlanZone"
+    resource_upl_type = "VlanZone"
     endpoint = HuduEndpoint.VLAN_ZONES
 
     def save(self, **kwargs):
@@ -477,6 +503,7 @@ class VLanZone(HuduObject):
 
 class AssetPassword(HuduObject):
     relation_type = "AssetPassword"
+    resource_upl_type = "AssetPassword"    
     endpoint = HuduEndpoint.ASSET_PASSWORDS
     
     def to_folder(self, folder: int | HuduObject.password_folder):
