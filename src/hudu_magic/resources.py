@@ -177,3 +177,31 @@ class VLANZonesResource(BaseResource):
             f"{payload.get("archived")}", default=False)
 
         return self.client.create(self.endpoint, payload, **kwargs)
+
+
+class RelationsResource(BaseResource):
+    endpoint = HuduEndpoint.RELATIONS
+
+    def create(
+        self,
+        from_obj: HuduObject,
+        to_obj: HuduObject,
+        description: str | None = None,
+        is_inverse: bool = False,
+        **kwargs,
+    ):
+        from_ref = from_obj.to_relation_ref()
+        to_ref = to_obj.to_relation_ref()
+
+        payload = {
+            "fromable_id": from_ref["id"],
+            "fromable_type": from_ref["type"],
+            "toable_id": to_ref["id"],
+            "toable_type": to_ref["type"],
+            "is_inverse": is_inverse,
+        }
+
+        if description is not None:
+            payload["description"] = description
+
+        return self.client.create(self.endpoint, payload, **kwargs)
