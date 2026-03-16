@@ -92,7 +92,7 @@ class PhotosResource(BaseResource):
         return result
 
     def download(self, photo_or_id, out_dir: str | Path = ".") -> Path:
-        if hasattr(photo_or_id, "download"):
+        if hasattr(photo_or_id, "url"):
             return photo_or_id.download(out_dir)
 
         photo = self.get(photo_or_id)
