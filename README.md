@@ -76,6 +76,22 @@ otherassets.last.save()
 otherassets.first.delete()
 ```
 
+#### Relations
+
+If any object can be related to/from, you can call relations.create to create a new relation
+
+
+```
+newrelation = client.relations.create(from_obj=newasset, to_obj=newwebsite)
+```
+
+Or, often easier, you can call
+
+```
+object.relate_to(otherobject)
+```
+
+
 #### Articles
 
 ```python

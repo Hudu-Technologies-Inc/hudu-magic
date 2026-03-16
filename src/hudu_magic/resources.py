@@ -69,10 +69,6 @@ class UploadsResource(BaseResource):
     endpoint = HuduEndpoint.UPLOADS
 
 
-class RelationsResource(BaseResource):
-    endpoint = HuduEndpoint.RELATIONS
-
-
 class ArticlesResource(BaseResource):
     endpoint = HuduEndpoint.ARTICLES
 

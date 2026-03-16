@@ -94,12 +94,17 @@ class HuduObject:
 
         return updated
 
-    def relate_to(self, other: "HuduObject", description: str | None = None,
-                  is_inverse: bool = False):
+    def relate_to(self, other: "HuduObject", is_inverse: bool = False):
+        if self.id is None or other.id is None:
+            raise ValueError("Both objects in a relation must have an id")
+        if not self.relation_type or not other.relation_type:
+            raise ValueError(
+                "Both objects in a relation must have a relation_type [making them relateable]"
+                )
+        
         return self._client.relations.create(
             self,
             other,
-            description=description,
             is_inverse=is_inverse,
         )
 
