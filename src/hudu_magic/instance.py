@@ -23,12 +23,10 @@ class Instance:
 
         self.get_request_headers = {
             "x-api-key": self.api_key,
-            "Content-Type": "application/json",
             "Accept": "application/json",
         }
 
         self.post_request_headers = {
             "x-api-key": self.api_key,
-            "Content-Type": "application/json",
             "Accept": "application/json",
         }

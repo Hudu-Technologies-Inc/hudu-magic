@@ -1,17 +1,28 @@
 import re
 
 
-ASSET_LAYOUT_ALLOWED_FIELDS = ["label", "field_type", "required", "show_in_list", "position"]
+ASSET_LAYOUT_ALLOWED_FIELDS = [
+    "label",
+    "field_type",
+    "required",
+    "show_in_list",
+    "position",
+]
 
-FROMABLE_TOABLE_TYPES = {
-    "RackStorage": "rack_storages",
-    "Password": "asset_passwords",
-    "Asset": "assets",
-    "IpAddress": "ip_addresses",
-    "Network": "networks",
-}
+FROMABLE_TOABLE_TYPES = (
+    "VlanZone",
+    "Vlan",
+    "Procedure",
+    "Website",
+    "RackStorage",
+    "Network",
+    "IpAddress",
+    "Article",
+    "Company",
+    "Asset",
+    "AssetPassword",
+)
 
-TOABLE_FROMABLE_TYPES = {v: k for k, v in FROMABLE_TOABLE_TYPES.items()}
 
 MATCH_FOUND_OPTIONS = [
     "always ask me if matching",
@@ -33,12 +44,10 @@ FIELD_TYPES = [
     "Date",
     "RichText",
     "Heading",
-    "Password"
+    "Password",
 ]
 
-NESTED_FIELD_TYPES=[
-    "ListSelect"
-]
+NESTED_FIELD_TYPES = ["ListSelect"]
 
 PROPERTIES_TO_POP_ON_SAVE = {
     "created_on",
@@ -77,7 +86,7 @@ COMPANY_PROPERTIES_TO_POP_ON_SAVE = {
     "knowledge_base_url",
     "created_at",
     "updated_at",
-    "discarded_at",    
+    "discarded_at",
     "integrations",
 }
 
@@ -88,8 +97,8 @@ PASSWORD_PROPERTIES_TO_POP_ON_SAVE = {
     "archived",
     "created_at",
     "updated_at",
-    "discarded_at",    
-    }
+    "discarded_at",
+}
 
 WEBSITE_PROPERTIES_TO_POP_ON_SAVE = {
     "code",
@@ -105,7 +114,7 @@ WEBSITE_PROPERTIES_TO_POP_ON_SAVE = {
     "account_id",
     "asset_field_id",
     "created_at",
-    "updated_at",    
+    "updated_at",
     "discarded_at",
     "cloudflare_details",
     "potentially_proxied",
@@ -114,7 +123,6 @@ WEBSITE_PROPERTIES_TO_POP_ON_SAVE = {
     "company_name",
     "object_type",
     "sent_notifications",
-    
 }
 
 FOLDER_PROPERTIES_TO_POP_ON_SAVE = {
@@ -122,10 +130,10 @@ FOLDER_PROPERTIES_TO_POP_ON_SAVE = {
     "folder_type",
     "updated_at",
     "created_at",
-    "discarded_at",    
+    "discarded_at",
     "archived",
     "url",
-    "object_type",    
+    "object_type",
     "icon",
 }
 
@@ -143,12 +151,32 @@ IPAM_PROPERTIES_TO_POP_ON_SAVE = {
     "slug",
     "vlans_count",
     "networks_count",
-    
 }
 
 TRUTHY_VALUES = {"true", "1", "yes", "y", "on", "t"}
-FALSY_VALUES  = {"false", "0", "no", "n", "off", "f", "", "none", "null"}
+FALSY_VALUES = {"false", "0", "no", "n", "off", "f", "", "none", "null"}
 
 VLAN_ID_RANGES_PATTERN = re.compile(
     r"^([1-9][0-9]{0,3}-[1-9][0-9]{0,3})(,([1-9][0-9]{0,3}-[1-9][0-9]{0,3}))*$"
 )
+
+ALLOWED_UPLOADABLE_TYPES = {
+    "VlanZone",
+    "Vlan",
+    "Procedure",
+    "Website",
+    "RackStorage",
+    "Network",
+    "IpAddress",
+    "Article",
+    "Company",
+    "Asset",
+    "AssetPassword",
+}
+
+ALLOWED_PHOTOABLE_TYPES = {
+
+}
+ALLOWED_PUBLIC_PHOTOABLE_TYPES = {
+    
+}

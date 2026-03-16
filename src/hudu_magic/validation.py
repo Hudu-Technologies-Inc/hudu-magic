@@ -1,12 +1,24 @@
 from __future__ import annotations
 import ipaddress
 from typing import Any
+
 from .endpoints import HuduEndpoint
-from .constants import TRUTHY_VALUES, FALSY_VALUES, VLAN_ID_RANGES_PATTERN
+from .constants import (TRUTHY_VALUES,
+                        FALSY_VALUES,
+                        VLAN_ID_RANGES_PATTERN,
+                        FROMABLE_TOABLE_TYPES,
+                        ALLOWED_UPLOADABLE_TYPES
+                        )
 
 class HuduValidationError(ValueError):
     """Raised when a request payload fails local SDK validation."""
 
+def validate_relatables(fromable_endpoint: str, toable_endpoint: str) -> None:
+    if fromable_endpoint not in FROMABLE_TOABLE_TYPES:
+        raise HuduValidationError(f"Objects of type {fromable_endpoint} cannot be related to any other objects")
+
+    if toable_endpoint not in FROMABLE_TOABLE_TYPES:
+        raise HuduValidationError(f"Objects of type {toable_endpoint} cannot be related to any other objects")
 
 def validate_payload(
     endpoint: HuduEndpoint,
@@ -121,3 +133,8 @@ def to_bool(value: object, default: bool = False) -> bool:
         pass
 
     return default
+
+
+def validate_uploadable_type(value: str) -> bool:
+    uploadable = value in ALLOWED_UPLOADABLE_TYPES
+    return uploadable

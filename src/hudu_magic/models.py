@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 from .endpoints import HuduEndpoint
 from .payloads import (transform_custom_fields_for_save,
@@ -11,11 +12,13 @@ from .payloads import (transform_custom_fields_for_save,
                        normalize_ipam_payload_for_save
 )
 from .validation import (
+    HuduValidationError,
     validate_vlan_id,
     validate_vlan_id_ranges,
     validate_network_address,
     validate_ip_address,
-    to_bool
+    to_bool,
+    validate_relatables,
 )
 
 class HuduObject:
@@ -75,7 +78,6 @@ class HuduObject:
 
         payload = clean_payload(self.to_dict())
 
-
         updated = self._client.update(
             update_endpoint,
             self.id,
@@ -93,6 +95,38 @@ class HuduObject:
 
         return updated
 
+    def relate_to(self, other: "HuduObject", is_inverse: bool = False):
+        if self.id is None or other.id is None:
+            raise ValueError("Both objects in a relation must have an id")
+        if not self.relation_type or not other.relation_type:
+            raise ValueError(
+                "Both objects in a relation must have a relation_type [making them relateable]"
+                )
+        
+        return self._client.relations.create(
+            self,
+            other,
+            is_inverse=is_inverse,
+        )
+
+    def to_relation_ref(self) -> dict[str, object]:
+        if self.id is None:
+            raise ValueError(f"{self.__class__.__name__} has no id")
+        if not self.relation_type:
+            raise ValueError(f"{self.__class__.__name__} not relateable")
+
+        return {
+            "id": self.id,
+            "type": self.relation_type,
+        }
+    
+    def to_upload_ref(self) -> str:
+        if self.id is None:
+            raise ValueError(f"{self.__class__.__name__} has no id")
+        if not hasattr(self, "resource_upl_type"):
+            raise ValueError(f"{self.__class__.__name__} not uploadable")
+
+        return self.resource_upl_type
 
     @property
     def id(self):
@@ -139,6 +173,13 @@ class HuduObject:
             self._client.resolve_path(self._endpoint, self.id)
         )
 
+    def upload_to(self, file_path: str | Path):
+        if not hasattr(self, "resource_upl_type"):
+            raise ValueError(f"{self.__class__.__name__} not uploadable")
+        return self._client.uploads.create(
+            file_path=file_path,
+            to_object=self,
+        )
 
     @classmethod
     def get(cls, client, item_id: int | str | None = None, **params):
@@ -162,6 +203,9 @@ class HuduObject:
     
 
 class Company(HuduObject):
+    relation_type = "Company"
+    resource_upl_type = "Company"
+    
     def save(self, **kwargs):
         if self.id is None:
             raise ValueError("Cannot save object without an id")
@@ -181,6 +225,9 @@ class Company(HuduObject):
 
 
 class Article(HuduObject):
+    relation_type = "Article"
+    resource_upl_type = "Article"
+
     def to_folder(self, folder: int | HuduObject.folder):
         if self.id is None:
             raise ValueError("Cannot add article to folder without an id")
@@ -211,15 +258,12 @@ class Article(HuduObject):
 
         return self
 
+
 class Asset(HuduObject):
-    # Note: Asset has a custom save() method because the API requires
-    # a different payload structure for updates vs creates, and the endpoint
-    # is also different (nested under company)
-    # in the future, when models are isomorphic with API endpoints,
-    # we may want to move this logic into the client or resources layer
-    # instead of the model layer
-    endpoint = HuduEndpoint.ASSETS
+    relation_type = "Asset"
     resource_attr = "assets"
+    resource_upl_type = "Asset"
+    endpoint = HuduEndpoint.ASSETS
 
     def delete(self):
         if self.id is None:
@@ -231,6 +275,7 @@ class Asset(HuduObject):
 
         path = f"companies/{company_id}/assets/{self.id}"
         return self._client.delete(path)
+
     def save(self, **kwargs):
         if self.id is None:
             raise ValueError("Cannot save object without an id")
@@ -254,6 +299,31 @@ class Asset(HuduObject):
     def from_dict(cls, client, endpoint, data):
         return cls(client, endpoint, data)
 
+
+class RackStorage(HuduObject):
+    relation_type = "RackStorage"
+    resource_upl_type = "RackStorage"
+    endpoint = HuduEndpoint.RACK_STORAGES
+
+
+class Relation(HuduObject):
+    def create(self, fromable: HuduObject, toable: HuduObject, **kwargs) -> Any:
+        if fromable.id is None or toable.id is None:
+            raise ValueError("Both objects in a relation must have an id")
+        try:
+            validate_relatables(fromable._endpoint, toable._endpoint)
+        except HuduValidationError as e:
+            raise ValueError(f"Invalid relation: {e}")
+
+        payload = {"relation": {
+            "from_type": fromable._endpoint,
+            "from_id": fromable.id,
+            "to_type": toable._endpoint,
+            "to_id": toable.id,
+        }}
+        return self._client.post(self._endpoint, payload, **kwargs)
+
+
 class Folder(HuduObject):
     def save(self, **kwargs):
         if self.id is None:
@@ -273,7 +343,17 @@ class Folder(HuduObject):
         return self
 
 
+class Procedure(HuduObject):
+    relation_type = "Procedure"
+    resource_upl_type = "Procedure"
+    endpoint = HuduEndpoint.PROCEDURES
+
+
 class Website(HuduObject):
+    relation_type = "Website"
+    resource_upl_type = "Website"
+    endpoint = HuduEndpoint.WEBSITES
+
     def update(self, payload: dict[str, Any], **kwargs):
         if self.id is None:
             raise ValueError("Cannot update object without an id")
@@ -314,6 +394,7 @@ class Website(HuduObject):
 class AssetLayout(HuduObject):
     pass
 
+
 class PasswordFolder(HuduObject):
     def save(self, item_id: int | str, payload: dict[str, Any], **kwargs) -> Any:
         if self.id is None:
@@ -331,6 +412,7 @@ class PasswordFolder(HuduObject):
             refreshed = self._client._extract_primary_object(refreshed)
             self._data = dict(refreshed)
         return self
+
     def add_passwords(self, password: int | list[int] | HuduObject.password | list[HuduObject.password]):
         if self.id is None:
             raise ValueError("Cannot add password to folder without an id")
@@ -354,13 +436,22 @@ class PasswordFolder(HuduObject):
 
 
 class Network(HuduObject):
+    relation_type = "Network"
+    resource_upl_type = "Network"    
     endpoint = HuduEndpoint.NETWORKS
 
+
 class IPaddress(HuduObject):
+    relation_type = "IpAddress"
+    resource_upl_type = "IpAddress"
     endpoint = HuduEndpoint.IP_ADDRESSES
 
+
 class VLan(HuduObject):
+    relation_type = "Vlan"
+    resource_upl_type = "Vlan"
     endpoint = HuduEndpoint.VLANS
+
     def save(self, **kwargs):
         if self.id is None:
             raise ValueError("Cannot update object without an id")
@@ -382,15 +473,18 @@ class VLan(HuduObject):
             return self
         return updated
 
+
 class VLanZone(HuduObject):
+    relation_type = "VlanZone"
+    resource_upl_type = "VlanZone"
     endpoint = HuduEndpoint.VLAN_ZONES
+
     def save(self, **kwargs):
         if self.id is None:
             raise ValueError("Cannot update object without an id")
         if self.company_id is None:
             raise ValueError("Cannot update object without a company_id")
-        
-    
+
     def update(self, payload: dict[str, Any], **kwargs):
         if self.id is None:
             raise ValueError("Cannot update object without an id")
@@ -406,7 +500,10 @@ class VLanZone(HuduObject):
             return self
         return updated
 
+
 class AssetPassword(HuduObject):
+    relation_type = "AssetPassword"
+    resource_upl_type = "AssetPassword"    
     endpoint = HuduEndpoint.ASSET_PASSWORDS
     
     def to_folder(self, folder: int | HuduObject.password_folder):
@@ -461,7 +558,67 @@ class HuduCollection(list):
             return all(getattr(obj, key, None) == value for key, value in criteria.items())
         return HuduCollection([obj for obj in self if matches(obj)])
 
+class PublicPhoto(HuduObject):
+    def create(self, endpoint, *, json=None, files=None, data=None):
+        response = self.session.post(
+            self.build_url(endpoint),
+            json=json if files is None else None,
+            data=data,
+            files=files,
+            timeout=self.timeout,
+        )
+        return self._handle_response(response)
 
+    def download(self, out_dir="."):
+        return self._client.uploads.download(self.id, out_dir)
+
+
+class Photo(HuduObject):
+    def create(self, endpoint, *, json=None, files=None, data=None):
+        response = self.session.post(
+            self.build_url(endpoint),
+            json=json if files is None else None,
+            data=data,
+            files=files,
+            timeout=self.timeout,
+        )
+        return self._handle_response(response)
+    
+    def download(self, out_dir="."):
+        return self._client.uploads.download(self.id, out_dir)
+
+
+class Upload(HuduObject):
+    relation_type = "Upload"
+    endpoint = HuduEndpoint.UPLOADS
+    
+    def create(self, endpoint, *, json=None, files=None, data=None):
+        response = self.session.post(
+            self.build_url(endpoint),
+            json=json if files is None else None,
+            data=data,
+            files=files,
+            timeout=self.timeout,
+        )
+        return self._handle_response(response)
+    
+    def download(self, out_dir: str | Path = ".") -> Path:
+        if self.id is None:
+            raise ValueError("Cannot download upload without an id")
+
+        out_dir = Path(out_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        filename = self.name or f"upload-{self.id}"
+        safe_name = "".join("_" if c in '<>:"/\\|?*' else c for c in filename)
+        destination = out_dir / safe_name
+
+        url = self._client.build_url(f"uploads/{self.id}?download=true")
+        response = self._client.session.get(url, timeout=self._client.timeout)
+        response.raise_for_status()
+
+        destination.write_bytes(response.content)
+        return destination
 
 
 MODEL_MAP = {
@@ -480,6 +637,14 @@ MODEL_MAP = {
     HuduEndpoint.ASSET_PASSWORDS_ID: AssetPassword,
     HuduEndpoint.PASSWORD_FOLDERS: Folder,
     HuduEndpoint.PASSWORD_FOLDERS_ID: Folder,
+    HuduEndpoint.RELATIONS: Relation,
+    HuduEndpoint.RELATIONS_ID: Relation,
+    HuduEndpoint.PUBLIC_PHOTOS: PublicPhoto,
+    HuduEndpoint.PUBLIC_PHOTOS_ID: PublicPhoto,
+    HuduEndpoint.PHOTOS: Photo,
+    HuduEndpoint.PHOTOS_ID: Photo,
+    HuduEndpoint.UPLOADS: Upload,
+    HuduEndpoint.UPLOADS_ID: Upload,
     HuduEndpoint.NETWORKS: Network,
     HuduEndpoint.NETWORKS_ID: Network,
     HuduEndpoint.IP_ADDRESSES: IPaddress,
