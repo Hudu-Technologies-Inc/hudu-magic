@@ -109,12 +109,57 @@ newasset.Upload_to(somefile.zip)
 newwebsite.upload_to(fileupload)
 ```
 
+you can get the specific uploads associated with an object with
+
+```python
+uploadsforarticle = article.list_uploads()
+```
+
+uploads can be deleted with
+
+```python
+myupload.delete()
+```
+
+or 
+
+```python
+client.uploads.delete(id)
+```
+
 #### Photos and Public Photos
 
 Public Photos can be attributed to an asset or an article and can be added in a few ways-
 
+```python
+article.add_photo("mylocalphotopath")
+```
 
+or 
 
+```python
+client.photos.create(file_path="filepath", to_object=article, caption="mycaption")
+```
+
+you can also filter photos or uploads by an instance of an object
+like
+
+```python
+photosforarticle = article.list_photos()
+```
+
+photos can be deleted with
+
+```python
+myphoto.delete()
+client.photos.delete(id)
+```
+
+public photos have similar methods but can only be attributed to assets or articles
+
+```python
+newasset.add_public_photo(fileupload)
+```
 
 #### Articles
 
