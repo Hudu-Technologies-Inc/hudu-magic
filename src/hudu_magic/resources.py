@@ -1,16 +1,19 @@
 from __future__ import annotations
+from pathlib import Path
 from typing import Any
 from hudu_magic.payloads import clean_payload
 from .endpoints import HuduEndpoint
 from .models import (
     Asset,
+    Upload
 )
 from .validation import (
     validate_vlan_id,
     validate_vlan_id_ranges,
     validate_network_address,
     validate_ip_address,
-    to_bool
+    to_bool,
+    validate_uploadable_type
 )
 
 
@@ -60,6 +63,31 @@ class CompaniesResource(BaseResource):
 class PhotosResource(BaseResource):
     endpoint = HuduEndpoint.PHOTOS
 
+    def create(
+        self,
+        file_path: str | Path,
+        record_id: int,
+        record_type: str,
+    ):
+        file_path = Path(file_path)
+        if not file_path.is_file():
+            raise FileNotFoundError(f"File not found: {file_path}")
+
+        with file_path.open("rb") as f:
+            result = self.client.post(
+                self.endpoint,
+                files={"file": (file_path.name, f)},
+                data={
+                    "photo[record_id]": str(record_id),
+                    "photo[record_type]": record_type,
+                },
+            )
+
+        if isinstance(result, dict):
+            result = self.client._extract_primary_object(result)
+            return Photo(self.client, self.endpoint, result)
+
+        return result
 
 class PublicPhotosResource(BaseResource):
     endpoint = HuduEndpoint.PUBLIC_PHOTOS
@@ -67,6 +95,45 @@ class PublicPhotosResource(BaseResource):
 
 class UploadsResource(BaseResource):
     endpoint = HuduEndpoint.UPLOADS
+
+    def create(
+        self,
+        file_path: str | Path,
+        to_object: HuduObject,
+    ) -> Any:
+        file_path = Path(file_path)
+        
+        if not file_path.is_file():
+            raise FileNotFoundError(f"File not found: {file_path}")
+        uploadable_type = to_object.to_upload_ref()
+        if not uploadable_type or \
+                validate_uploadable_type(uploadable_type) is False:
+            raise ValueError(
+                f"object is not of uploadable type {uploadable_type}"
+            )
+
+        with file_path.open("rb") as fh:
+            result = self.client.post(
+                self.endpoint,
+                files={"file": (file_path.name, fh)},
+                data={
+                    "upload[uploadable_id]": str(to_object.id),
+                    "upload[uploadable_type]": uploadable_type,
+                },
+            )
+
+        if isinstance(result, dict):
+            result = self.client._extract_primary_object(result)
+            return Upload(self.client, self.endpoint, result)
+
+        return result
+
+    def download(self, upload_or_id, out_dir: str | Path = ".") -> Path:
+        if hasattr(upload_or_id, "download"):
+            return upload_or_id.download(out_dir)
+
+        upload = self.get(upload_or_id)
+        return upload.download(out_dir)
 
 
 class ArticlesResource(BaseResource):

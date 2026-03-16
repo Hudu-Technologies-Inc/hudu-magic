@@ -6,7 +6,8 @@ from .endpoints import HuduEndpoint
 from .constants import (TRUTHY_VALUES,
                         FALSY_VALUES,
                         VLAN_ID_RANGES_PATTERN,
-                        FROMABLE_TOABLE_TYPES
+                        FROMABLE_TOABLE_TYPES,
+                        ALLOWED_UPLOADABLE_TYPES
                         )
 
 class HuduValidationError(ValueError):
@@ -133,3 +134,7 @@ def to_bool(value: object, default: bool = False) -> bool:
 
     return default
 
+
+def validate_uploadable_type(value: str) -> bool:
+    uploadable = value in ALLOWED_UPLOADABLE_TYPES
+    return uploadable

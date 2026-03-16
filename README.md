@@ -81,15 +81,34 @@ otherassets.first.delete()
 If any object can be related to/from, you can call relations.create to create a new relation
 
 
-```
+```python
 newrelation = client.relations.create(from_obj=newasset, to_obj=newwebsite)
 ```
 
 Or, often easier, you can call
 
+```python
+huduobject.relate_to(otherhuduobject)
 ```
-object.relate_to(otherobject)
+
+
+#### Uploads
+
+Similar to relations, this contains a built-in method that can be accessed from instances of uploadable objects
+
+So you can upload like this
+
+```python
+upload = client.uploads.create(file_path="somefile.zip", to_object=newasset)
 ```
+
+or, if easier, you can upload a file with
+
+```python
+newasset.Upload(somefile.zip)
+```
+
+#### Photos and Public Photos
 
 
 #### Articles

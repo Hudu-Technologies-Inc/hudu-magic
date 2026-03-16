@@ -180,7 +180,7 @@ class HuduClient:
         response = self.session.post(
             self.build_url(endpoint),
             json=json if files is None else None,
-            data=data if files is not None else None,
+            data=data,
             files=files,
             timeout=self.timeout,
         )

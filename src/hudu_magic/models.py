@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 from .endpoints import HuduEndpoint
 from .payloads import (transform_custom_fields_for_save,
@@ -117,8 +118,15 @@ class HuduObject:
         return {
             "id": self.id,
             "type": self.relation_type,
-        }    
+        }
+    
+    def to_upload_ref(self) -> str:
+        if self.id is None:
+            raise ValueError(f"{self.__class__.__name__} has no id")
+        if not hasattr(self, "resource_upl_type"):
+            raise ValueError(f"{self.__class__.__name__} not uploadable")
 
+        return self.resource_upl_type
 
     @property
     def id(self):
@@ -246,6 +254,7 @@ class Article(HuduObject):
 class Asset(HuduObject):
     relation_type = "Asset"
     resource_attr = "assets"
+    resource_upl_type = "Asset"
     endpoint = HuduEndpoint.ASSETS
 
     def delete(self):
@@ -523,18 +532,66 @@ class HuduCollection(list):
         return HuduCollection([obj for obj in self if matches(obj)])
 
 class PublicPhoto(HuduObject):
+    def create(self, endpoint, *, json=None, files=None, data=None):
+        response = self.session.post(
+            self.build_url(endpoint),
+            json=json if files is None else None,
+            data=data,
+            files=files,
+            timeout=self.timeout,
+        )
+        return self._handle_response(response)
+
     def download(self, out_dir="."):
         return self._client.uploads.download(self.id, out_dir)
 
 
 class Photo(HuduObject):
+    def create(self, endpoint, *, json=None, files=None, data=None):
+        response = self.session.post(
+            self.build_url(endpoint),
+            json=json if files is None else None,
+            data=data,
+            files=files,
+            timeout=self.timeout,
+        )
+        return self._handle_response(response)
+    
     def download(self, out_dir="."):
         return self._client.uploads.download(self.id, out_dir)
 
 
 class Upload(HuduObject):
-    def download(self, out_dir="."):
-        return self._client.uploads.download(self.id, out_dir)
+    relation_type = "Upload"
+    endpoint = HuduEndpoint.UPLOADS
+    
+    def create(self, endpoint, *, json=None, files=None, data=None):
+        response = self.session.post(
+            self.build_url(endpoint),
+            json=json if files is None else None,
+            data=data,
+            files=files,
+            timeout=self.timeout,
+        )
+        return self._handle_response(response)
+    
+    def download(self, out_dir: str | Path = ".") -> Path:
+        if self.id is None:
+            raise ValueError("Cannot download upload without an id")
+
+        out_dir = Path(out_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        filename = self.name or f"upload-{self.id}"
+        safe_name = "".join("_" if c in '<>:"/\\|?*' else c for c in filename)
+        destination = out_dir / safe_name
+
+        url = self._client.build_url(f"uploads/{self.id}?download=true")
+        response = self._client.session.get(url, timeout=self._client.timeout)
+        response.raise_for_status()
+
+        destination.write_bytes(response.content)
+        return destination
 
 
 MODEL_MAP = {
