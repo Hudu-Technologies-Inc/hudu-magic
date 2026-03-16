@@ -111,6 +111,10 @@ newwebsite.upload_to(fileupload)
 
 #### Photos and Public Photos
 
+Public Photos can be attributed to an asset or an article and can be added in a few ways-
+
+
+
 
 #### Articles
 

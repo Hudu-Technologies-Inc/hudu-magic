@@ -3,23 +3,18 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 from .endpoints import HuduEndpoint
-from .payloads import (transform_custom_fields_for_save,
-                       clean_payload, normalize_asset_payload_for_save,
+from .payloads import (clean_payload, normalize_asset_payload_for_save,
                        normalize_company_payload_for_save,
                        normalize_password_payload_for_save,
                        normalize_website_payload_for_save,
                        normalize_folder_payload_for_save,
                        normalize_ipam_payload_for_save
-)
+                       )
 from .validation import (
     HuduValidationError,
-    validate_vlan_id,
-    validate_vlan_id_ranges,
-    validate_network_address,
-    validate_ip_address,
-    to_bool,
     validate_relatables,
-)
+                        )
+
 
 class HuduObject:
     def __init__(self, client, endpoint, data):
@@ -197,6 +192,16 @@ class HuduObject:
             to_object=self,
             caption=caption,
         )
+        
+    def list_photos(self, **params):
+        if not hasattr(self, "resource_photo_type"):
+            raise ValueError(f"{self.__class__.__name__} not photoable")
+        return self._client.photos.list_photos(to_object=self, **params)
+    
+    def list_uploads(self, **params):
+        if not hasattr(self, "resource_upl_type"):
+            raise ValueError(f"{self.__class__.__name__} not uploadable")
+        return self._client.uploads.list_uploads(to_object=self, **params)
 
     @classmethod
     def get(cls, client, item_id: int | str | None = None, **params):

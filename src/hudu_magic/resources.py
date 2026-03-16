@@ -1,9 +1,6 @@
 from __future__ import annotations
 from pathlib import Path
-from typing import Any
-from hudu_magic.payloads import clean_payload
 from .endpoints import HuduEndpoint
-from pathlib import Path
 from typing import Any, ClassVar
 from .models import (
     Asset,
@@ -19,7 +16,6 @@ from .validation import (
     validate_ip_address,
     to_bool,
     validate_uploadable_type,
-    validate_photo_file,
     validate_pubphoto_file
 )
 
@@ -61,6 +57,18 @@ class BaseResource:
 
     def new(self, payload: dict, **kwargs):
         return self.create(payload, **kwargs)
+
+    def list_uploads(self, **params):
+        type = self.__class__.__name__
+        uploads = self.client.uploads.list()
+        return [u for u in uploads if
+                u.uploadable_type == type and
+                str(u.uploadable_id) == str(params.get("id"))]
+
+    def list_photos(self, **params):
+        return self.client.photos.list(payload={
+            "photoable_type": self.__class__.__name__,
+            "photoable_id": str(params.get("id"))})
 
 
 class BaseFileResource(BaseResource):
@@ -121,8 +129,7 @@ class BaseFileResource(BaseResource):
 
         filename = getattr(obj, "name", None) or \
             getattr(obj, "file_name", None) or str(object_id)
-        
-        
+
         safe_name = self._safe_filename(filename, f"{fallback_prefix}-{object_id}")
         destination = out_dir / safe_name
 
@@ -131,6 +138,7 @@ class BaseFileResource(BaseResource):
         response.raise_for_status()
 
         destination.write_bytes(response.content)
+        
         return destination
 
 
@@ -172,6 +180,7 @@ class PhotosResource(BaseFileResource):
             download_path_template="photos/{id}?download=true",
             fallback_prefix="photo",
         )
+
 
 class PublicPhotosResource(BaseFileResource):
     endpoint = HuduEndpoint.PUBLIC_PHOTOS
