@@ -85,8 +85,8 @@ def transform_custom_fields_for_save(fields):
                 continue
 
         transformed.append(field)
-
     return transformed
+
 
 def clean_payload(payload: dict) -> dict:
     return {
@@ -94,7 +94,8 @@ def clean_payload(payload: dict) -> dict:
         for k, v in payload.items()
         if k not in PROPERTIES_TO_POP_ON_SAVE and v is not None
     }
-    
+
+
 def normalize_asset_payload_for_save(data: dict) -> dict:
     allowed = {
         "name",
@@ -111,21 +112,32 @@ def normalize_asset_payload_for_save(data: dict) -> dict:
     payload = {k: v for k, v in data.items() if k in allowed and v is not None}
 
     if "fields" in data and "custom_fields" not in payload:
-        payload["custom_fields"] = transform_asset_fields_for_save(data["fields"])
-
+        payload["custom_fields"] = transform_asset_fields_for_save(
+            data["fields"]
+            )
     return payload
 
+
 def normalize_company_payload_for_save(data: dict) -> dict:
-    return {k: v for k, v in data.items() if k not in COMPANY_PROPERTIES_TO_POP_ON_SAVE and v is not None}
+    return {k: v for k, v in data.items() 
+            if k not in COMPANY_PROPERTIES_TO_POP_ON_SAVE and v is not None}
+
 
 def normalize_password_payload_for_save(data: dict) -> dict:
-    return {k: v for k, v in data.items() if k not in PASSWORD_PROPERTIES_TO_POP_ON_SAVE and v is not None}
+    return {k: v for k, v in data.items() 
+            if k not in PASSWORD_PROPERTIES_TO_POP_ON_SAVE and v is not None}
+
 
 def normalize_website_payload_for_save(data: dict) -> dict:
-    return {k: v for k, v in data.items() if k not in WEBSITE_PROPERTIES_TO_POP_ON_SAVE and v is not None}
+    return {k: v for k, v in data.items() 
+            if k not in WEBSITE_PROPERTIES_TO_POP_ON_SAVE and v is not None}
+
 
 def normalize_folder_payload_for_save(data: dict) -> dict:
-    return {k: v for k, v in data.items() if k not in FOLDER_PROPERTIES_TO_POP_ON_SAVE and v is not None}
+    return {k: v for k, v in data.items() 
+            if k not in FOLDER_PROPERTIES_TO_POP_ON_SAVE and v is not None}
+
 
 def normalize_ipam_payload_for_save(data: dict) -> dict:
-    return {k: v for k, v in data.items() if k not in IPAM_PROPERTIES_TO_POP_ON_SAVE and v is not None}
+    return {k: v for k, v in data.items() 
+            if k not in IPAM_PROPERTIES_TO_POP_ON_SAVE and v is not None}

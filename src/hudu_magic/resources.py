@@ -3,22 +3,7 @@ from typing import Any
 from hudu_magic.payloads import clean_payload
 from .endpoints import HuduEndpoint
 from .models import (
-    Article,
     Asset,
-    AssetLayout,
-    AssetPassword,
-    Company,
-    Folder,
-    IPaddress,
-    PasswordFolder,
-    PublicPhoto,
-    Photo,
-    Relation,
-    Network,
-    Upload,
-    VLan,
-    VLanZone,
-    Website,
 )
 from .validation import (
     validate_vlan_id,
@@ -124,6 +109,7 @@ class PasswordFoldersResource(BaseResource):
         return self.client.update(self.endpoint, item_id,
                                   wrapped_payload, **kwargs)
 
+
 class AssetsResource(BaseResource):
     endpoint = HuduEndpoint.ASSETS
 
@@ -142,25 +128,26 @@ class AssetsResource(BaseResource):
     def list_for_company(self, company_id: int | str, **params) -> Any:
         path = f"companies/{company_id}/assets"
         return self.client.get(path, params=params or None, paginate=False)
-    
-    
+
+
 class NetworksResource(BaseResource):
     endpoint = HuduEndpoint.NETWORKS
 
     def create(self, payload: dict, **kwargs):
-        validate_network_address(payload.get("address"))
+        validate_network_address(str(payload.get("address", None)))
 
         return self.client.create(self.endpoint, payload, **kwargs)
-    
+
+
 class IPAddressesResource(BaseResource):
     endpoint = HuduEndpoint.IP_ADDRESSES
 
     def create(self, payload: dict, **kwargs):
-        validate_ip_address(payload.get("address"))
+        validate_ip_address(str(payload.get("address", None)))
 
         return self.client.create(self.endpoint, payload, **kwargs)
-    
-    
+
+
 class VlansResource(BaseResource):
     endpoint = HuduEndpoint.VLANS
 
@@ -172,11 +159,13 @@ class VlansResource(BaseResource):
         validate_vlan_id(vlanid)
 
         payload["archived"] = to_bool(
-            f"{payload.get("archived")}", default = False)
+                f"{payload.get("archived")}",
+                default=False
+            )
 
         return self.client.create(self.endpoint, payload, **kwargs)
 
-    
+
 class VLANZonesResource(BaseResource):
     endpoint = HuduEndpoint.VLAN_ZONES
 
@@ -184,7 +173,7 @@ class VLANZonesResource(BaseResource):
         validate_vlan_id_ranges(
             str(payload.get("vlan_id_ranges")))
 
-        payload["archived"]=to_bool(
+        payload["archived"] = to_bool(
             f"{payload.get("archived")}", default=False)
 
         return self.client.create(self.endpoint, payload, **kwargs)
