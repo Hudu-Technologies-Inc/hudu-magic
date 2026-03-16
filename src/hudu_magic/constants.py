@@ -175,8 +175,12 @@ ALLOWED_UPLOADABLE_TYPES = {
 }
 
 ALLOWED_PHOTOABLE_TYPES = {
-
+    "Website", "RackStorage", "IpAddress",
+    "Article", "Company", "Asset", "AssetPassword"
 }
 ALLOWED_PUBLIC_PHOTOABLE_TYPES = {
-    
+    "Asset", "Article"
 }
+
+ALLOWED_PHOTO_EXTS = {".jpeg", ".jpg", ".png", ".gif", ".webp", ".heic"}
+ALLOWED_PUBPHOTO_EXTS = {".jpeg", ".jpg", ".png"}

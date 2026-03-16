@@ -3,23 +3,18 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 from .endpoints import HuduEndpoint
-from .payloads import (transform_custom_fields_for_save,
-                       clean_payload, normalize_asset_payload_for_save,
+from .payloads import (clean_payload, normalize_asset_payload_for_save,
                        normalize_company_payload_for_save,
                        normalize_password_payload_for_save,
                        normalize_website_payload_for_save,
                        normalize_folder_payload_for_save,
                        normalize_ipam_payload_for_save
-)
+                       )
 from .validation import (
     HuduValidationError,
-    validate_vlan_id,
-    validate_vlan_id_ranges,
-    validate_network_address,
-    validate_ip_address,
-    to_bool,
     validate_relatables,
-)
+                        )
+
 
 class HuduObject:
     def __init__(self, client, endpoint, data):
@@ -119,7 +114,7 @@ class HuduObject:
             "id": self.id,
             "type": self.relation_type,
         }
-    
+
     def to_upload_ref(self) -> str:
         if self.id is None:
             raise ValueError(f"{self.__class__.__name__} has no id")
@@ -127,6 +122,14 @@ class HuduObject:
             raise ValueError(f"{self.__class__.__name__} not uploadable")
 
         return self.resource_upl_type
+
+    def to_photo_ref(self) -> str:
+        if self.id is None:
+            raise ValueError(f"{self.__class__.__name__} has no id")
+        if not hasattr(self, "resource_photo_type"):
+            raise ValueError(f"{self.__class__.__name__} not photoable")
+
+        return self.resource_photo_type
 
     @property
     def id(self):
@@ -181,6 +184,25 @@ class HuduObject:
             to_object=self,
         )
 
+    def add_photo(self, file_path: str | Path, caption: str | None = None):
+        if not hasattr(self, "resource_photo_type"):
+            raise ValueError(f"{self.__class__.__name__} not photoable")
+        return self._client.photos.create(
+            file_path=file_path,
+            to_object=self,
+            caption=caption,
+        )
+        
+    def list_photos(self, **params):
+        if not hasattr(self, "resource_photo_type"):
+            raise ValueError(f"{self.__class__.__name__} not photoable")
+        return self._client.photos.list_photos(to_object=self, **params)
+    
+    def list_uploads(self, **params):
+        if not hasattr(self, "resource_upl_type"):
+            raise ValueError(f"{self.__class__.__name__} not uploadable")
+        return self._client.uploads.list_uploads(to_object=self, **params)
+
     @classmethod
     def get(cls, client, item_id: int | str | None = None, **params):
         if not cls.resource_attr:
@@ -203,8 +225,10 @@ class HuduObject:
     
 
 class Company(HuduObject):
+    endpoint = HuduEndpoint.COMPANIES
     relation_type = "Company"
     resource_upl_type = "Company"
+    resource_photo_type = "Company"
     
     def save(self, **kwargs):
         if self.id is None:
@@ -227,7 +251,23 @@ class Company(HuduObject):
 class Article(HuduObject):
     relation_type = "Article"
     resource_upl_type = "Article"
+    resource_pubphoto_type = "Article"
+    resource_photo_type = "Article"
 
+    def to_pubphoto_ref(self) -> str:
+        if self.id is None:
+            raise ValueError(f"{self.__class__.__name__} has no id")
+        if not hasattr(self, "resource_pubphoto_type"):
+            raise ValueError(f"{self.__class__.__name__} not public photoable")
+
+        return self.resource_pubphoto_type
+
+    def add_public_photo(self, file_path: str | Path):
+        return self._client.public_photos.create(
+            file_path=file_path,
+            to_object=self,
+        )
+    
     def to_folder(self, folder: int | HuduObject.folder):
         if self.id is None:
             raise ValueError("Cannot add article to folder without an id")
@@ -263,7 +303,23 @@ class Asset(HuduObject):
     relation_type = "Asset"
     resource_attr = "assets"
     resource_upl_type = "Asset"
+    resource_pubphoto_type = "Asset"
+    resource_photo_type = "Asset"
     endpoint = HuduEndpoint.ASSETS
+
+    def to_pubphoto_ref(self) -> str:
+        if self.id is None:
+            raise ValueError(f"{self.__class__.__name__} has no id")
+        if not hasattr(self, "resource_pubphoto_type"):
+            raise ValueError(f"{self.__class__.__name__} not public photoable")
+
+        return self.resource_pubphoto_type
+
+    def add_public_photo(self, file_path: str | Path):
+        return self._client.public_photos.create(
+            file_path=file_path,
+            to_object=self,
+        )
 
     def delete(self):
         if self.id is None:
@@ -303,6 +359,8 @@ class Asset(HuduObject):
 class RackStorage(HuduObject):
     relation_type = "RackStorage"
     resource_upl_type = "RackStorage"
+    resource_photo_type = "RackStorage"
+    resource_pubphoto_type = "RackStorage"
     endpoint = HuduEndpoint.RACK_STORAGES
 
 
@@ -444,6 +502,8 @@ class Network(HuduObject):
 class IPaddress(HuduObject):
     relation_type = "IpAddress"
     resource_upl_type = "IpAddress"
+    resource_photo_type = "IPAddress"
+
     endpoint = HuduEndpoint.IP_ADDRESSES
 
 
@@ -503,7 +563,9 @@ class VLanZone(HuduObject):
 
 class AssetPassword(HuduObject):
     relation_type = "AssetPassword"
-    resource_upl_type = "AssetPassword"    
+    resource_upl_type = "AssetPassword"
+    resource_photo_type = "AssetPassword"
+    
     endpoint = HuduEndpoint.ASSET_PASSWORDS
     
     def to_folder(self, folder: int | HuduObject.password_folder):
@@ -543,6 +605,30 @@ class AssetPassword(HuduObject):
         payload = normalize_password_payload_for_save(payload)
         return self.save(item_id, payload, **kwargs)
 
+
+class Photo(HuduObject):
+    endpoint = HuduEndpoint.PHOTOS
+    resource_attr = "photos"
+
+    def download(self, out_dir="."):
+        return self._client.photos.download(self, out_dir)
+
+
+class PublicPhoto(HuduObject):
+    endpoint = HuduEndpoint.PUBLIC_PHOTOS
+    resource_attr = "public_photos"
+
+    def download(self, out_dir="."):
+        return self._client.public_photos.download(self, out_dir)
+
+
+class Upload(HuduObject):
+    endpoint = HuduEndpoint.UPLOADS
+    resource_attr = "uploads"
+
+    def download(self, out_dir="."):
+        return self._client.uploads.download(self, out_dir)
+
 class HuduCollection(list):
     def first(self):
         return self[0] if self else None
@@ -558,67 +644,6 @@ class HuduCollection(list):
             return all(getattr(obj, key, None) == value for key, value in criteria.items())
         return HuduCollection([obj for obj in self if matches(obj)])
 
-class PublicPhoto(HuduObject):
-    def create(self, endpoint, *, json=None, files=None, data=None):
-        response = self.session.post(
-            self.build_url(endpoint),
-            json=json if files is None else None,
-            data=data,
-            files=files,
-            timeout=self.timeout,
-        )
-        return self._handle_response(response)
-
-    def download(self, out_dir="."):
-        return self._client.uploads.download(self.id, out_dir)
-
-
-class Photo(HuduObject):
-    def create(self, endpoint, *, json=None, files=None, data=None):
-        response = self.session.post(
-            self.build_url(endpoint),
-            json=json if files is None else None,
-            data=data,
-            files=files,
-            timeout=self.timeout,
-        )
-        return self._handle_response(response)
-    
-    def download(self, out_dir="."):
-        return self._client.uploads.download(self.id, out_dir)
-
-
-class Upload(HuduObject):
-    relation_type = "Upload"
-    endpoint = HuduEndpoint.UPLOADS
-    
-    def create(self, endpoint, *, json=None, files=None, data=None):
-        response = self.session.post(
-            self.build_url(endpoint),
-            json=json if files is None else None,
-            data=data,
-            files=files,
-            timeout=self.timeout,
-        )
-        return self._handle_response(response)
-    
-    def download(self, out_dir: str | Path = ".") -> Path:
-        if self.id is None:
-            raise ValueError("Cannot download upload without an id")
-
-        out_dir = Path(out_dir)
-        out_dir.mkdir(parents=True, exist_ok=True)
-
-        filename = self.name or f"upload-{self.id}"
-        safe_name = "".join("_" if c in '<>:"/\\|?*' else c for c in filename)
-        destination = out_dir / safe_name
-
-        url = self._client.build_url(f"uploads/{self.id}?download=true")
-        response = self._client.session.get(url, timeout=self._client.timeout)
-        response.raise_for_status()
-
-        destination.write_bytes(response.content)
-        return destination
 
 
 MODEL_MAP = {
