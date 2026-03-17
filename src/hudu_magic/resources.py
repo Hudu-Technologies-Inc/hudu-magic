@@ -58,18 +58,34 @@ class BaseResource:
     def new(self, payload: dict, **kwargs):
         return self.create(payload, **kwargs)
 
-    def list_uploads(self, **params):
-        type = self.__class__.__name__
-        uploads = self.client.uploads.list()
-        return [u for u in uploads if
-                u.uploadable_type == type and
-                str(u.uploadable_id) == str(params.get("id"))]
-
     def list_photos(self, **params):
         return self.client.photos.list(payload={
             "photoable_type": self.__class__.__name__,
             "photoable_id": str(params.get("id"))})
 
+    def list_relations(self, to_object: HuduObject):
+        relation_ref = to_object.to_relation_ref()
+        relation_type = str(relation_ref["type"]).strip().lower()
+        object_id = str(relation_ref["id"])
+
+        return [
+            r for r in self.client.relations.list()
+            if (
+                str(r.fromable_type).strip().lower() == relation_type
+                and str(r.fromable_id) == object_id
+            ) or (
+                str(r.toable_type).strip().lower() == relation_type
+                and str(r.toable_id) == object_id
+            )
+        ]
+    def list_uploads(self, to_object: HuduObject):
+        uploadable_type = to_object.to_upload_ref()
+        object_id = str(to_object.id)
+
+        return [
+            u for u in self.client.uploads.list()
+            if u.uploadable_type == uploadable_type and str(u.uploadable_id) == object_id
+        ]
 
 class BaseFileResource(BaseResource):
     endpoint: ClassVar[HuduEndpoint]
@@ -346,6 +362,7 @@ class VLANZonesResource(BaseResource):
         return self.client.create(self.endpoint, payload, **kwargs)
 
 
+
 class RelationsResource(BaseResource):
     endpoint = HuduEndpoint.RELATIONS
 
@@ -372,3 +389,56 @@ class RelationsResource(BaseResource):
             payload["description"] = description
 
         return self.client.create(self.endpoint, payload, **kwargs)
+
+
+class RackStorageResource(BaseResource):
+    endpoint = HuduEndpoint.RACK_STORAGES
+
+
+class RackStorageItemResource(BaseResource):
+    endpoint = HuduEndpoint.RACK_STORAGE_ITEMS
+
+
+class UsersResource(BaseResource):
+    endpoint = HuduEndpoint.USERS
+
+
+class GroupsResource(BaseResource):
+    endpoint = HuduEndpoint.GROUPS
+
+
+class ProceduresResource(BaseResource):
+    endpoint = HuduEndpoint.PROCEDURES
+
+
+class ProcedureTasksResource(BaseResource):
+    endpoint = HuduEndpoint.PROCEDURE_TASKS
+
+
+class CardsResource(BaseResource):
+    endpoint = HuduEndpoint.CARDS_LOOKUP
+
+
+class FlagsResource(BaseResource):
+    endpoint = HuduEndpoint.FLAGS
+
+
+class FlagTypesResource(BaseResource):
+    endpoint = HuduEndpoint.FLAG_TYPES
+
+
+class MagicDashesResource(BaseResource):
+    endpoint = HuduEndpoint.MAGIC_DASH
+
+
+class ActivityLogsResource(BaseResource):
+    endpoint = HuduEndpoint.ACTIVITY_LOGS
+
+
+class ExpirationsResource(BaseResource):
+    endpoint = HuduEndpoint.EXPIRATIONS
+
+
+class ListResourceListResource(BaseResource):
+    endpoint = HuduEndpoint.LISTS
+

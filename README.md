@@ -26,7 +26,7 @@ chmod +x ./install-python.sh && ./install-python.sh
 ---
 
 ## Install hudu-magic package in Python
-if you already have python 3.11 - 3.14, you can install to system packages or your virtual environment packages (reccomended) with:
+if you already have python 3.11 - 3.9, you can install to system packages or your virtual environment packages (reccomended) with the below command(s).
 
 for now, first build with the below script
 ```
@@ -38,6 +38,8 @@ after this is published to pypi:
 ```bash
 pip install hudu-magic
 ```
+
+hudu-magic is designed to include almost no non-test/dev dependencies and is mainly just regex magic + pure python, so you'll almost never run into dependency or version conflicts when introducing it to a project and it will always be very lightweight.
 
 ---
 
@@ -61,7 +63,29 @@ unit tests and integration tests run during build, so if you want the integratio
 
 There are several examples in the examples folder that might be helpful if you're just starting out
 
-## interacting with classes
+## interacting with HuduObjects
+
+All classes inherit from the base class, HuduObject, and can therefore all do some basic things (with a few exceptions)
+
+member.get() [aliases: .list()]
+
+member.save()
+
+member.keys()
+
+member.contains(string)
+
+member.relate_to(othermember)
+
+member.upload_to(filepath) / member.list_uploads()
+
+member.add_photo() / member.list_photos()
+
+one exception is that, while most objects can be deleted and have .delete() or .delete(id) called from them, asset layouts and a few other object types (users, groups) can't be deleted from Hudu's API, so you'll raise a NotImplementedError.
+
+### Collections
+
+
 
 #### Assets
 
@@ -228,9 +252,9 @@ newpassword.delete()
 #### Websites
 
 ```python
-newwebsite.name = f"https://{str(uuid.uuid4())[:8]}"
+client.websites.create(payload={name="https://yourwebsite.org"})
+newwebsite.name = f"https://yourwebsite.net"
 newwebsite.save()
-
 newwebsite.delete()
 print(f"deleted website with id {newwebsite.id}")
 ```
@@ -250,7 +274,12 @@ client = HuduClient(
 newasset = client.assets.create(company_id=5,payload={"name": "Router", "asset_layout_id": 2},)
 
 newarticle = client.articles.create(payload={name:"this",contents:"that"})
-
-
-...
 ```
+
+## Advanced Use Possibilities
+
+You can instantiate two or more client objects, like above, to transfer data from, say, your dev instance to production
+
+Before doing as much or similar, be sure that you aren't better off leveraging Hudu Bridge. For some cases, however, this makes sense.
+
+Since all class members (huduobjects) are 

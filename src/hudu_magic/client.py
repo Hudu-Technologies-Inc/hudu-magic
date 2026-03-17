@@ -2,31 +2,43 @@ from __future__ import annotations
 import requests
 from typing import Any
 from dataclasses import dataclass, field
-from enum import Enum
 from hudu_magic.endpoints import HuduEndpoint
 from hudu_magic.exceptions import HuduAPIError
 from hudu_magic.instance import Instance
 from .validation import validate_payload
 from .payloads import maybe_wrap_payload
 from .resources import (
+    ActivityLogsResource,
     AssetsResource,
     AssetPasswordsResource,
     AssetLayoutsResource,
     ArticlesResource,
+    CardsResource,
     CompaniesResource,
+    ExpirationsResource,
+    FlagsResource,
+    FlagTypesResource,
     FoldersResource,
-    PasswordFoldersResource,
-    NetworksResource,
+    GroupsResource,
     IPAddressesResource,
+    ListResourceListResource,
+    MagicDashesResource,
+    NetworksResource,
+    PasswordFoldersResource,
     PhotosResource,
     PublicPhotosResource,
+    ProceduresResource,
+    ProcedureTasksResource,
+    RackStorageItemResource,
+    RackStorageResource,
     RelationsResource,
     UploadsResource,
+    UsersResource,
     VlansResource,
     VLANZonesResource,
     WebsitesResource,
 )
-from .models import HuduObject, MODEL_MAP
+
 
 class HuduClient:
     def __init__(self, api_key: str, instance_url: str, timeout: int = 30):
@@ -34,7 +46,6 @@ class HuduClient:
         self.timeout = timeout
         self.session = requests.Session()
         self.session.headers.update(self.instance.get_request_headers)
-
         self.companies = CompaniesResource(self)
         self.articles = ArticlesResource(self)
         self.folders = FoldersResource(self)
@@ -51,8 +62,33 @@ class HuduClient:
         self.vlans = VlansResource(self)
         self.vlan_zones = VLANZonesResource(self)
         self.networks = NetworksResource(self)
+        self.users = UsersResource(self)
+        self.groups = GroupsResource(self)
+        self.procedures = ProceduresResource(self)
+        self.procedure_tasks = ProcedureTasksResource(self)
+        self.rack_storage_items = RackStorageItemResource(self)
+        self.rack_storages = RackStorageResource(self)
+        self.ActivityLogs = ActivityLogsResource(self)
+        self.flags = FlagsResource(self)
+        self.flag_types = FlagTypesResource(self)
+        self.cards = CardsResource(self)
+        self.magic_dashes = MagicDashesResource(self)
+        self.lists = ListResourceListResource(self)
+        self.expirations = ExpirationsResource(self)
 
         # aliases
+        self.ActivityLog = self.ActivityLogs
+        self.flag = self.flags
+        self.flag_type = self.flag_types
+        self.card = self.cards
+        self.magic_dash = self.magic_dashes
+        self.list = self.lists
+        self.rack_storage = self.rack_storages
+        self.rack_storage_item = self.rack_storage_items
+        self.procedure_task = self.procedure_tasks
+        self.procedure = self.procedures
+        self.group = self.groups
+        self.user = self.users
         self.photo = self.photos
         self.public_photo = self.public_photos
         self.relation = self.relations
@@ -78,6 +114,10 @@ class HuduClient:
         self.folder = self.folders
         self.website = self.websites
         self.asset_layout = self.asset_layouts
+
+    def version(self):
+        info= (self.get(self.build_url("api_info")))
+        return info.get("version","unknown") if isinstance(info, dict) else None
 
     def build_url(self, endpoint: HuduEndpoint | str) -> str:
         endpoint_path = endpoint.endpoint if isinstance(endpoint, HuduEndpoint) else str(endpoint).lstrip("/")
@@ -209,6 +249,7 @@ class HuduClient:
             timeout=self.timeout,
         )
         return self._handle_response(response)
+
     def get(self, endpoint, params=None, paginate: bool | None = None):
         if isinstance(endpoint, HuduEndpoint):
             if paginate is None:
