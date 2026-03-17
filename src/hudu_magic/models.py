@@ -720,7 +720,6 @@ MODEL_MAP = {
     HuduEndpoint.NETWORKS_ID: Network,
     HuduEndpoint.PASSWORD_FOLDERS: Folder,
     HuduEndpoint.PASSWORD_FOLDERS_ID: Folder,
-    HuduEndpoint.PROCEDURES_ID: Procedure,
     HuduEndpoint.PROCEDURES: Procedure,
     HuduEndpoint.PROCEDURE_TASKS: ProcedureTasks,
     HuduEndpoint.PROCEDURE_TASKS_ID: ProcedureTasks,

@@ -38,6 +38,7 @@ from .resources import (
     VLANZonesResource,
     WebsitesResource,
 )
+from .models import MODEL_MAP
 
 
 class HuduClient:
@@ -46,6 +47,7 @@ class HuduClient:
         self.timeout = timeout
         self.session = requests.Session()
         self.session.headers.update(self.instance.get_request_headers)
+        self.version = None
         self.companies = CompaniesResource(self)
         self.articles = ArticlesResource(self)
         self.folders = FoldersResource(self)
@@ -115,9 +117,12 @@ class HuduClient:
         self.website = self.websites
         self.asset_layout = self.asset_layouts
 
-    def version(self):
-        info= (self.get(self.build_url("api_info")))
-        return info.get("version","unknown") if isinstance(info, dict) else None
+    def check_version(self):
+        if self.version is None:
+            info = (self.get("api_info"))
+            self.version = info.get("version", "unknown") if isinstance(info, dict) else None
+        return self.version
+
 
     def build_url(self, endpoint: HuduEndpoint | str) -> str:
         endpoint_path = endpoint.endpoint if isinstance(endpoint, HuduEndpoint) else str(endpoint).lstrip("/")
@@ -289,7 +294,7 @@ class HuduClient:
             else:
                 items = []
 
-            if not items:
+            if not items or len(items) == 0:
                 break
 
             all_items.extend(items)
@@ -355,3 +360,4 @@ class HuduClient:
 
     def delete_item(self, endpoint: HuduEndpoint | str, item_id: int | str):
         return self.delete(self.resolve_path(endpoint, item_id))
+    

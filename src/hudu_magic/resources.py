@@ -1,5 +1,7 @@
 from __future__ import annotations
 from pathlib import Path
+
+from hudu_magic.helpers.general import is_version_greater_or_equal
 from .endpoints import HuduEndpoint
 from typing import Any, ClassVar
 from .models import (
@@ -222,9 +224,18 @@ class PublicPhotosResource(BaseFileResource):
     def download(self, photo_or_id, out_dir: str | Path = ".") -> Path:
         raise NotImplementedError("Hudu API does not currently support downloading public photos")
 
+
 class UploadsResource(BaseFileResource):
     endpoint = HuduEndpoint.UPLOADS
     model_cls = Upload
+    
+    def list(self, **params) -> Any:
+        if is_version_greater_or_equal(str(self.client.check_version()), 
+                                       "2.41.3"):
+            return self.client.get(self.endpoint, params=params or None,
+                                   paginate=True)
+        return self.client.get(self.endpoint, params=params or None,
+                               paginate=False)
 
     def create(
         self,

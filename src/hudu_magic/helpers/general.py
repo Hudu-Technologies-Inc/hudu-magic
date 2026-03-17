@@ -21,3 +21,9 @@ def ensure_https(value: str) -> str:
 
     return f"https://{value}"
 
+
+def parse_version(v):
+    return tuple(map(int, v.split(".")))
+
+def is_version_greater_or_equal(v1, v2):
+    return parse_version(v1) >= parse_version(v2)

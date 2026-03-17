@@ -282,4 +282,8 @@ You can instantiate two or more client objects, like above, to transfer data fro
 
 Before doing as much or similar, be sure that you aren't better off leveraging Hudu Bridge. For some cases, however, this makes sense.
 
-Since all class members (huduobjects) are 
+Since all class members (huduobjects) are isomorphic and known-unwanted payload keys are poppeed during creates/post/put are dropped, so long as you're on the same hudu version, you should be able to do things like:
+
+```
+client2.assets.create(client1.assets.get(6))
+```
