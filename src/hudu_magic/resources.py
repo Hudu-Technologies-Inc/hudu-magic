@@ -2,6 +2,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from hudu_magic.helpers.general import is_version_greater_or_equal
+from hudu_magic.payloads import describe_create_update, describe_delete, describe_get
 from .endpoints import HuduEndpoint, EndpointMeta
 from typing import Any, ClassVar
 from .models import (
@@ -31,6 +32,13 @@ class BaseResource:
     def list(self, **params) -> Any:
         self._require_support("list")
         return self.client.get(self.endpoint, params=params or None)
+
+    def describe(self):
+        return "\n\n".join([
+            describe_get(self.endpoint),
+            describe_create_update(self.endpoint),
+            describe_delete(self.endpoint),
+        ])
 
     def get(self, item_id=None, **params):
         if item_id is None:
@@ -469,7 +477,9 @@ class ProcedureTasksResource(BaseResource):
             return self.list(**params)
 
         path = self.endpoint.item_path(item_id)
-property_name="procedure_tasks"
+        return self.client.get(path, paginate=False, 
+                               property_name = "procedure_tasks")
+
 class CardsResource(BaseResource):
     endpoint = HuduEndpoint.CARDS_LOOKUP
 

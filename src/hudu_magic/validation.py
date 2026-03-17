@@ -3,7 +3,7 @@ import ipaddress
 from pathlib import Path
 from typing import Any
 
-from .endpoints import HuduEndpoint
+from .endpoints import FieldMeta, HuduEndpoint
 from .constants import (ALLOWED_PHOTOABLE_TYPES, ALLOWED_PUBLIC_PHOTOABLE_TYPES, TRUTHY_VALUES,
                         FALSY_VALUES,
                         VLAN_ID_RANGES_PATTERN,
@@ -22,6 +22,59 @@ def validate_relatables(fromable_endpoint: str, toable_endpoint: str) -> None:
 
     if toable_endpoint not in FROMABLE_TOABLE_TYPES:
         raise HuduValidationError(f"Objects of type {toable_endpoint} cannot be related to any other objects")
+
+def coerce_value(value: Any, meta: FieldMeta) -> Any:
+    if value is None:
+        return None
+
+    if meta.enum and value not in meta.enum:
+        raise ValueError(
+            f"Invalid value for '{meta.name}': {value!r}. "
+            f"Allowed: {meta.enum}"
+        )
+
+    if meta.type == "integer":
+        return int(value)
+    if meta.type == "boolean":
+        if isinstance(value, bool):
+            return to_bool(value)
+    if meta.type == "number":
+        return float(value)
+    if meta.type == "array":
+        if isinstance(value, list):
+            return value
+        return [value]
+    if meta.type == "string":
+        return str(value)
+
+    return value
+
+
+def coerce_and_validate_params(
+    provided: dict[str, Any],
+    field_map: dict[str, FieldMeta],
+    *,
+    context: str = "",
+    required_fields: tuple[str, ...] = (),
+    allow_unknown: bool = False,
+) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+
+    for name in required_fields:
+        if name not in provided or provided[name] is None:
+            raise ValueError(f"{context}: missing required field '{name}'")
+
+    for key, value in provided.items():
+        meta = field_map.get(key)
+        if meta is None:
+            if allow_unknown:
+                result[key] = value
+                continue
+            raise ValueError(f"{context}: unknown field '{key}'")
+
+        result[key] = coerce_value(value, meta)
+
+    return result
 
 def validate_payload(
     endpoint: HuduEndpoint,

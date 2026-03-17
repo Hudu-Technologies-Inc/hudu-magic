@@ -721,6 +721,8 @@ class RackstorageItems(HuduObject):
     resource_attr = "rack_storage_items"
 
 
+
+
 class Cards(HuduObject):
     endpoint = HuduEndpoint.CARDS_LOOKUP
     resource_attr = "card"
