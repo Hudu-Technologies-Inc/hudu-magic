@@ -29,24 +29,25 @@ class BaseResource:
         self.client = client
 
     def list(self, **params) -> Any:
-        if not self.endpoint.meta.supports_get:
-            raise ValueError(f"{self.endpoint.name} does not support get by id")        
+        self._require_support("list")
         return self.client.get(self.endpoint, params=params or None)
 
     def get(self, item_id=None, **params):
-        if not self.endpoint.meta.supports_get:
-            raise ValueError(f"{self.endpoint.name} does not support get by id")
-        
-        if item_id is not None and params:
-            raise ValueError(
-                "Provide either item_id or query params, not both"
-                )
-
         if item_id is None:
+            if not self.endpoint.meta.supports_list:
+                raise ValueError(f"{self.endpoint.name} does not support list")
             return self.list(**params)
 
-        path = self.endpoint.item_path(item_id)
+        if not self.endpoint.meta.supports_get:
+            raise ValueError(f"{self.endpoint.name} does not support get")
+
+        path = self.client.resolve_path(self.endpoint, item_id)
         return self.client.get(path, paginate=False)
+
+    def _require_support(self, operation: str) -> None:
+        attr_name = f"supports_{operation}"
+        if not getattr(self.endpoint.meta, attr_name, False):
+            raise ValueError(f"{self.endpoint.name} does not support {operation}")
 
     def get_all(self, **params):
         return self.get(None, **params)
@@ -63,29 +64,21 @@ class BaseResource:
         if item_id is None:
             raise ValueError("Cannot unarchive object without an id")
         
-        if not self.endpoint.meta.supports_archive:
-            raise ValueError(f"{self.endpoint.name} does not support archive")
-        
+        self._require_support("unarchive")
         path = self.client.resolve_path(self.endpoint, item_id) + "/unarchive"
         return self.client.post(path)
 
     def create(self, payload: dict[str, Any], **kwargs) -> Any:
-        if not self.endpoint.meta.supports_create:
-            raise ValueError(f"{self.endpoint.name} does not support get by id")
-                
+        self._require_support("create")
         return self.client.create(self.endpoint, payload, **kwargs)
 
     def update(self, item_id: int | str,
                payload: dict[str, Any], **kwargs) -> Any:
-        if not self.endpoint.meta.supports_update:
-            raise ValueError(f"{self.endpoint.name} does not support delete")
-                
+        self._require_support("update")
         return self.client.update(self.endpoint, item_id, payload, **kwargs)
 
     def delete(self, item_id: int | str) -> Any:
-        if not self.endpoint.meta.supports_delete:
-            raise ValueError(f"{self.endpoint.name} does not support delete")
-        
+        self._require_support("delete")
         path = self.client.resolve_path(self.endpoint, item_id)
         return self.client.delete(path)
 
@@ -94,10 +87,12 @@ class BaseResource:
         return self.create(payload, **kwargs)
 
     # For resources that support file uploads and relations, we can provide helper methods to list related items
-    def list_photos(self, **params):
-        return self.client.photos.list(payload={
-            "photoable_type": self.__class__.__name__,
-            "photoable_id": str(params.get("id"))})
+    def list_photos(self, to_object: HuduObject, **params):
+        return self.client.photos.list(
+            photoable_type=to_object.to_photo_ref(),
+            photoable_id=str(to_object.id),
+            **params,
+        )
 
     def list_relations(self, to_object: HuduObject):
         relation_ref = to_object.to_relation_ref()
@@ -323,23 +318,34 @@ class AssetLayoutsResource(BaseResource):
 
 class PasswordFoldersResource(BaseResource):
     endpoint = HuduEndpoint.PASSWORD_FOLDERS
-    def save(self, item_id: int | str, payload: dict[str, Any],
-             **kwargs) -> Any:
+    def save(self, item_id: int | str, payload: dict[str, Any], **kwargs) -> Any:
         company_id = payload.get("company_id")
-        if not company_id:
-            raise ValueError(
-                "company_id is required in payload to update a password folder"
-                )
-        path = f"companies/{company_id}/password_folders/{item_id}"
-        if payload.security is None:
-            payload["security"] = "all_users"
-        wrapped_payload = {"password_folder": payload}
-        return self.client.update(self.endpoint, item_id,
-                                  wrapped_payload, **kwargs)
+        if company_id is None:
+            raise ValueError("company_id is required in payload to update a password folder")
 
+        if payload.get("security") is None:
+            payload["security"] = "all_users"
+
+        path = f"companies/{company_id}/password_folders/{item_id}"
+        result = self.client.put(path, json={"password_folder": payload})
+        return self.client._wrap_result(self.endpoint, result)
 
 class AssetsResource(BaseResource):
     endpoint = HuduEndpoint.ASSETS
+        
+
+    def delete(self, item_id: int | str, company_id: int | str) -> Any:
+        if item_id is None:
+            raise ValueError("Cannot delete object without an id")
+        if company_id is None:
+            raise ValueError("Asset delete() requires company_id")
+        return self.client.delete(f"companies/{company_id}/assets/{item_id}")
+
+    def archive(self):
+        return self.client.put()
+
+    def unarchive(self):
+        return self.client.put(self._endpoint, self.id)
 
     def create(self, company_id: int | str, payload: dict[str, Any],
                **kwargs) -> Any:
@@ -356,7 +362,6 @@ class AssetsResource(BaseResource):
     def list_for_company(self, company_id: int | str, **params) -> Any:
         path = f"companies/{company_id}/assets"
         return self.client.get(path, params=params or None, paginate=False)
-
 
 
 class NetworksResource(BaseResource):
@@ -387,11 +392,7 @@ class VlansResource(BaseResource):
             raise ValueError("vlan_id must be an integer")
         validate_vlan_id(vlanid)
 
-        payload["archived"] = to_bool(
-                f"{payload.get("archived")}",
-                default=False
-            )
-
+        payload["archived"] = to_bool(str(payload.get("archived")), default=False)
         return self.client.create(self.endpoint, payload, **kwargs)
 
 
@@ -402,9 +403,7 @@ class VLANZonesResource(BaseResource):
         validate_vlan_id_ranges(
             str(payload.get("vlan_id_ranges")))
 
-        payload["archived"] = to_bool(
-            f"{payload.get("archived")}", default=False)
-
+        payload["archived"] = to_bool(str(payload.get("archived")), default=False)
         return self.client.create(self.endpoint, payload, **kwargs)
 
 
@@ -470,9 +469,7 @@ class ProcedureTasksResource(BaseResource):
             return self.list(**params)
 
         path = self.endpoint.item_path(item_id)
-        return self.client.get(path, paginate=False, 
-                               property_name = "procedure_tasks")
-
+property_name="procedure_tasks"
 class CardsResource(BaseResource):
     endpoint = HuduEndpoint.CARDS_LOOKUP
 

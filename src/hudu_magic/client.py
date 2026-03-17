@@ -77,9 +77,9 @@ class HuduClient:
         self.magic_dashes = MagicDashesResource(self)
         self.lists = ListResourceListResource(self)
         self.expirations = ExpirationsResource(self)
-
         # aliases
         self.ActivityLog = self.ActivityLogs
+        self.activity_log = self.ActivityLogs
         self.flag = self.flags
         self.flag_type = self.flag_types
         self.card = self.cards
@@ -255,13 +255,19 @@ class HuduClient:
         )
         return self._handle_response(response)
 
-    def get(self, endpoint, params=None, paginate: bool | None = None):
+    def get(
+        self,
+        endpoint: HuduEndpoint | str,
+        params: dict | None = None,
+        paginate: bool | None = None,
+        property_name: str | None = None,
+    ):
         if isinstance(endpoint, HuduEndpoint):
             if paginate is None:
                 paginate = endpoint.is_paginated
 
             if paginate:
-                result = self._get_all_pages(endpoint, params)
+                result = self._get_all_pages(endpoint, params, property_name=property_name)
                 return self._wrap_result(endpoint, result)
 
         result = self._get_nonpaginated(endpoint, params)
@@ -293,10 +299,7 @@ class HuduClient:
             result = self._get_nonpaginated(endpoint, params=page_params)
 
             if isinstance(result, dict):
-                if property_name:
-                    items = result.get(property_name, [])
-                else:
-                    items = result.get(endpoint.endpoint) or result.get("items") or result.get("data") or []
+                items = result.get(property_name) or result.get(endpoint.resource_name) or result.get("items") or result.get("data") or []
             elif isinstance(result, list):
                 items = result
             else:
@@ -317,6 +320,16 @@ class HuduClient:
             page += 1
 
         return all_items
+
+    def archive(self, endpoint: HuduEndpoint | str, item_id: int | str, 
+                payload: dict | None = None):
+        path = self.resolve_path(endpoint, item_id) + "/archive"
+        return self.put(path, json=payload)
+
+    def unarchive(self, endpoint: HuduEndpoint | str, item_id: int | str, 
+                  payload: dict | None = None):
+        path = self.resolve_path(endpoint, item_id) + "/unarchive"
+        return self.put(path, json=payload)
 
     def create(
         self,
