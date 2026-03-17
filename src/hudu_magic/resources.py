@@ -2,7 +2,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from hudu_magic.helpers.general import is_version_greater_or_equal
-from .endpoints import HuduEndpoint
+from .endpoints import HuduEndpoint, EndpointMeta
 from typing import Any, ClassVar
 from .models import (
     Asset,
@@ -29,9 +29,14 @@ class BaseResource:
         self.client = client
 
     def list(self, **params) -> Any:
+        if not self.endpoint.meta.supports_get:
+            raise ValueError(f"{self.endpoint.name} does not support get by id")        
         return self.client.get(self.endpoint, params=params or None)
 
     def get(self, item_id=None, **params):
+        if not self.endpoint.meta.supports_get:
+            raise ValueError(f"{self.endpoint.name} does not support get by id")
+        
         if item_id is not None and params:
             raise ValueError(
                 "Provide either item_id or query params, not both"
@@ -46,20 +51,49 @@ class BaseResource:
     def get_all(self, **params):
         return self.get(None, **params)
 
+    def archive(self, item_id: int | str) -> Any:
+        if not self.endpoint.meta.supports_archive:
+            raise ValueError(f"{self.endpoint.name} does not support archive")
+        if item_id is None:
+            raise ValueError("Cannot archive object without an id")
+        path = self.client.resolve_path(self.endpoint, item_id) + "/archive"
+        return self.client.post(path)
+
+    def unarchive(self, item_id: int | str) -> Any:
+        if item_id is None:
+            raise ValueError("Cannot unarchive object without an id")
+        
+        if not self.endpoint.meta.supports_archive:
+            raise ValueError(f"{self.endpoint.name} does not support archive")
+        
+        path = self.client.resolve_path(self.endpoint, item_id) + "/unarchive"
+        return self.client.post(path)
+
     def create(self, payload: dict[str, Any], **kwargs) -> Any:
+        if not self.endpoint.meta.supports_create:
+            raise ValueError(f"{self.endpoint.name} does not support get by id")
+                
         return self.client.create(self.endpoint, payload, **kwargs)
 
     def update(self, item_id: int | str,
                payload: dict[str, Any], **kwargs) -> Any:
+        if not self.endpoint.meta.supports_update:
+            raise ValueError(f"{self.endpoint.name} does not support delete")
+                
         return self.client.update(self.endpoint, item_id, payload, **kwargs)
 
     def delete(self, item_id: int | str) -> Any:
+        if not self.endpoint.meta.supports_delete:
+            raise ValueError(f"{self.endpoint.name} does not support delete")
+        
         path = self.client.resolve_path(self.endpoint, item_id)
         return self.client.delete(path)
 
+    # aliased methods for convenience and readability
     def new(self, payload: dict, **kwargs):
         return self.create(payload, **kwargs)
 
+    # For resources that support file uploads and relations, we can provide helper methods to list related items
     def list_photos(self, **params):
         return self.client.photos.list(payload={
             "photoable_type": self.__class__.__name__,
@@ -324,6 +358,7 @@ class AssetsResource(BaseResource):
         return self.client.get(path, params=params or None, paginate=False)
 
 
+
 class NetworksResource(BaseResource):
     endpoint = HuduEndpoint.NETWORKS
 
@@ -425,6 +460,18 @@ class ProceduresResource(BaseResource):
 class ProcedureTasksResource(BaseResource):
     endpoint = HuduEndpoint.PROCEDURE_TASKS
 
+    def get(self, item_id=None, **params):
+        if item_id is not None and params:
+            raise ValueError(
+                "Provide either item_id or query params, not both"
+                )
+
+        if item_id is None:
+            return self.list(**params)
+
+        path = self.endpoint.item_path(item_id)
+        return self.client.get(path, paginate=False, 
+                               property_name = "procedure_tasks")
 
 class CardsResource(BaseResource):
     endpoint = HuduEndpoint.CARDS_LOOKUP

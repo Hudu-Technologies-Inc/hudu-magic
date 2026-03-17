@@ -275,11 +275,16 @@ class HuduClient:
         )
         return self._handle_response(response)
 
-
-    def _get_all_pages(self, endpoint: HuduEndpoint, params: dict | None = None) -> list[dict]:
+    def _get_all_pages(
+        self,
+        endpoint: HuduEndpoint,
+        params: dict | None = None,
+        property_name: str | None = None,
+    ) -> list[dict]:
         page = 1
         all_items: list[dict] = []
         params = dict(params or {})
+        seen_signatures: set[tuple] = set()
 
         while True:
             page_params = dict(params)
@@ -288,15 +293,26 @@ class HuduClient:
             result = self._get_nonpaginated(endpoint, params=page_params)
 
             if isinstance(result, dict):
-                items = result.get(endpoint.endpoint) or result.get("items") or result.get("data") or []
+                if property_name:
+                    items = result.get(property_name, [])
+                else:
+                    items = result.get(endpoint.endpoint) or result.get("items") or result.get("data") or []
             elif isinstance(result, list):
                 items = result
             else:
                 items = []
 
-            if not items or len(items) == 0:
+            if not items:
                 break
 
+            signature = tuple(
+                item.get("id") for item in items
+                if isinstance(item, dict)
+            )
+            if signature in seen_signatures:
+                break
+
+            seen_signatures.add(signature)
             all_items.extend(items)
             page += 1
 

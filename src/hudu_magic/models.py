@@ -42,6 +42,12 @@ class HuduObject:
 
     def values(self):
         return self._data.values()
+    
+    def archive(self):
+        return self._client.archive(self.id)
+    
+    def unarchive(self):
+        return self._client.unarchive(self.id)
 
     def items(self):
         return self._data.items()
@@ -135,6 +141,10 @@ class HuduObject:
     @property
     def id(self):
         return self._data.get("id")
+    
+    @property
+    def company_id(self):
+        return self._data.get("company_id")
 
     def refresh(self):
         if self.id is None:
@@ -360,8 +370,7 @@ class Asset(HuduObject):
     @classmethod
     def from_dict(cls, client, endpoint, data):
         return cls(client, endpoint, data)
-
-
+    
 
 
 class Relation(HuduObject):
@@ -632,42 +641,54 @@ class Upload(HuduObject):
 
 class Users(HuduObject):
     endpoint = HuduEndpoint.USERS
+    resource_attr = "users"
 
 
 class Procedures(HuduObject):
     endpoint = HuduEndpoint.PROCEDURES
+    resource_attr = "procedures"
 
 
 class ProcedureTasks(HuduObject):
     endpoint = HuduEndpoint.PROCEDURE_TASKS
+    resource_attr = "procedure_tasks"
+    
 
 
 class Groups(HuduObject):
     endpoint = HuduEndpoint.GROUPS
+    resource_attr = "groups"
 
 
 class Lists(HuduObject):
     endpoint = HuduEndpoint.LISTS
+    resource_attr = "lists"
 
 
 class Expirations(HuduObject):
     endpoint = HuduEndpoint.EXPIRATIONS
+    resource_attr = "expirations"
 
 
 class ActivityLogs(HuduObject):
     endpoint = HuduEndpoint.ACTIVITY_LOGS
+    resource_attr = "activity_logs"
 
 
 class Flags(HuduObject):
     endpoint = HuduEndpoint.FLAGS
+    resource_attr = "flags"
 
 
 class FlagTypes(HuduObject):
     endpoint = HuduEndpoint.FLAG_TYPES
+    resource_attr = "flag_types"
 
 
 class MagicDashes(HuduObject):
     endpoint = HuduEndpoint.MAGIC_DASH
+    resource_attr = "magic_dashes"
+
 
 class RackStorage(HuduObject):
     relation_type = "RackStorage"
