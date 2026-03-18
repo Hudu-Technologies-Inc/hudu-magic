@@ -1,43 +1,27 @@
 from __future__ import annotations
-import requests
+
 from typing import Any
+
+import requests
+
 from hudu_magic.endpoints import HuduEndpoint
-from hudu_magic.exceptions import HuduAPIError
 from hudu_magic.instance import Instance
-from .validation import validate_payload
-from .payloads import maybe_wrap_payload
+
 from .models import MODEL_MAP, HuduCollection
-from .resources import (
-    ActivityLogsResource,
-    AssetsResource,
-    AssetPasswordsResource,
-    AssetLayoutsResource,
-    ArticlesResource,
-    CardsResource,
-    CompaniesResource,
-    ExpirationsResource,
-    FlagsResource,
-    FlagTypesResource,
-    FoldersResource,
-    GroupsResource,
-    IPAddressesResource,
-    ListResourceListResource,
-    MagicDashesResource,
-    NetworksResource,
-    PasswordFoldersResource,
-    PhotosResource,
-    PublicPhotosResource,
-    ProceduresResource,
-    ProcedureTasksResource,
-    RackStorageItemResource,
-    RackStorageResource,
-    RelationsResource,
-    UploadsResource,
-    UsersResource,
-    VlansResource,
-    VLANZonesResource,
-    WebsitesResource,
-)
+from .payloads import maybe_wrap_payload
+from .resources import (ActivityLogsResource, ArticlesResource,
+                        AssetLayoutsResource, AssetPasswordsResource,
+                        AssetsResource, CardsResource, CompaniesResource,
+                        ExpirationsResource, FlagsResource, FlagTypesResource,
+                        FoldersResource, GroupsResource, IPAddressesResource,
+                        ListResourceListResource, MagicDashesResource,
+                        NetworksResource, PasswordFoldersResource,
+                        PhotosResource, ProceduresResource,
+                        ProcedureTasksResource, PublicPhotosResource,
+                        RackStorageItemResource, RackStorageResource,
+                        RelationsResource, UploadsResource, UsersResource,
+                        VlansResource, VLANZonesResource, WebsitesResource)
+from .validation import HuduAPIError, validate_payload
 
 
 class HuduClient:
@@ -119,19 +103,21 @@ class HuduClient:
     def check_version(self):
         if self.version is None:
             info = (self.get("api_info"))
-            self.version = info.get("version", "unknown") if isinstance(info, dict) else None
+            self.version = info.get("version", "unknown") if isinstance(
+                info, dict) else None
         return self.version
 
-
     def build_url(self, endpoint: HuduEndpoint | str) -> str:
-        endpoint_path = endpoint.endpoint if isinstance(endpoint, HuduEndpoint) else str(endpoint).lstrip("/")
+        endpoint_path = endpoint.endpoint if isinstance(
+            endpoint, HuduEndpoint) else str(endpoint).lstrip("/")
         return f"{self.instance.instance_url}/{endpoint_path}"
 
     def _handle_response(self, response: requests.Response) -> Any:
         if not response.ok:
             try:
                 payload = response.json()
-                message = payload.get("message") or payload.get("error") or response.text
+                message = payload.get("message") or payload.get(
+                    "error") or response.text
             except Exception:
                 message = response.text
 
@@ -167,7 +153,7 @@ class HuduClient:
                 return value
 
         return result
-        
+
     def _wrap_result(self, endpoint, result):
         if not isinstance(endpoint, HuduEndpoint):
             return result
@@ -269,12 +255,13 @@ class HuduClient:
                 paginate = endpoint.is_paginated
 
             if paginate:
-                result = self._get_all_pages(endpoint, params, property_name=property_name)
+                result = self._get_all_pages(
+                    endpoint, params, property_name=property_name)
                 return self._wrap_result(endpoint, result)
 
         result = self._get_nonpaginated(endpoint, params)
         return self._wrap_result(endpoint, result)
-        
+
     def _get_nonpaginated(self, endpoint: HuduEndpoint | str, params: dict | None = None) -> Any:
         response = self.session.get(
             self.build_url(endpoint),
@@ -301,7 +288,8 @@ class HuduClient:
             result = self._get_nonpaginated(endpoint, params=page_params)
 
             if isinstance(result, dict):
-                items = result.get(property_name) or result.get(endpoint.resource_name) or result.get("items") or result.get("data") or []
+                items = result.get(property_name) or result.get(
+                    endpoint.resource_name) or result.get("items") or result.get("data") or []
             elif isinstance(result, list):
                 items = result
             else:
@@ -323,12 +311,12 @@ class HuduClient:
 
         return all_items
 
-    def archive(self, endpoint: HuduEndpoint | str, item_id: int | str, 
+    def archive(self, endpoint: HuduEndpoint | str, item_id: int | str,
                 payload: dict | None = None):
         path = self.resolve_path(endpoint, item_id) + "/archive"
         return self.put(path, json=payload)
 
-    def unarchive(self, endpoint: HuduEndpoint | str, item_id: int | str, 
+    def unarchive(self, endpoint: HuduEndpoint | str, item_id: int | str,
                   payload: dict | None = None):
         path = self.resolve_path(endpoint, item_id) + "/unarchive"
         return self.put(path, json=payload)
@@ -350,7 +338,6 @@ class HuduClient:
         )
         result = self.post(endpoint, json=prepared)
         return self._wrap_result(endpoint, result)
-        
 
     def update(
         self,
@@ -391,4 +378,3 @@ class HuduClient:
 
     def delete_item(self, endpoint: HuduEndpoint | str, item_id: int | str):
         return self.delete(self.resolve_path(endpoint, item_id))
-    

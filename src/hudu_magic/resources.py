@@ -1,27 +1,23 @@
 from __future__ import annotations
+
 from pathlib import Path
+from typing import Any, ClassVar
 
 from hudu_magic.help import describe_single, supported_methods
 from hudu_magic.helpers.general import is_version_greater_or_equal
-from .endpoints import HuduEndpoint, EndpointMeta
-from typing import Any, ClassVar
-from .models import (
-    Asset,
-    Upload,
-    Photo,
-    PublicPhoto,
-    HuduObject,
-)
+
+from .endpoints import HuduEndpoint
+from .models import Asset, HuduObject, Photo, PublicPhoto, Upload
 from .validation import (
     HuduNotImplementedError,
     HuduValidationError,
+    to_bool,
+    validate_ip_address,
+    validate_network_address,
+    validate_pubphoto_file,
+    validate_uploadable_type,
     validate_vlan_id,
     validate_vlan_id_ranges,
-    validate_network_address,
-    validate_ip_address,
-    to_bool,
-    validate_uploadable_type,
-    validate_pubphoto_file
 )
 
 
@@ -36,7 +32,8 @@ class BaseResource:
         if not getattr(self.endpoint.meta, attr_name, False):
             raise HuduNotImplementedError(
                 f"{self.endpoint.name} does not support {operation}"
-                f"supported methods are: {supported_methods}")
+                f"supported methods are: {supported_methods}"
+            )
 
     def _reraise_with_description(self, exc: HuduValidationError) -> None:
         raise HuduValidationError(
@@ -81,7 +78,8 @@ class BaseResource:
     def archive(self, item_id: int | str) -> Any:
         try:
             self._require_support("archive")
-            path = self.client.resolve_path(self.endpoint, item_id) + "/archive"
+            path = self.client.resolve_path(
+                self.endpoint, item_id) + "/archive"
             if item_id is None:
                 raise ValueError("Cannot archive object without an id")
             return self.client.put(path)
@@ -93,7 +91,8 @@ class BaseResource:
     def unarchive(self, item_id: int | str) -> Any:
         try:
             self._require_support("unarchive")
-            path = self.client.resolve_path(self.endpoint, item_id) + "/unarchive"
+            path = self.client.resolve_path(
+                self.endpoint, item_id) + "/unarchive"
             if item_id is None:
                 raise ValueError("Cannot unarchive object without an id")
             return self.client.put(path)
@@ -127,11 +126,13 @@ class BaseResource:
         object_id = str(relation_ref["id"])
 
         return [
-            r for r in self.client.relations.list()
+            r
+            for r in self.client.relations.list()
             if (
                 str(r.fromable_type).strip().lower() == relation_type
                 and str(r.fromable_id) == object_id
-            ) or (
+            )
+            or (
                 str(r.toable_type).strip().lower() == relation_type
                 and str(r.toable_id) == object_id
             )
@@ -142,8 +143,10 @@ class BaseResource:
         object_id = str(to_object.id)
 
         return [
-            u for u in self.client.uploads.list()
-            if u.uploadable_type == uploadable_type and str(u.uploadable_id) == object_id
+            u
+            for u in self.client.uploads.list()
+            if u.uploadable_type == uploadable_type
+            and str(u.uploadable_id) == object_id
         ]
 
 
@@ -203,18 +206,23 @@ class BaseFileResource(BaseResource):
         out_dir = Path(out_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
 
-        filename = getattr(obj, "name", None) or \
-            getattr(obj, "file_name", None) or str(object_id)
+        filename = (
+            getattr(obj, "name", None)
+            or getattr(obj, "file_name", None)
+            or str(object_id)
+        )
 
-        safe_name = self._safe_filename(filename, f"{fallback_prefix}-{object_id}")
+        safe_name = self._safe_filename(
+            filename, f"{fallback_prefix}-{object_id}")
         destination = out_dir / safe_name
 
-        url = self.client.build_url(download_path_template.format(id=object_id))
+        url = self.client.build_url(
+            download_path_template.format(id=object_id))
         response = self.client.session.get(url, timeout=self.client.timeout)
         response.raise_for_status()
 
         destination.write_bytes(response.content)
-        
+
         return destination
 
 
@@ -262,6 +270,7 @@ class PublicPhotosResource(BaseFileResource):
     endpoint = HuduEndpoint.PUBLIC_PHOTOS
     model_cls = PublicPhoto
     file_form_field = "photo"
+
     def create(
         self,
         file_path: str | Path,
@@ -280,20 +289,19 @@ class PublicPhotosResource(BaseFileResource):
         )
 
     def download(self, photo_or_id, out_dir: str | Path = ".") -> Path:
-        raise NotImplementedError("Hudu API does not currently support downloading public photos")
+        raise NotImplementedError(
+            "Hudu API does not currently support downloading public photos"
+        )
 
 
 class UploadsResource(BaseFileResource):
     endpoint = HuduEndpoint.UPLOADS
     model_cls = Upload
-    
+
     def list(self, **params) -> Any:
-        if is_version_greater_or_equal(str(self.client.check_version()), 
-                                       "2.41.3"):
-            return self.client.get(self.endpoint, params=params or None,
-                                   paginate=True)
-        return self.client.get(self.endpoint, params=params or None,
-                               paginate=False)
+        if is_version_greater_or_equal(str(self.client.check_version()), "2.41.3"):
+            return self.client.get(self.endpoint, params=params or None, paginate=True)
+        return self.client.get(self.endpoint, params=params or None, paginate=False)
 
     def create(
         self,
@@ -302,7 +310,8 @@ class UploadsResource(BaseFileResource):
     ) -> Any:
         uploadable_type = to_object.to_upload_ref()
         if not uploadable_type or validate_uploadable_type(uploadable_type) is False:
-            raise ValueError(f"object is not of uploadable type {uploadable_type}")
+            raise ValueError(
+                f"object is not of uploadable type {uploadable_type}")
 
         return self._post_file(
             file_path,
@@ -347,10 +356,13 @@ class AssetLayoutsResource(BaseResource):
 
 class PasswordFoldersResource(BaseResource):
     endpoint = HuduEndpoint.PASSWORD_FOLDERS
+
     def save(self, item_id: int | str, payload: dict[str, Any], **kwargs) -> Any:
         company_id = payload.get("company_id")
         if company_id is None:
-            raise ValueError("company_id is required in payload to update a password folder")
+            raise ValueError(
+                "company_id is required in payload to update a password folder"
+            )
 
         if payload.get("security") is None:
             payload["security"] = "all_users"
@@ -359,9 +371,9 @@ class PasswordFoldersResource(BaseResource):
         result = self.client.put(path, json={"password_folder": payload})
         return self.client._wrap_result(self.endpoint, result)
 
+
 class AssetsResource(BaseResource):
     endpoint = HuduEndpoint.ASSETS
-        
 
     def delete(self, item_id: int | str, company_id: int | str) -> Any:
         if item_id is None:
@@ -376,11 +388,10 @@ class AssetsResource(BaseResource):
     def unarchive(self):
         return self.client.put(self._endpoint, self.id)
 
-    def create(self, company_id: int | str, payload: dict[str, Any],
-               **kwargs) -> Any:
+    def create(self, company_id: int | str, payload: dict[str, Any], **kwargs) -> Any:
         wrapped = {"asset": payload}
-        result = self.client.post(f"companies/{company_id}/assets",
-                                  json=wrapped)
+        result = self.client.post(
+            f"companies/{company_id}/assets", json=wrapped)
 
         if isinstance(result, dict):
             result = self.client._extract_primary_object(result)
@@ -421,7 +432,8 @@ class VlansResource(BaseResource):
             raise ValueError("vlan_id must be an integer")
         validate_vlan_id(vlanid)
 
-        payload["archived"] = to_bool(str(payload.get("archived")), default=False)
+        payload["archived"] = to_bool(
+            str(payload.get("archived")), default=False)
         return self.client.create(self.endpoint, payload, **kwargs)
 
 
@@ -429,12 +441,11 @@ class VLANZonesResource(BaseResource):
     endpoint = HuduEndpoint.VLAN_ZONES
 
     def create(self, payload: dict, **kwargs):
-        validate_vlan_id_ranges(
-            str(payload.get("vlan_id_ranges")))
+        validate_vlan_id_ranges(str(payload.get("vlan_id_ranges")))
 
-        payload["archived"] = to_bool(str(payload.get("archived")), default=False)
+        payload["archived"] = to_bool(
+            str(payload.get("archived")), default=False)
         return self.client.create(self.endpoint, payload, **kwargs)
-
 
 
 class RelationsResource(BaseResource):
@@ -491,15 +502,14 @@ class ProcedureTasksResource(BaseResource):
     def get(self, item_id=None, **params):
         if item_id is not None and params:
             raise ValueError(
-                "Provide either item_id or query params, not both"
-                )
+                "Provide either item_id or query params, not both")
 
         if item_id is None:
             return self.list(**params)
 
         path = self.endpoint.item_path(item_id)
-        return self.client.get(path, paginate=False, 
-                               property_name = "procedure_tasks")
+        return self.client.get(path, paginate=False, property_name="procedure_tasks")
+
 
 class CardsResource(BaseResource):
     endpoint = HuduEndpoint.CARDS_LOOKUP
@@ -527,4 +537,3 @@ class ExpirationsResource(BaseResource):
 
 class ListResourceListResource(BaseResource):
     endpoint = HuduEndpoint.LISTS
-

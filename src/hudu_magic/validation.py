@@ -1,11 +1,11 @@
 from __future__ import annotations
-from curses import meta
 import ipaddress
 from pathlib import Path
 from typing import Any
 from .help import format_fields_block, supported_methods
 from .endpoints import FieldMeta, HuduEndpoint
-from .constants import (ALLOWED_PHOTOABLE_TYPES, ALLOWED_PUBLIC_PHOTOABLE_TYPES, TRUTHY_VALUES,
+from .constants import (ALLOWED_PHOTOABLE_TYPES,
+                        ALLOWED_PUBLIC_PHOTOABLE_TYPES, TRUTHY_VALUES,
                         FALSY_VALUES,
                         VLAN_ID_RANGES_PATTERN,
                         FROMABLE_TOABLE_TYPES,
@@ -13,6 +13,23 @@ from .constants import (ALLOWED_PHOTOABLE_TYPES, ALLOWED_PUBLIC_PHOTOABLE_TYPES,
                         ALLOWED_PHOTO_EXTS,
                         ALLOWED_PUBPHOTO_EXTS
                         )
+
+
+class HuduError(Exception):
+    """Base exception for hudu_magic."""
+
+
+class HuduConfigurationError(HuduError):
+    """Raised when client or instance configuration is invalid."""
+
+
+class HuduAPIError(HuduError):
+    """Raised when the Hudu API returns an error response."""
+
+    def __init__(self, status_code: int, message: str):
+        self.status_code = status_code
+        super().__init__(f"Hudu API error ({status_code}): {message}")
+
 
 class HuduValidationError(ValueError):
     """Raised when a request payload fails local SDK validation."""
@@ -24,10 +41,12 @@ class HuduNotImplementedError(NotImplementedError):
 
 def validate_relatables(fromable_endpoint: str, toable_endpoint: str) -> None:
     if fromable_endpoint not in FROMABLE_TOABLE_TYPES:
-        raise HuduValidationError(f"Objects of type {fromable_endpoint} cannot be related to any other objects")
+        raise HuduValidationError(
+            f"Objects of type {fromable_endpoint} cannot be related to any other objects")
 
     if toable_endpoint not in FROMABLE_TOABLE_TYPES:
-        raise HuduValidationError(f"Objects of type {toable_endpoint} cannot be related to any other objects")
+        raise HuduValidationError(
+            f"Objects of type {toable_endpoint} cannot be related to any other objects")
 
 
 def coerce_value(value: Any, meta: FieldMeta) -> Any:
@@ -149,9 +168,11 @@ def validate_payload(
             f"{', '.join(missing_required)}"
         )
 
+
 def validate_required_string(value: str, field_name: str) -> str:
     if not isinstance(value, str) or not value.strip():
-        raise ValueError(f"{field_name} is required and must be a non-empty string")
+        raise ValueError(
+            f"{field_name} is required and must be a non-empty string")
     return value
 
 
@@ -164,13 +185,15 @@ def validate_required_int(value: int, field_name: str) -> int:
 def validate_int_range(value: int, field_name: str, minimum: int, maximum: int) -> int:
     validate_required_int(value, field_name)
     if not (minimum <= value <= maximum):
-        raise ValueError(f"{field_name} must be between {minimum} and {maximum}")
+        raise ValueError(
+            f"{field_name} must be between {minimum} and {maximum}")
     return value
 
 
 def validate_choice(value: str, field_name: str, allowed: set[str]) -> str:
     if value not in allowed:
-        raise ValueError(f"{field_name} must be one of: {', '.join(sorted(allowed))}")
+        raise ValueError(
+            f"{field_name} must be one of: {', '.join(sorted(allowed))}")
     return value
 
 
@@ -192,7 +215,8 @@ def validate_network_address(value: str) -> str:
     try:
         ipaddress.ip_network(value, strict=False)
     except ValueError as exc:
-        raise ValueError(f"address must be a valid CIDR network: {value}") from exc
+        raise ValueError(
+            f"address must be a valid CIDR network: {value}") from exc
     return value
 
 
@@ -201,7 +225,8 @@ def validate_ip_address(value: str) -> str:
     try:
         ipaddress.ip_address(value)
     except ValueError as exc:
-        raise ValueError(f"address must be a valid IP address: {value}") from exc
+        raise ValueError(
+            f"address must be a valid IP address: {value}") from exc
     return value
 
 

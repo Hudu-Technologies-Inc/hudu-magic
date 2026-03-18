@@ -1,12 +1,21 @@
 import re
 
+# Validation
 
-ASSET_LAYOUT_ALLOWED_FIELDS = [
-    "label",
-    "field_type",
-    "required",
-    "show_in_list",
-    "position",
+TRUTHY_VALUES = {"true", "1", "yes", "y", "on", "t"}
+FALSY_VALUES = {"false", "0", "no", "n", "off", "f", "", "none", "null"}
+
+VLAN_ID_RANGES_PATTERN = re.compile(
+    r"^([1-9][0-9]{0,3}-[1-9][0-9]{0,3})(,([1-9][0-9]{0,3}-[1-9][0-9]{0,3}))*$"
+)
+
+MATCH_FOUND_OPTIONS = [
+    "always ask me if matching",
+    "always skip import if matching (keep dest data)",
+    "always overwrite destination if matching (keep source data)",
+    "auto-select more-recent last updated date (keep most-recent)",
+    "auto-select earlier created-on date (keep)",
+    "ask me after each type of item.",
 ]
 
 FROMABLE_TOABLE_TYPES = (
@@ -24,15 +33,6 @@ FROMABLE_TOABLE_TYPES = (
 )
 
 
-MATCH_FOUND_OPTIONS = [
-    "always ask me if matching",
-    "always skip import if matching (keep dest data)",
-    "always overwrite destination if matching (keep source data)",
-    "auto-select more-recent last updated date (keep most-recent)",
-    "auto-select earlier created-on date (keep)",
-    "ask me after each type of item.",
-]
-
 FIELD_TYPES = [
     "Text",
     "Number",
@@ -48,6 +48,8 @@ FIELD_TYPES = [
 ]
 
 NESTED_FIELD_TYPES = ["ListSelect"]
+
+# Isomorphism for get/save operations without raising errors for unknown fields
 
 PROPERTIES_TO_POP_ON_SAVE = {
     "created_on",
@@ -153,12 +155,7 @@ IPAM_PROPERTIES_TO_POP_ON_SAVE = {
     "networks_count",
 }
 
-TRUTHY_VALUES = {"true", "1", "yes", "y", "on", "t"}
-FALSY_VALUES = {"false", "0", "no", "n", "off", "f", "", "none", "null"}
-
-VLAN_ID_RANGES_PATTERN = re.compile(
-    r"^([1-9][0-9]{0,3}-[1-9][0-9]{0,3})(,([1-9][0-9]{0,3}-[1-9][0-9]{0,3}))*$"
-)
+# Direct Object Relations
 
 ALLOWED_UPLOADABLE_TYPES = {
     "VlanZone",
