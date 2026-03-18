@@ -2,30 +2,10 @@
 param(
     [switch]$Clean,
     [switch]$Test,
-    [switch]$Build = $true,
+    [switch]$Install,
     [ValidateSet("none","testpypi","pypi")]
     [string]$Publish = "none"
 )
-
-
-function Get-PythonCommand {
-    $candidates = @(
-        (Get-Command py -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source -ErrorAction SilentlyContinue),
-        (Get-Command python -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source -ErrorAction SilentlyContinue),
-        "$env:LocalAppData\Programs\Python\Python314\python.exe",
-        "$env:ProgramFiles\Python314\python.exe",
-        "$env:ProgramFiles\Python\Python314\python.exe"
-    ) | Where-Object { $_ -and (Test-Path $_) }
-
-    $python = $candidates | Select-Object -First 1
-    if (-not $python) {
-        throw "Could not find a working Python executable."
-    }
-    return $python
-}
-
-$PythonCmd = Get-PythonCommand
-& $PythonCmd --version
 
 $ErrorActionPreference = "Stop"
 
@@ -38,15 +18,27 @@ function Invoke-Step {
     & $Script
 }
 
+$PythonCmd = Join-Path $PSScriptRoot ".venv\Scripts\python.exe"
+if (-not (Test-Path $PythonCmd)) {
+    throw "Virtual environment not found. Run .\install.ps1 first."
+}
+
 if ($Clean) {
     Invoke-Step "Cleaning build artifacts" {
-        Remove-Item -Recurse -Force dist, build -ErrorAction SilentlyContinue
-        Get-ChildItem -Directory -Filter *.egg-info | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+        Remove-Item -Recurse -Force (Join-Path $PSScriptRoot "dist") -ErrorAction SilentlyContinue
+        Remove-Item -Recurse -Force (Join-Path $PSScriptRoot "build") -ErrorAction SilentlyContinue
+        Get-ChildItem -Path $PSScriptRoot -Directory -Filter "*.egg-info" | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
     }
 }
 
 Invoke-Step "Ensuring build tools" {
     & $PythonCmd -m pip install --upgrade pip build twine
+}
+
+if ($Install) {
+    Invoke-Step "Installing package in editable mode" {
+        & $PythonCmd -m pip install -e .
+    }
 }
 
 if ($Test) {
@@ -55,25 +47,23 @@ if ($Test) {
     }
 }
 
-if ($Build) {
-    Invoke-Step "Building sdist and wheel" {
-        & $PythonCmd -m build
-    }
+Invoke-Step "Building sdist and wheel" {
+    & $PythonCmd -m build
+}
 
-    Invoke-Step "Checking distributions" {
-        & $PythonCmd -m twine check dist/*
-    }
+Invoke-Step "Checking distributions" {
+    & $PythonCmd -m twine check (Join-Path $PSScriptRoot "dist\*")
 }
 
 switch ($Publish) {
     "testpypi" {
         Invoke-Step "Uploading to TestPyPI" {
-            & $PythonCmd -m twine upload --repository testpypi dist/*
+            & $PythonCmd -m twine upload --repository testpypi (Join-Path $PSScriptRoot "dist\*")
         }
     }
     "pypi" {
         Invoke-Step "Uploading to PyPI" {
-            & $PythonCmd -m twine upload dist/*
+            & $PythonCmd -m twine upload (Join-Path $PSScriptRoot "dist\*")
         }
     }
 }
