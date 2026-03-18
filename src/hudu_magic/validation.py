@@ -2,9 +2,10 @@ from __future__ import annotations
 import ipaddress
 from pathlib import Path
 from typing import Any
-
-from .endpoints import HuduEndpoint
-from .constants import (ALLOWED_PHOTOABLE_TYPES, ALLOWED_PUBLIC_PHOTOABLE_TYPES, TRUTHY_VALUES,
+from .help import format_fields_block, supported_methods
+from .endpoints import FieldMeta, HuduEndpoint
+from .constants import (ALLOWED_PHOTOABLE_TYPES,
+                        ALLOWED_PUBLIC_PHOTOABLE_TYPES, TRUTHY_VALUES,
                         FALSY_VALUES,
                         VLAN_ID_RANGES_PATTERN,
                         FROMABLE_TOABLE_TYPES,
@@ -13,15 +14,106 @@ from .constants import (ALLOWED_PHOTOABLE_TYPES, ALLOWED_PUBLIC_PHOTOABLE_TYPES,
                         ALLOWED_PUBPHOTO_EXTS
                         )
 
+
+class HuduError(Exception):
+    """Base exception for hudu_magic."""
+
+
+class HuduConfigurationError(HuduError):
+    """Raised when client or instance configuration is invalid."""
+
+
+class HuduAPIError(HuduError):
+    """Raised when the Hudu API returns an error response."""
+
+    def __init__(self, status_code: int, message: str):
+        self.status_code = status_code
+        super().__init__(f"Hudu API error ({status_code}): {message}")
+
+
 class HuduValidationError(ValueError):
     """Raised when a request payload fails local SDK validation."""
 
+
+class HuduNotImplementedError(NotImplementedError):
+    """Raised when a requested operation is not implemented."""
+
+
 def validate_relatables(fromable_endpoint: str, toable_endpoint: str) -> None:
     if fromable_endpoint not in FROMABLE_TOABLE_TYPES:
-        raise HuduValidationError(f"Objects of type {fromable_endpoint} cannot be related to any other objects")
+        raise HuduValidationError(
+            f"Objects of type {fromable_endpoint} cannot be related to any other objects")
 
     if toable_endpoint not in FROMABLE_TOABLE_TYPES:
-        raise HuduValidationError(f"Objects of type {toable_endpoint} cannot be related to any other objects")
+        raise HuduValidationError(
+            f"Objects of type {toable_endpoint} cannot be related to any other objects")
+
+
+def coerce_value(value: Any, meta: FieldMeta) -> Any:
+    if value is None:
+        return None
+
+    if meta.enum and value not in meta.enum:
+        raise ValueError(
+            f"Invalid value for '{meta.name}': {value!r}. "
+            f"Allowed: {meta.enum}"
+        )
+
+    if meta.type == "integer":
+        return int(value)
+    if meta.type == "boolean":
+        if isinstance(value, bool):
+            return to_bool(value)
+    if meta.type == "number":
+        return float(value)
+    if meta.type == "array":
+        if isinstance(value, list):
+            return value
+        return [value]
+    if meta.type == "string":
+        return str(value)
+
+    return value
+
+
+def coerce_and_validate_params(
+    provided: dict[str, Any],
+    field_map: dict[str, FieldMeta],
+    *,
+    context: str = "",
+    required_fields: tuple[str, ...] = (),
+    allow_unknown: bool = False,
+) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+
+    for name in required_fields:
+        if name not in provided or provided[name] is None:
+            raise ValueError(f"{context}: missing required field '{name}'")
+
+    for key, value in provided.items():
+        meta = field_map.get(key)
+        if meta is None:
+            if allow_unknown:
+                result[key] = value
+                continue
+            raise ValueError(f"{context}: unknown field '{key}'")
+
+        result[key] = coerce_value(value, meta)
+
+    return result
+
+
+def describe_payload(endpoint: HuduEndpoint, operation: str) -> str:
+    meta = endpoint.meta
+    lines = [f"{meta.tag} ({endpoint.path})"]
+
+    if operation == "create":
+        lines.extend(format_fields_block("Create fields", meta.create_fields))
+    elif operation == "update":
+        lines.extend(format_fields_block("Update fields", meta.update_fields))
+
+    return "\n".join(lines)
+
 
 def validate_payload(
     endpoint: HuduEndpoint,
@@ -34,19 +126,26 @@ def validate_payload(
         raise HuduValidationError("payload must be a dict")
 
     meta = endpoint.meta
-
-    if operation == "create" and not meta.supports_create:
-        raise HuduValidationError(f"{endpoint.name} does not support create")
-
-    if operation == "update" and not meta.supports_update:
-        raise HuduValidationError(f"{endpoint.name} does not support update")
+    methods = ", ".join(supported_methods(meta))
 
     if operation == "create":
+        if not meta.supports_create:
+            raise HuduValidationError(
+                f"{endpoint.name} does not support create. Supported methods:\n"
+                f"{methods}"
+            )
         required_fields = set(meta.create_required_fields or ())
-        allowed_fields = set(meta.create_fields.keys() or ())
+        allowed_fields = set((meta.create_fields or {}).keys())
+
     elif operation == "update":
+        if not meta.supports_update:
+            raise HuduValidationError(
+                f"{endpoint.name} does not support update. Supported methods:\n"
+                f"{methods}"
+            )
         required_fields = set(meta.update_required_fields or ())
-        allowed_fields = set(meta.update_fields.keys() or ())
+        allowed_fields = set((meta.update_fields or {}).keys())
+
     else:
         raise HuduValidationError(f"Unsupported operation: {operation}")
 
@@ -54,7 +153,8 @@ def validate_payload(
         unknown_fields = sorted(set(payload.keys()) - allowed_fields)
         if unknown_fields:
             raise HuduValidationError(
-                f"Unknown field(s) for {endpoint.name} {operation}: {', '.join(unknown_fields)}"
+                f"Unknown field(s) for {endpoint.name} {operation}:\n"
+                f"{', '.join(unknown_fields)}"
             )
 
     missing_required = sorted(
@@ -64,12 +164,15 @@ def validate_payload(
     )
     if missing_required:
         raise HuduValidationError(
-            f"Missing required field(s) for {endpoint.name} {operation}: {', '.join(missing_required)}"
+            f"Missing required field(s) for {endpoint.name} {operation}:\n"
+            f"{', '.join(missing_required)}"
         )
+
 
 def validate_required_string(value: str, field_name: str) -> str:
     if not isinstance(value, str) or not value.strip():
-        raise ValueError(f"{field_name} is required and must be a non-empty string")
+        raise ValueError(
+            f"{field_name} is required and must be a non-empty string")
     return value
 
 
@@ -82,13 +185,15 @@ def validate_required_int(value: int, field_name: str) -> int:
 def validate_int_range(value: int, field_name: str, minimum: int, maximum: int) -> int:
     validate_required_int(value, field_name)
     if not (minimum <= value <= maximum):
-        raise ValueError(f"{field_name} must be between {minimum} and {maximum}")
+        raise ValueError(
+            f"{field_name} must be between {minimum} and {maximum}")
     return value
 
 
 def validate_choice(value: str, field_name: str, allowed: set[str]) -> str:
     if value not in allowed:
-        raise ValueError(f"{field_name} must be one of: {', '.join(sorted(allowed))}")
+        raise ValueError(
+            f"{field_name} must be one of: {', '.join(sorted(allowed))}")
     return value
 
 
@@ -110,7 +215,8 @@ def validate_network_address(value: str) -> str:
     try:
         ipaddress.ip_network(value, strict=False)
     except ValueError as exc:
-        raise ValueError(f"address must be a valid CIDR network: {value}") from exc
+        raise ValueError(
+            f"address must be a valid CIDR network: {value}") from exc
     return value
 
 
@@ -119,7 +225,8 @@ def validate_ip_address(value: str) -> str:
     try:
         ipaddress.ip_address(value)
     except ValueError as exc:
-        raise ValueError(f"address must be a valid IP address: {value}") from exc
+        raise ValueError(
+            f"address must be a valid IP address: {value}") from exc
     return value
 
 

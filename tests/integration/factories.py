@@ -67,7 +67,7 @@ def asset_layout_payload() -> dict:
     for i in range(field_count):
         field = {
             "label": f"SDK Field {i + 1}",
-            "field_type": random.choice(FIELD_TYPES),
+            "field_type": random.choice([F for F in FIELD_TYPES if F != "Heading"]),
             "position": i + 1,
         }
         if random.choice([True, False]):

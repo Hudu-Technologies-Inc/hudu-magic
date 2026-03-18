@@ -1,32 +1,28 @@
 from __future__ import annotations
-import requests
+
 from typing import Any
-from dataclasses import dataclass, field
-from enum import Enum
+
+import requests
+
 from hudu_magic.endpoints import HuduEndpoint
-from hudu_magic.exceptions import HuduAPIError
 from hudu_magic.instance import Instance
-from .validation import validate_payload
+
+from .models import MODEL_MAP, HuduCollection
 from .payloads import maybe_wrap_payload
-from .resources import (
-    AssetsResource,
-    AssetPasswordsResource,
-    AssetLayoutsResource,
-    ArticlesResource,
-    CompaniesResource,
-    FoldersResource,
-    PasswordFoldersResource,
-    NetworksResource,
-    IPAddressesResource,
-    PhotosResource,
-    PublicPhotosResource,
-    RelationsResource,
-    UploadsResource,
-    VlansResource,
-    VLANZonesResource,
-    WebsitesResource,
-)
-from .models import HuduObject, MODEL_MAP
+from .resources import (ActivityLogsResource, ArticlesResource,
+                        Asset_LayoutsResource, AssetPasswordsResource,
+                        AssetsResource, CardsResource, CompaniesResource,
+                        ExpirationsResource, FlagsResource, FlagTypesResource,
+                        FoldersResource, GroupsResource, IPAddressesResource,
+                        ListResourceListResource, MagicDashesResource,
+                        NetworksResource, PasswordFoldersResource,
+                        PhotosResource, ProceduresResource,
+                        ProcedureTasksResource, PublicPhotosResource,
+                        RackStorageItemResource, RackStorageResource,
+                        RelationsResource, UploadsResource, UsersResource,
+                        VlansResource, VLANZonesResource, WebsitesResource)
+from .validation import HuduAPIError, validate_payload
+
 
 class HuduClient:
     def __init__(self, api_key: str, instance_url: str, timeout: int = 30):
@@ -34,12 +30,12 @@ class HuduClient:
         self.timeout = timeout
         self.session = requests.Session()
         self.session.headers.update(self.instance.get_request_headers)
-
+        self.version = None
         self.companies = CompaniesResource(self)
         self.articles = ArticlesResource(self)
         self.folders = FoldersResource(self)
         self.websites = WebsitesResource(self)
-        self.asset_layouts = AssetLayoutsResource(self)
+        self.asset_layouts = Asset_LayoutsResource(self)
         self.assets = AssetsResource(self)
         self.asset_passwords = AssetPasswordsResource(self)
         self.password_folders = PasswordFoldersResource(self)
@@ -51,8 +47,33 @@ class HuduClient:
         self.vlans = VlansResource(self)
         self.vlan_zones = VLANZonesResource(self)
         self.networks = NetworksResource(self)
-
+        self.users = UsersResource(self)
+        self.groups = GroupsResource(self)
+        self.procedures = ProceduresResource(self)
+        self.procedure_tasks = ProcedureTasksResource(self)
+        self.rack_storage_items = RackStorageItemResource(self)
+        self.rack_storages = RackStorageResource(self)
+        self.ActivityLogs = ActivityLogsResource(self)
+        self.flags = FlagsResource(self)
+        self.flag_types = FlagTypesResource(self)
+        self.cards = CardsResource(self)
+        self.magic_dashes = MagicDashesResource(self)
+        self.lists = ListResourceListResource(self)
+        self.expirations = ExpirationsResource(self)
         # aliases
+        self.ActivityLog = self.ActivityLogs
+        self.activity_log = self.ActivityLogs
+        self.flag = self.flags
+        self.flag_type = self.flag_types
+        self.card = self.cards
+        self.magic_dash = self.magic_dashes
+        self.list = self.lists
+        self.rack_storage = self.rack_storages
+        self.rack_storage_item = self.rack_storage_items
+        self.procedure_task = self.procedure_tasks
+        self.procedure = self.procedures
+        self.group = self.groups
+        self.user = self.users
         self.photo = self.photos
         self.public_photo = self.public_photos
         self.relation = self.relations
@@ -79,15 +100,24 @@ class HuduClient:
         self.website = self.websites
         self.asset_layout = self.asset_layouts
 
+    def check_version(self):
+        if self.version is None:
+            info = (self.get("api_info"))
+            self.version = info.get("version", "unknown") if isinstance(
+                info, dict) else None
+        return self.version
+
     def build_url(self, endpoint: HuduEndpoint | str) -> str:
-        endpoint_path = endpoint.endpoint if isinstance(endpoint, HuduEndpoint) else str(endpoint).lstrip("/")
+        endpoint_path = endpoint.endpoint if isinstance(
+            endpoint, HuduEndpoint) else str(endpoint).lstrip("/")
         return f"{self.instance.instance_url}/{endpoint_path}"
 
     def _handle_response(self, response: requests.Response) -> Any:
         if not response.ok:
             try:
                 payload = response.json()
-                message = payload.get("message") or payload.get("error") or response.text
+                message = payload.get("message") or payload.get(
+                    "error") or response.text
             except Exception:
                 message = response.text
 
@@ -123,7 +153,7 @@ class HuduClient:
                 return value
 
         return result
-        
+
     def _wrap_result(self, endpoint, result):
         if not isinstance(endpoint, HuduEndpoint):
             return result
@@ -133,7 +163,10 @@ class HuduClient:
             return result
 
         if isinstance(result, list):
-            return [model_cls(self, endpoint, item) if isinstance(item, dict) else item for item in result]
+            return HuduCollection(
+                [model_cls(self, endpoint, item) if isinstance(item, dict)
+                 else item for item in result]
+            )
 
         if isinstance(result, dict):
             collection_key = endpoint.resource_name
@@ -209,18 +242,26 @@ class HuduClient:
             timeout=self.timeout,
         )
         return self._handle_response(response)
-    def get(self, endpoint, params=None, paginate: bool | None = None):
+
+    def get(
+        self,
+        endpoint: HuduEndpoint | str,
+        params: dict | None = None,
+        paginate: bool | None = None,
+        property_name: str | None = None,
+    ):
         if isinstance(endpoint, HuduEndpoint):
             if paginate is None:
                 paginate = endpoint.is_paginated
 
             if paginate:
-                result = self._get_all_pages(endpoint, params)
+                result = self._get_all_pages(
+                    endpoint, params, property_name=property_name)
                 return self._wrap_result(endpoint, result)
 
         result = self._get_nonpaginated(endpoint, params)
         return self._wrap_result(endpoint, result)
-        
+
     def _get_nonpaginated(self, endpoint: HuduEndpoint | str, params: dict | None = None) -> Any:
         response = self.session.get(
             self.build_url(endpoint),
@@ -229,11 +270,16 @@ class HuduClient:
         )
         return self._handle_response(response)
 
-
-    def _get_all_pages(self, endpoint: HuduEndpoint, params: dict | None = None) -> list[dict]:
+    def _get_all_pages(
+        self,
+        endpoint: HuduEndpoint,
+        params: dict | None = None,
+        property_name: str | None = None,
+    ) -> list[dict]:
         page = 1
         all_items: list[dict] = []
         params = dict(params or {})
+        seen_signatures: set[tuple] = set()
 
         while True:
             page_params = dict(params)
@@ -242,7 +288,8 @@ class HuduClient:
             result = self._get_nonpaginated(endpoint, params=page_params)
 
             if isinstance(result, dict):
-                items = result.get(endpoint.endpoint) or result.get("items") or result.get("data") or []
+                items = result.get(property_name) or result.get(
+                    endpoint.resource_name) or result.get("items") or result.get("data") or []
             elif isinstance(result, list):
                 items = result
             else:
@@ -251,10 +298,28 @@ class HuduClient:
             if not items:
                 break
 
+            signature = tuple(
+                item.get("id") for item in items
+                if isinstance(item, dict)
+            )
+            if signature in seen_signatures:
+                break
+
+            seen_signatures.add(signature)
             all_items.extend(items)
             page += 1
 
         return all_items
+
+    def archive(self, endpoint: HuduEndpoint | str, item_id: int | str,
+                payload: dict | None = None):
+        path = self.resolve_path(endpoint, item_id) + "/archive"
+        return self.put(path, json=payload)
+
+    def unarchive(self, endpoint: HuduEndpoint | str, item_id: int | str,
+                  payload: dict | None = None):
+        path = self.resolve_path(endpoint, item_id) + "/unarchive"
+        return self.put(path, json=payload)
 
     def create(
         self,
@@ -273,7 +338,6 @@ class HuduClient:
         )
         result = self.post(endpoint, json=prepared)
         return self._wrap_result(endpoint, result)
-        
 
     def update(
         self,

@@ -42,7 +42,6 @@ def test_create_company_live(integration_client):
 def test_create_random_asset_layout(integration_client):
 
     payload = random_asset_layout_payload()
-    print(payload)
     result = integration_client.create(
         HuduEndpoint.ASSET_LAYOUTS,
         payload,

@@ -1,5 +1,11 @@
+from hudu_magic.constants import (COMPANY_PROPERTIES_TO_POP_ON_SAVE,
+                                  FOLDER_PROPERTIES_TO_POP_ON_SAVE,
+                                  IPAM_PROPERTIES_TO_POP_ON_SAVE,
+                                  PASSWORD_PROPERTIES_TO_POP_ON_SAVE,
+                                  PROPERTIES_TO_POP_ON_SAVE,
+                                  WEBSITE_PROPERTIES_TO_POP_ON_SAVE)
 from hudu_magic.endpoints import HuduEndpoint
-from hudu_magic.constants import PROPERTIES_TO_POP_ON_SAVE, COMPANY_PROPERTIES_TO_POP_ON_SAVE, PASSWORD_PROPERTIES_TO_POP_ON_SAVE, WEBSITE_PROPERTIES_TO_POP_ON_SAVE, FOLDER_PROPERTIES_TO_POP_ON_SAVE, IPAM_PROPERTIES_TO_POP_ON_SAVE
+
 RESOURCE_WRAPPERS = {
     "asset_layouts": "asset_layout",
     "companies": "company",
@@ -24,6 +30,7 @@ RESOURCE_WRAPPERS = {
     "asset_layouts_move_layout": "asset",
 }
 
+
 def maybe_wrap_payload(endpoint: HuduEndpoint | str, payload: dict) -> dict:
     if not isinstance(endpoint, HuduEndpoint):
         return payload
@@ -38,6 +45,7 @@ def maybe_wrap_payload(endpoint: HuduEndpoint | str, payload: dict) -> dict:
         return payload
 
     return {wrapper: payload}
+
 
 def transform_asset_fields_for_save(fields):
     transformed = []
@@ -58,6 +66,8 @@ def transform_asset_fields_for_save(fields):
         transformed.append(field)
 
     return transformed
+
+
 def transform_custom_fields_for_save(fields):
     """
     Convert Hudu GET-style custom fields:
@@ -114,30 +124,30 @@ def normalize_asset_payload_for_save(data: dict) -> dict:
     if "fields" in data and "custom_fields" not in payload:
         payload["custom_fields"] = transform_asset_fields_for_save(
             data["fields"]
-            )
+        )
     return payload
 
 
 def normalize_company_payload_for_save(data: dict) -> dict:
-    return {k: v for k, v in data.items() 
+    return {k: v for k, v in data.items()
             if k not in COMPANY_PROPERTIES_TO_POP_ON_SAVE and v is not None}
 
 
 def normalize_password_payload_for_save(data: dict) -> dict:
-    return {k: v for k, v in data.items() 
+    return {k: v for k, v in data.items()
             if k not in PASSWORD_PROPERTIES_TO_POP_ON_SAVE and v is not None}
 
 
 def normalize_website_payload_for_save(data: dict) -> dict:
-    return {k: v for k, v in data.items() 
+    return {k: v for k, v in data.items()
             if k not in WEBSITE_PROPERTIES_TO_POP_ON_SAVE and v is not None}
 
 
 def normalize_folder_payload_for_save(data: dict) -> dict:
-    return {k: v for k, v in data.items() 
+    return {k: v for k, v in data.items()
             if k not in FOLDER_PROPERTIES_TO_POP_ON_SAVE and v is not None}
 
 
 def normalize_ipam_payload_for_save(data: dict) -> dict:
-    return {k: v for k, v in data.items() 
+    return {k: v for k, v in data.items()
             if k not in IPAM_PROPERTIES_TO_POP_ON_SAVE and v is not None}

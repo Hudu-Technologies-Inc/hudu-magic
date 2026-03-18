@@ -1,5 +1,3 @@
-Asset_Layout_Allowed_fields = ["label", "field_type", "required", "show_in_list", "position"]
-
 fromable_toable_types = {
     "RackStorage": "rack_storages",
     "Password": "asset_passwords",
@@ -18,4 +16,3 @@ match_found_options = [
     "auto-select earlier created-on date (keep)",
     "ask me after each type of item.",
 ]
-
