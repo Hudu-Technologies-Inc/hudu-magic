@@ -1,12 +1,14 @@
 # hudu-magic
 
-purposefully tiny, enum-driven, and class-based API client library for Hudu
+A **tiny, enum-driven, class-based Python API client** for Hudu.
 
-**Low-Maintenance, generated from openapi spec**
+- Minimal dependencies  
+- Generated from OpenAPI  
+- Low Maintenance
+- Designed for clarity and maintainability  
+
 
 ---
-
-# Getting Started - Installing
 
 ## Installing Python
 
@@ -25,21 +27,145 @@ chmod +x ./install-python.sh && ./install-python.sh
 
 ---
 
-## Install hudu-magic package in Python
-if you already have python 3.11 - 3.9, you can install to system packages or your virtual environment packages (reccomended) with the below command(s).
+# Quick Start
 
-for now, first build with the below script
-```
-./build.sh
+```python
+from hudu_magic import HuduClient
+
+client = HuduClient(
+    api_key="your_api_key",
+    instance_url="https://yourinstance.huducloud.com"
+)
+
+company = client.companies.create(name="Test Company")
+
+asset = client.assets.create(
+    company_id=company.id,
+    name="Router",
+    asset_layout_id=1,
+)
+
+asset.name = "Updated Router"
+asset.save()
+
+asset.delete()
 ```
 
-after this is published to pypi:
+---
+
+# Installation
+
+## Install package
 
 ```bash
 pip install hudu-magic
 ```
 
-hudu-magic is designed to include almost no non-test/dev dependencies and is mainly just regex magic + pure python, so you'll almost never run into dependency or version conflicts when introducing it to a project and it will always be very lightweight.
+Until published:
+
+```bash
+./build.sh
+pip install dist/*.whl
+```
+
+---
+
+# Usage Info and Guide
+
+There are several examples in the examples folder that might be helpful if you're just starting out
+
+# Core Concepts
+
+## Client
+Handles auth, requests, pagination, wrapping.
+
+```python
+client.assets.list()
+```
+
+## Resources
+Collection-level operations:
+- list()
+- get()
+- create()
+- delete()
+
+## Models (HuduObject)
+Instance-level operations:
+- save()
+- delete()
+- refresh()
+- relate_to()
+
+```python
+asset.save()
+asset.delete()
+```
+
+---
+
+# Creating Objects
+
+The create base method for all objects is simple. you can specify properties in either the payload object (standard dictionary) or as kwargs (just propertyname=value)
+
+This means you can use either:
+
+### kwargs (recommended)
+```python
+client.assets.create(name="Router", company_id=1)
+```
+
+### dict payload
+```python
+client.assets.create(payload={"name": "Router", "company_id": 1})
+```
+
+---
+
+# Updating Objects
+
+```python
+asset.name = "New Name"
+asset.save()
+```
+
+or
+
+```python
+asset.update(name="New Name")
+```
+
+---
+
+# Relations
+
+```python
+asset.relate_to(website)
+```
+
+or
+
+```python
+client.relations.create(from_obj=asset, to_obj=website)
+```
+
+---
+
+# Uploads
+
+```python
+asset.upload_to("file.zip")
+
+uploads = asset.list_uploads()
+```
+
+# Photos
+
+```python
+asset.add_photo("image.png")
+
+photos = asset.list_photos()
+```
 
 ---
 
@@ -49,7 +175,9 @@ hudu-magic is designed to include almost no non-test/dev dependencies and is mai
 
 2. run `python generate-endpoints.py` after sourcing virtual environment (that has dev dependencies installed)
 
-3. run `./build.sh` or `.\build.ps1`
+3. run `./build.sh`
+
+***todo: `.\build.ps1`***
 
 this is designed to be suyper simple so that subsequent releases can eventually just be automatically generated, tested, validated, and pushed to pypi.
 
@@ -59,231 +187,43 @@ unit tests and integration tests run during build, so if you want the integratio
 
 ---
 
-# Usage Info and Guide
+# Error Handling, Additional Info / Help
 
-There are several examples in the examples folder that might be helpful if you're just starting out
 
-## interacting with HuduObjects
+If more information is needed, you can call this method on class members to get all associated info from hudu's API spec-
 
-All classes inherit from the base class, HuduObject, and can therefore all do some basic things (with a few exceptions). Members could be assets, ipaddresses, or other types. If it isn't allow
+`huduobject.help()`
 
-member.get() [aliases: .list()]
+for resources like client.huduobject / client.assets, you can call either of these to get information from hudu's OpenAPI spec-
 
-member.save()
+`client.huduobjecttype.describe()` / `client.huduobjecttype.describe()`
 
-member.keys()
+or for more-verbose info-
 
-member.contains(string)
+`client.huduobjecttype.help()`
 
-member.relate_to(othermember)
-
-member.upload_to(filepath) / member.list_uploads()
-
-member.add_photo() / member.list_photos()
-
-one exception is that, while most objects can be deleted and have .delete() or .delete(id) called from them, asset layouts and a few other object types (users, groups) can't be deleted from Hudu's API, so you'll raise a NotImplementedError.
-
-### Collections
-
-When you get a collection of HuduObjects, it's a HuduCollection and can be used as such in typed parameters for additional safety.
-
-#### Assets
-
-```python
-newasset = client.assets.create(company_id=5,payload={"name": "Router", "asset_layout_id": 2},)
-newasset.name = f"Router name"
-newasset.save()
-otherassets.list_for_company("gregs computers")
-companyassets = client.assets.list_for_company(5)
-otherassets.last.fields["thing1"]=thing2
-otherassets.last.save()
-otherassets.first.delete()
-```
-
-#### Relations
-
-If any object can be related to/from, you can call relations.create to create a new relation
-
-
-```python
-newrelation = client.relations.create(from_obj=newasset, to_obj=newwebsite)
-```
-
-Or, often easier, you can call
-
-```python
-huduobject.relate_to(otherhuduobject)
-```
-
-
-#### Uploads
-
-Similar to relations, this contains a built-in method that can be accessed from instances of uploadable objects
-
-So you can upload like this
-
-```python
-upload = client.uploads.create(file_path="somefile.zip", to_object=newasset)
-```
-
-or, if easier, you can upload a file with
-
-```python
-newasset.Upload_to(somefile.zip)
-newwebsite.upload_to(fileupload)
-```
-
-you can get the specific uploads associated with an object with
-
-```python
-uploadsforarticle = article.list_uploads()
-```
-
-uploads can be deleted with
-
-```python
-myupload.delete()
-```
-
-or 
-
-```python
-client.uploads.delete(id)
-```
-
-#### Photos and Public Photos
-
-Public Photos can be attributed to an asset or an article and can be added in a few ways-
-
-```python
-article.add_photo("mylocalphotopath")
-```
-
-or 
-
-```python
-client.photos.create(file_path="filepath", to_object=article, caption="mycaption")
-```
-
-you can also filter photos or uploads by an instance of an object
-like
-
-```python
-photosforarticle = article.list_photos()
-```
-
-photos can be deleted with
-
-```python
-myphoto.delete()
-client.photos.delete(id)
-```
-
-public photos have similar methods but can only be attributed to assets or articles
-
-```python
-newasset.add_public_photo(fileupload)
-```
-
-#### Articles
-
-```python
-article = client.articles.create(payload={"name":"asdfasdf","content": "This is a test article.","company_id":5})
-otherarticle = client.articles.by_folder(5)
-deletearticle = client.articles.get("ninja warrior").delete()
-article.content = "This is updated content for the test article."
-article.save()
-otherarticle.to_folder("abc")
-deletearticle.delete()
-article.get(client) # all folders
-```
-
-#### Companies
-
-```python
-newcompany = client.companies.create(payload={"name": f"Test Company"})
-othercompany = client.companies("frank's franks")
-newcompany.name = "Updated Test Company"
-othercompany.assign_parent(newcompany)
-tertiarycompany=clent.companies.list()[-1]
-tertiarycompany.delete()
-company.get(client) # all companies
-```
-
-#### Folders
-
-```python
-specificfolder = client.folders.get()
-client.folders.get(5)
-specificfolder.add_article(5)
-specificfolder.add_article(otherarticle)
-Folder.get(client)            # all folders
-Folder.get(client, 5)         # one folder
-client.folders.get(name="IT")  # filtered list
-```
-
-#### IPAM objects
-
-```
-network = client.networks.create(payload={"company_id": 5, "address":"192.168.11.0/24", "name": f"Test Network {str(uuid.uuid4())[:8]}"})
-address = client.ipaddresses.create(payload={"company_id": 5, "network_id": network.id, "address": f"192.168.11.{str(uuid.uuid4().int)[:2]}"})
-
-address.delete()
-network.delete()
-```
-
-
-#### Passwords and Password Folders
-
-```python
-newpassword = client.asset_passwords.create(payload={"company_id": 5, "name": f"Test Password {str(uuid.uuid4())[:8]}", "username": "testuser", "password": "testpass"})
-newpassword.name = f"Updated Test Password {str(uuid.uuid4())[:8]}"
-newpassword.save()
-
-passwordfolder = client.password_folders.create(payload={"company_id": 5, "name": f"Test Password Folder {str(uuid.uuid4())[:8]}","security": "all_users"})
-newpassword.to_folder(passwordfolder)
-
-otherpasswordfolder = client.password_folders.create(payload={"company_id": 5, "name": f"Other Password Folder {str(uuid.uuid4())[:8]}","security": "all_users"})
-newpassword.to_folder(otherpasswordfolder.id)
-
-newpassword.delete()
-```
-
-#### Websites
-
-```python
-client.websites.create(payload={name="https://yourwebsite.org"})
-newwebsite.name = f"https://yourwebsite.net"
-newwebsite.save()
-newwebsite.delete()
-print(f"deleted website with id {newwebsite.id}")
-```
-
-## using in your project
-
-include hudu-magic in your project's requirements.txt file, import as hudu_magic, and instantiate a `HuduClient` class member
-
-```
-from hudu_magic import HuduClient, HuduEndpoint
-
-client = HuduClient(
-    api_key="env.yourkey",
-    instance_url="https://env.yourinstance",
-)
-
-newasset = client.assets.create(company_id=5,payload={"name": "Router", "asset_layout_id": 2},)
-
-newarticle = client.articles.create(payload={name:"this",contents:"that"})
-```
+if an object type or resource doesnt support a method call or payload param, you'll be notified of which one(s), if any, are invalid.
 
 ## Advanced Use Possibilities
 
-You can instantiate two or more client objects, like above, to transfer data from, say, your dev instance to production
+### Multi-Client
 
-Before doing as much or similar, be sure that you aren't better off leveraging Hudu Bridge. For some cases, however, this makes sense.
+You can instantiate two or more client objects, like above, to transfer data from, say, your dev instance to production. This hasn't been extensively tested expecially for objects dependent on companies (assets, passwordfolders)
 
-Since all class members (huduobjects) are isomorphic and known-unwanted payload keys are poppeed during creates/post/put are dropped, so long as you're on the same hudu version, you should be able to do things like:
-
+```python
+client2.assets.create(
+    **client1.assets.get(6).to_dict()
+)
 ```
-client2.assets.create(client1.assets.get(6))
-```
+
+# Philosophy
+
+- Simple > clever  
+- Explicit > implicit  
+- Thin wrapper over Hudu API  
+
+---
+
+# License
+
+MIT
