@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from hudu_magic.help import describe_endpoint
+
 from .endpoints import HuduEndpoint
 from .payloads import (
     clean_payload,
@@ -38,6 +40,9 @@ class HuduObject:
             return self._data[item]
         except KeyError as exc:
             raise AttributeError(item) from exc
+        
+    def help(self) -> str:
+        return "\n".join(describe_endpoint(self._endpoint))
 
     def get(self, key, default=None):
         return self._data.get(key, default)

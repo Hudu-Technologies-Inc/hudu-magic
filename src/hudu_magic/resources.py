@@ -27,6 +27,13 @@ class BaseResource:
     def __init__(self, client):
         self.client = client
 
+    def _merge_payload(self, payload: dict | None, kwargs: dict) -> dict:
+        if payload and kwargs:
+            return {**payload, **kwargs}
+        if payload:
+            return payload
+        return kwargs
+
     def _require_support(self, operation: str) -> None:
         attr_name = f"supports_{operation}"
         if not getattr(self.endpoint.meta, attr_name, False):
@@ -55,13 +62,15 @@ class BaseResource:
 
     def create(self, payload: dict[str, Any], **kwargs) -> Any:
         try:
-            return self.client.create(self.endpoint, payload, **kwargs)
+            merged = self._merge_payload(payload, kwargs)
+            return self.client.create(self.endpoint, merged, **kwargs)
         except HuduValidationError as e:
             self._reraise_with_description(e)
 
     def update(self, item_id: int | str, payload: dict[str, Any], **kwargs) -> Any:
         try:
-            return self.client.update(self.endpoint, item_id, payload, **kwargs)
+            merged = self._merge_payload(payload, kwargs)
+            return self.client.update(self.endpoint, item_id, merged, **kwargs)
         except HuduValidationError as e:
             self._reraise_with_description(e)
 
@@ -111,6 +120,13 @@ class BaseResource:
 
     def new(self, payload: dict, **kwargs):
         return self.create(payload, **kwargs)
+
+    # resource-level help-get
+    def describe(self) -> str:
+        return describe_single(self.endpoint)
+    
+    def help(self) -> str:
+        return self.describe()
 
     # For resources that support file uploads and relations, we can provide helper methods to list related items
     def list_photos(self, to_object: HuduObject, **params):

@@ -65,7 +65,7 @@ There are several examples in the examples folder that might be helpful if you'r
 
 ## interacting with HuduObjects
 
-All classes inherit from the base class, HuduObject, and can therefore all do some basic things (with a few exceptions)
+All classes inherit from the base class, HuduObject, and can therefore all do some basic things (with a few exceptions). Members could be assets, ipaddresses, or other types. If it isn't allow
 
 member.get() [aliases: .list()]
 
@@ -85,7 +85,7 @@ one exception is that, while most objects can be deleted and have .delete() or .
 
 ### Collections
 
-
+When you get a collection of HuduObjects, it's a HuduCollection and can be used as such in typed parameters for additional safety.
 
 #### Assets
 
