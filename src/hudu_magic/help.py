@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from hudu_magic.endpoints import FieldMeta, HuduEndpoint
+from hudu_magic.endpoints import EndpointMeta, FieldMeta, HuduEndpoint
 
 # consume endpoint metadata and produce human-readable descriptions for each
 # explains what fields it accepts, for use in error messages and help commands

@@ -350,7 +350,7 @@ class WebsitesResource(BaseResource):
     endpoint = HuduEndpoint.WEBSITES
 
 
-class AssetLayoutsResource(BaseResource):
+class Asset_LayoutsResource(BaseResource):
     endpoint = HuduEndpoint.ASSET_LAYOUTS
 
 
@@ -381,12 +381,6 @@ class AssetsResource(BaseResource):
         if company_id is None:
             raise ValueError("Asset delete() requires company_id")
         return self.client.delete(f"companies/{company_id}/assets/{item_id}")
-
-    def archive(self):
-        return self.client.put()
-
-    def unarchive(self):
-        return self.client.put(self._endpoint, self.id)
 
     def create(self, company_id: int | str, payload: dict[str, Any], **kwargs) -> Any:
         wrapped = {"asset": payload}

@@ -216,11 +216,14 @@ class HuduObject:
         return self._client.relations.list_relations(to_object=self)
 
     @classmethod
-    def get(cls, client, item_id: int | str | None = None, **params):
+    def fetch(cls, client, item_id: int | str | None = None, **params):
         if not cls.resource_attr:
             raise NotImplementedError(f"{cls.__name__} does not define resource_attr")
 
         resource = getattr(client, cls.resource_attr)
+
+        if hasattr(item_id, "id"):
+            item_id = item_id.id
 
         if item_id is None:
             return resource.list(**params)
@@ -229,11 +232,11 @@ class HuduObject:
 
     @classmethod
     def get_all(cls, client, **params):
-        return cls.get(client, **params)
+        return cls.fetch(client, **params)
 
     @classmethod
     def get_by_id(cls, client, item_id: int | str):
-        return cls.get(client, item_id)
+        return cls.fetch(client, item_id)
 
 
 class Company(HuduObject):
@@ -458,7 +461,8 @@ class Website(HuduObject):
 
 
 class AssetLayout(HuduObject):
-    pass
+    endpoint = HuduEndpoint.ASSET_LAYOUTS
+    resource_attr = "asset_layouts"
 
 
 class PasswordFolder(HuduObject):
@@ -582,7 +586,7 @@ class AssetPassword(HuduObject):
 
     endpoint = HuduEndpoint.ASSET_PASSWORDS
 
-    def to_folder(self, folder: int | HuduObject.password_folder):
+    def to_folder(self, folder: int | PasswordFolder):
         if self.id is None:
             raise ValueError("Cannot add password to folder without an id")
         if isinstance(folder, HuduObject):

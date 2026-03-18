@@ -10,7 +10,7 @@ from hudu_magic.instance import Instance
 from .models import MODEL_MAP, HuduCollection
 from .payloads import maybe_wrap_payload
 from .resources import (ActivityLogsResource, ArticlesResource,
-                        AssetLayoutsResource, AssetPasswordsResource,
+                        Asset_LayoutsResource, AssetPasswordsResource,
                         AssetsResource, CardsResource, CompaniesResource,
                         ExpirationsResource, FlagsResource, FlagTypesResource,
                         FoldersResource, GroupsResource, IPAddressesResource,
@@ -35,7 +35,7 @@ class HuduClient:
         self.articles = ArticlesResource(self)
         self.folders = FoldersResource(self)
         self.websites = WebsitesResource(self)
-        self.asset_layouts = AssetLayoutsResource(self)
+        self.asset_layouts = Asset_LayoutsResource(self)
         self.assets = AssetsResource(self)
         self.asset_passwords = AssetPasswordsResource(self)
         self.password_folders = PasswordFoldersResource(self)
