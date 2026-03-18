@@ -1,12 +1,12 @@
 from __future__ import annotations
 import requests
 from typing import Any
-from dataclasses import dataclass, field
 from hudu_magic.endpoints import HuduEndpoint
 from hudu_magic.exceptions import HuduAPIError
 from hudu_magic.instance import Instance
 from .validation import validate_payload
 from .payloads import maybe_wrap_payload
+from .models import MODEL_MAP, HuduCollection
 from .resources import (
     ActivityLogsResource,
     AssetsResource,
@@ -38,7 +38,6 @@ from .resources import (
     VLANZonesResource,
     WebsitesResource,
 )
-from .models import MODEL_MAP
 
 
 class HuduClient:
@@ -178,7 +177,10 @@ class HuduClient:
             return result
 
         if isinstance(result, list):
-            return [model_cls(self, endpoint, item) if isinstance(item, dict) else item for item in result]
+            return HuduCollection(
+                [model_cls(self, endpoint, item) if isinstance(item, dict)
+                 else item for item in result]
+            )
 
         if isinstance(result, dict):
             collection_key = endpoint.resource_name

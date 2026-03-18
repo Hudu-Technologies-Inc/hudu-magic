@@ -1,5 +1,13 @@
 from hudu_magic.endpoints import EndpointMeta, HuduEndpoint
-from hudu_magic.constants import PROPERTIES_TO_POP_ON_SAVE, COMPANY_PROPERTIES_TO_POP_ON_SAVE, PASSWORD_PROPERTIES_TO_POP_ON_SAVE, WEBSITE_PROPERTIES_TO_POP_ON_SAVE, FOLDER_PROPERTIES_TO_POP_ON_SAVE, IPAM_PROPERTIES_TO_POP_ON_SAVE
+
+from hudu_magic.constants import (
+    PROPERTIES_TO_POP_ON_SAVE,
+    COMPANY_PROPERTIES_TO_POP_ON_SAVE,
+    PASSWORD_PROPERTIES_TO_POP_ON_SAVE,
+    WEBSITE_PROPERTIES_TO_POP_ON_SAVE,
+    FOLDER_PROPERTIES_TO_POP_ON_SAVE,
+    IPAM_PROPERTIES_TO_POP_ON_SAVE
+)
 RESOURCE_WRAPPERS = {
     "asset_layouts": "asset_layout",
     "companies": "company",
@@ -23,89 +31,6 @@ RESOURCE_WRAPPERS = {
     "assets": "asset",
     "asset_layouts_move_layout": "asset",
 }
-
-def describe_single(endpoint: HuduEndpoint) -> str:
-    return "\n\n".join([
-        describe_get(endpoint),
-        describe_create_update(endpoint),
-        describe_delete(endpoint),
-    ])
-
-def endpoint_family_name(endpoint: HuduEndpoint) -> str:
-    name = endpoint.name
-    if name.endswith("_ID"):
-        return name[:-3]
-    return name
-
-def get_related_endpoints(endpoint: HuduEndpoint) -> list[HuduEndpoint]:
-    family_name = endpoint_family_name(endpoint)
-    print(ep for ep in HuduEndpoint if endpoint_family_name(ep) == family_name)
-    
-    return [
-        ep for ep in HuduEndpoint
-        if endpoint_family_name(ep) == family_name
-    ]
-
-def describe(endpoint: HuduEndpoint) -> str:
-    related = get_related_endpoints(endpoint)
-
-    parts = []
-    for ep in related:
-        parts.append(describe_single(ep))
-
-    return "\n\n".join(p for p in parts if p.strip())
-
-def describe_get(endpoint: HuduEndpoint) -> str:
-    meta = endpoint.meta if isinstance(endpoint, HuduEndpoint) else endpoint
-    lines = [f"{meta.tag} ({endpoint.path})"]
-
-    if meta.query_params:
-        lines.append("Query params:")
-        for name, meta in meta.query_params.items():
-            req = "required" if meta.required else "optional"
-            lines.append(f"  - {name}: {meta.type or 'any'} ({req})")
-            if meta.description:
-                lines.append(f"      {meta.description}")
-    else:
-        lines.append("No query params")
-
-    return "\n".join(lines)
-
-def describe_create_update(endpoint: HuduEndpoint) -> str:
-    meta = endpoint.meta if isinstance(endpoint, HuduEndpoint) else endpoint
-    lines = [f"{meta.tag} ({endpoint.path})"]
-
-    if meta.supports_create:
-        lines.append("Supports create")
-    else:
-        lines.append("Does not support create")
-        
-    if meta.supports_update:
-        lines.append("Supports update")
-    else:
-        lines.append("Does not support update")
-
-    if meta.create_fields or meta.update_fields:
-        lines.append("Fields:")
-        for name, meta in (meta.create_fields or meta.update_fields).items():
-            req = "required" if meta.required else "optional"
-            lines.append(f"  - {name}: {meta.type or 'any'} ({req})")
-            if meta.description:
-                lines.append(f"      {meta.description}")
-
-    return "\n".join(lines)
-
-def describe_delete(endpoint: HuduEndpoint) -> str:
-    meta = endpoint.meta if isinstance(endpoint, HuduEndpoint) else endpoint
-    lines = [f"{meta.tag} ({endpoint.path})"]
-
-    if meta.supports_delete:
-        lines.append("Supports delete")
-    else:
-        lines.append("Does not support delete")
-
-    return "\n".join(lines)
-
 
 def maybe_wrap_payload(endpoint: HuduEndpoint | str, payload: dict) -> dict:
     if not isinstance(endpoint, HuduEndpoint):

@@ -3,6 +3,7 @@ from .client import HuduClient
 from .instance import Instance
 from .endpoints import HuduEndpoint
 from .models import Asset
+from .help import describe, describe_endpoint
 from .constants import PROPERTIES_TO_POP_ON_SAVE
 from .helpers.general import (
     strip_string,

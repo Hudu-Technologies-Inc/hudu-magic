@@ -1,8 +1,8 @@
 from __future__ import annotations
 from pathlib import Path
 
+from hudu_magic.help import describe_single, supported_methods
 from hudu_magic.helpers.general import is_version_greater_or_equal
-from hudu_magic.payloads import describe_create_update, describe_delete, describe_get
 from .endpoints import HuduEndpoint, EndpointMeta
 from typing import Any, ClassVar
 from .models import (
@@ -13,6 +13,8 @@ from .models import (
     HuduObject,
 )
 from .validation import (
+    HuduNotImplementedError,
+    HuduValidationError,
     validate_vlan_id,
     validate_vlan_id_ranges,
     validate_network_address,
@@ -29,17 +31,19 @@ class BaseResource:
     def __init__(self, client):
         self.client = client
 
-    def list(self, **params) -> Any:
-        self._require_support("list")
-        return self.client.get(self.endpoint, params=params or None)
+    def _require_support(self, operation: str) -> None:
+        attr_name = f"supports_{operation}"
+        if not getattr(self.endpoint.meta, attr_name, False):
+            raise HuduNotImplementedError(
+                f"{self.endpoint.name} does not support {operation}"
+                f"supported methods are: {supported_methods}")
 
-    def describe(self):
-        return "\n\n".join([
-            describe_get(self.endpoint),
-            describe_create_update(self.endpoint),
-            describe_delete(self.endpoint),
-        ])
+    def _reraise_with_description(self, exc: HuduValidationError) -> None:
+        raise HuduValidationError(
+            f"{exc}\n\n{describe_single(self.endpoint)}"
+        ) from None
 
+    # core methods for interacting with the API
     def get(self, item_id=None, **params):
         if item_id is None:
             if not self.endpoint.meta.supports_list:
@@ -52,45 +56,60 @@ class BaseResource:
         path = self.client.resolve_path(self.endpoint, item_id)
         return self.client.get(path, paginate=False)
 
-    def _require_support(self, operation: str) -> None:
-        attr_name = f"supports_{operation}"
-        if not getattr(self.endpoint.meta, attr_name, False):
-            raise ValueError(f"{self.endpoint.name} does not support {operation}")
+    def create(self, payload: dict[str, Any], **kwargs) -> Any:
+        try:
+            return self.client.create(self.endpoint, payload, **kwargs)
+        except HuduValidationError as e:
+            self._reraise_with_description(e)
+
+    def update(self, item_id: int | str, payload: dict[str, Any], **kwargs) -> Any:
+        try:
+            return self.client.update(self.endpoint, item_id, payload, **kwargs)
+        except HuduValidationError as e:
+            self._reraise_with_description(e)
+
+    def delete(self, item_id: int | str) -> Any:
+        try:
+            self._require_support("delete")
+            path = self.client.resolve_path(self.endpoint, item_id)
+            return self.client.delete(path)
+        except HuduValidationError as e:
+            raise HuduValidationError(
+                f"{e}\n\n{describe_single(self.endpoint)}"
+            ) from None
+
+    def archive(self, item_id: int | str) -> Any:
+        try:
+            self._require_support("archive")
+            path = self.client.resolve_path(self.endpoint, item_id) + "/archive"
+            if item_id is None:
+                raise ValueError("Cannot archive object without an id")
+            return self.client.put(path)
+        except HuduValidationError as e:
+            raise HuduValidationError(
+                f"{e}\n\n{describe_single(self.endpoint)}"
+            ) from None
+
+    def unarchive(self, item_id: int | str) -> Any:
+        try:
+            self._require_support("unarchive")
+            path = self.client.resolve_path(self.endpoint, item_id) + "/unarchive"
+            if item_id is None:
+                raise ValueError("Cannot unarchive object without an id")
+            return self.client.put(path)
+        except HuduValidationError as e:
+            raise HuduValidationError(
+                f"{e}\n\n{describe_single(self.endpoint)}"
+            ) from None
+
+    # aliased methods for convenience and readability
+    def list(self, **params) -> Any:
+        self._require_support("list")
+        return self.client.get(self.endpoint, params=params or None)
 
     def get_all(self, **params):
         return self.get(None, **params)
 
-    def archive(self, item_id: int | str) -> Any:
-        if not self.endpoint.meta.supports_archive:
-            raise ValueError(f"{self.endpoint.name} does not support archive")
-        if item_id is None:
-            raise ValueError("Cannot archive object without an id")
-        path = self.client.resolve_path(self.endpoint, item_id) + "/archive"
-        return self.client.post(path)
-
-    def unarchive(self, item_id: int | str) -> Any:
-        if item_id is None:
-            raise ValueError("Cannot unarchive object without an id")
-        
-        self._require_support("unarchive")
-        path = self.client.resolve_path(self.endpoint, item_id) + "/unarchive"
-        return self.client.post(path)
-
-    def create(self, payload: dict[str, Any], **kwargs) -> Any:
-        self._require_support("create")
-        return self.client.create(self.endpoint, payload, **kwargs)
-
-    def update(self, item_id: int | str,
-               payload: dict[str, Any], **kwargs) -> Any:
-        self._require_support("update")
-        return self.client.update(self.endpoint, item_id, payload, **kwargs)
-
-    def delete(self, item_id: int | str) -> Any:
-        self._require_support("delete")
-        path = self.client.resolve_path(self.endpoint, item_id)
-        return self.client.delete(path)
-
-    # aliased methods for convenience and readability
     def new(self, payload: dict, **kwargs):
         return self.create(payload, **kwargs)
 
@@ -117,6 +136,7 @@ class BaseResource:
                 and str(r.toable_id) == object_id
             )
         ]
+
     def list_uploads(self, to_object: HuduObject):
         uploadable_type = to_object.to_upload_ref()
         object_id = str(to_object.id)
@@ -125,6 +145,7 @@ class BaseResource:
             u for u in self.client.uploads.list()
             if u.uploadable_type == uploadable_type and str(u.uploadable_id) == object_id
         ]
+
 
 class BaseFileResource(BaseResource):
     endpoint: ClassVar[HuduEndpoint]

@@ -1,8 +1,9 @@
 from __future__ import annotations
+from curses import meta
 import ipaddress
 from pathlib import Path
 from typing import Any
-
+from .help import format_fields_block, supported_methods
 from .endpoints import FieldMeta, HuduEndpoint
 from .constants import (ALLOWED_PHOTOABLE_TYPES, ALLOWED_PUBLIC_PHOTOABLE_TYPES, TRUTHY_VALUES,
                         FALSY_VALUES,
@@ -16,12 +17,18 @@ from .constants import (ALLOWED_PHOTOABLE_TYPES, ALLOWED_PUBLIC_PHOTOABLE_TYPES,
 class HuduValidationError(ValueError):
     """Raised when a request payload fails local SDK validation."""
 
+
+class HuduNotImplementedError(NotImplementedError):
+    """Raised when a requested operation is not implemented."""
+
+
 def validate_relatables(fromable_endpoint: str, toable_endpoint: str) -> None:
     if fromable_endpoint not in FROMABLE_TOABLE_TYPES:
         raise HuduValidationError(f"Objects of type {fromable_endpoint} cannot be related to any other objects")
 
     if toable_endpoint not in FROMABLE_TOABLE_TYPES:
         raise HuduValidationError(f"Objects of type {toable_endpoint} cannot be related to any other objects")
+
 
 def coerce_value(value: Any, meta: FieldMeta) -> Any:
     if value is None:
@@ -76,6 +83,19 @@ def coerce_and_validate_params(
 
     return result
 
+
+def describe_payload(endpoint: HuduEndpoint, operation: str) -> str:
+    meta = endpoint.meta
+    lines = [f"{meta.tag} ({endpoint.path})"]
+
+    if operation == "create":
+        lines.extend(format_fields_block("Create fields", meta.create_fields))
+    elif operation == "update":
+        lines.extend(format_fields_block("Update fields", meta.update_fields))
+
+    return "\n".join(lines)
+
+
 def validate_payload(
     endpoint: HuduEndpoint,
     payload: dict[str, Any],
@@ -87,19 +107,26 @@ def validate_payload(
         raise HuduValidationError("payload must be a dict")
 
     meta = endpoint.meta
-
-    if operation == "create" and not meta.supports_create:
-        raise HuduValidationError(f"{endpoint.name} does not support create")
-
-    if operation == "update" and not meta.supports_update:
-        raise HuduValidationError(f"{endpoint.name} does not support update")
+    methods = ", ".join(supported_methods(meta))
 
     if operation == "create":
+        if not meta.supports_create:
+            raise HuduValidationError(
+                f"{endpoint.name} does not support create. Supported methods:\n"
+                f"{methods}"
+            )
         required_fields = set(meta.create_required_fields or ())
-        allowed_fields = set(meta.create_fields.keys() or ())
+        allowed_fields = set((meta.create_fields or {}).keys())
+
     elif operation == "update":
+        if not meta.supports_update:
+            raise HuduValidationError(
+                f"{endpoint.name} does not support update. Supported methods:\n"
+                f"{methods}"
+            )
         required_fields = set(meta.update_required_fields or ())
-        allowed_fields = set(meta.update_fields.keys() or ())
+        allowed_fields = set((meta.update_fields or {}).keys())
+
     else:
         raise HuduValidationError(f"Unsupported operation: {operation}")
 
@@ -107,7 +134,8 @@ def validate_payload(
         unknown_fields = sorted(set(payload.keys()) - allowed_fields)
         if unknown_fields:
             raise HuduValidationError(
-                f"Unknown field(s) for {endpoint.name} {operation}: {', '.join(unknown_fields)}"
+                f"Unknown field(s) for {endpoint.name} {operation}:\n"
+                f"{', '.join(unknown_fields)}"
             )
 
     missing_required = sorted(
@@ -117,7 +145,8 @@ def validate_payload(
     )
     if missing_required:
         raise HuduValidationError(
-            f"Missing required field(s) for {endpoint.name} {operation}: {', '.join(missing_required)}"
+            f"Missing required field(s) for {endpoint.name} {operation}:\n"
+            f"{', '.join(missing_required)}"
         )
 
 def validate_required_string(value: str, field_name: str) -> str:
