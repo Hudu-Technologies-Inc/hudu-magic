@@ -51,3 +51,9 @@ Examples:
   python3.14 --version
   python -m venv .venv
 EOF
+
+python -m venv .venv
+source ~/.venv/bin/activate
+log "Virtual environment created at .venv"
+python -m pip install --upgrade pip
+log "pip upgraded in virtual environment"
