@@ -447,6 +447,9 @@ class AssetsResource(BaseResource):
                     return None
                 if len(result) == 1:
                     return result[0]
+                
+            if isinstance(result, dict):
+                result = self.client._extract_primary_object(result)
 
             return result
 
