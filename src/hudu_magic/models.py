@@ -451,6 +451,12 @@ class Asset(HuduObject):
             company_id=self._require_company_id(),
         )
 
+    def delete(self) -> Any:
+        return self._client.assets.delete(
+            item_id=self._require_id(),
+            company_id=self._require_company_id(),
+        )
+
     def get_path(self) -> str:
         company_id = self._require_company_id()
         return f"companies/{company_id}/assets/{self._require_id()}"
