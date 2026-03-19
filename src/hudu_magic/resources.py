@@ -23,6 +23,23 @@ from .validation import (
 
 class BaseResource:
     endpoint: HuduEndpoint
+    
+    def _resolve_action_path(
+        self,
+        item_id: int | str | None = None,
+        action: str | None = None,
+    ) -> str:
+        if item_id is None:
+            if action is not None:
+                raise ValueError(f"Cannot use action '{action}' without an id")
+            return self.client.resolve_path(self.endpoint)
+
+        path = self.client.resolve_path(self.endpoint, item_id)
+
+        if action:
+            path = f"{path}/{action}"
+
+        return path    
 
     def __init__(self, client):
         self.client = client
@@ -364,6 +381,38 @@ class UploadsResource(BaseFileResource):
 
 class ArticlesResource(BaseResource):
     endpoint = HuduEndpoint.ARTICLES
+
+    def get(self, item_id=None, **params):
+        if item_id is None and "id" in params:
+            item_id = params.pop("id")
+
+        if item_id is None:
+            return self.list(**params)
+
+        raw = self.client._get_nonpaginated(self._resolve_action_path(item_id))
+        return self.client._wrap_result(HuduEndpoint.ARTICLES_ID, raw)
+
+    def create(self, payload: dict[str, Any] | None = None, **kwargs) -> Any:
+        merged = self._merge_payload(payload, kwargs)
+        result = self.client.post(self._resolve_action_path(), json={"article": merged})
+        return self.client._wrap_result(HuduEndpoint.ARTICLES, result)
+
+    def update(self, item_id: int | str, payload: dict[str, Any] | None = None, **kwargs) -> Any:
+        merged = self._merge_payload(payload, kwargs)
+        result = self.client.put(
+            self._resolve_action_path(item_id),
+            json={"article": merged},
+        )
+        return self.client._wrap_result(HuduEndpoint.ARTICLES_ID, result)
+
+    def delete(self, item_id: int | str) -> Any:
+        return self.client.delete(self._resolve_action_path(item_id))
+
+    def archive(self, item_id: int | str) -> Any:
+        return self.client.put(self._resolve_action_path(item_id, "archive"))
+
+    def unarchive(self, item_id: int | str) -> Any:
+        return self.client.put(self._resolve_action_path(item_id, "unarchive"))
 
 
 class FoldersResource(BaseResource):

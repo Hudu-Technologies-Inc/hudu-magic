@@ -204,6 +204,10 @@ or for more-verbose info-
 
 if an object type or resource doesnt support a method call or payload param, you'll be notified of which one(s), if any, are invalid.
 
+# Special Class Methods
+
+
+
 ## Advanced Use Possibilities
 
 ### Multi-Client
@@ -227,3 +231,4 @@ client2.assets.create(
 # License
 
 MIT
+
