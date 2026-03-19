@@ -31,10 +31,12 @@ class HuduObject:
         if self.id is None:
             raise ValueError(f"Cannot use {self.__class__.__name__} without an id")
         return self.id
-    
+
     def _require_company_id(self) -> int | str:
         if self.company_id is None:
-            raise ValueError(f"Cannot use {self.__class__.__name__} without a company id")
+            raise ValueError(
+                f"Cannot use {self.__class__.__name__} without a company id"
+            )
         return self.company_id
 
     def __repr__(self):
@@ -88,11 +90,8 @@ class HuduObject:
         return self._data[item]
 
     def save(self, **kwargs):
-        if self.id is None:
-            raise ValueError("Cannot save object without an id")
-
-        update_endpoint = getattr(
-            self.__class__, "update_endpoint", self._endpoint)
+        self._require_id()
+        update_endpoint = getattr(self.__class__, "update_endpoint", self._endpoint)
 
         payload = clean_payload(self.to_dict())
 
@@ -184,8 +183,7 @@ class HuduObject:
         if self.id is None:
             raise ValueError("Cannot update object without an id")
 
-        updated = self._client.update(
-            self._endpoint, self.id, payload, **kwargs)
+        updated = self._client.update(self._endpoint, self.id, payload, **kwargs)
 
         if isinstance(updated, HuduObject):
             self._data = updated._data
@@ -235,8 +233,7 @@ class HuduObject:
     @classmethod
     def fetch(cls, client, item_id: int | str | None = None, **params):
         if not cls.resource_attr:
-            raise NotImplementedError(
-                f"{cls.__name__} does not define resource_attr")
+            raise NotImplementedError(f"{cls.__name__} does not define resource_attr")
 
         resource = getattr(client, cls.resource_attr)
 
@@ -262,11 +259,24 @@ class Company(HuduObject):
     relation_type = "Company"
     resource_upl_type = "Company"
     resource_photo_type = "Company"
-    
+
+    def _create_company_resource(
+        self,
+        resource_name: str,
+        payload: dict[str, Any] | None = None,
+        **kwargs,
+    ):
+        merged = dict(payload or {})
+        if kwargs:
+            merged.update(kwargs)
+
+        resource = getattr(self._client, resource_name)
+        return resource.create(company_id=self._require_id(), payload=merged)
+
     def _list_company_resource(self, resource_name: str, **params) -> HuduCollection:
         resource = getattr(self._client, resource_name)
         return resource.list(company_id=self._require_id(), **params)
-    
+
     def create_asset(self, payload: dict[str, Any] | None = None, **kwargs) -> Asset:
         merged = dict(payload or {})
         if kwargs:
@@ -277,77 +287,53 @@ class Company(HuduObject):
             payload=merged,
         )
 
-    def create_article(self, **kwargs) -> Article:
-        return self._client.articles.create(company_id=self._require_id(), payload=kwargs)
+    def create_article(
+        self, payload: dict[str, Any] | None = None, **kwargs
+    ) -> Article:
+        return self._create_company_resource("articles", payload, **kwargs)
 
-    def create_password(self, **kwargs) -> AssetPassword:
-        return self._client.asset_passwords.create(company_id=self._require_id(), payload=kwargs)
+    def create_password(
+        self, payload: dict[str, Any] | None = None, **kwargs
+    ) -> AssetPassword:
+        return self._create_company_resource("asset_passwords", payload, **kwargs)
 
-    def create_procedure(self, **kwargs) -> Procedure:
-        return self._client.procedures.create(company_id=self._require_id(), payload=kwargs)
+    def create_procedure(
+        self, payload: dict[str, Any] | None = None, **kwargs
+    ) -> Procedure:
+        return self._create_company_resource("procedures", payload, **kwargs)
 
-    def create_website(self, **kwargs) -> Website:
-        return self._client.websites.create(company_id=self._require_id(), payload=kwargs)        
+    def create_website(
+        self, payload: dict[str, Any] | None = None, **kwargs
+    ) -> Website:
+        return self._create_company_resource("websites", payload, **kwargs)
 
+    # List Items for Company
     def list_assets(self, **params) -> HuduCollection:
         return self._list_company_resource("assets", **params)
 
     def list_articles(self, **params) -> HuduCollection:
         return self._list_company_resource("articles", **params)
-    
+
     def list_passwords(self, **params) -> HuduCollection:
-        if self.id is None:
-            raise ValueError("Cannot list passwords without a company id")
-        return self._client.asset_passwords.list(
-            company_id=self._require_id(),
-            **params
-        )
+        return self._list_company_resource("asset_passwords", **params)
 
     def list_procedures(self, **params) -> HuduCollection:
-        if self.id is None:
-            raise ValueError("Cannot list procedures without a company id")
-        return self._client.procedures.list(
-            company_id=self._require_id(),
-            **params
-        )
-
-    def list_public_photos(self, **params) -> HuduCollection:
-        if self.id is None:
-            raise ValueError("Cannot list public photos without a company id")
-        return self._client.public_photos.list(
-            company_id=self._require_id(),
-            **params
-        )
-
-    def list_photos(self, **params) -> HuduCollection:
-        if self.id is None:
-            raise ValueError("Cannot list photos without a company id")
-        return self._client.photos.list_photos(
-            company_id=self._require_id(),
-            **params
-        )
+        return self._list_company_resource("procedures", **params)
 
     def list_websites(self, **params) -> HuduCollection:
-        if self.id is None:
-            raise ValueError("Cannot list websites without a company id")
-        return self._client.websites.list(
-            company_id=self._require_id(),
-            **params
-        )
+        return self._list_company_resource("websites", **params)
 
     def list_folders(self, **params) -> HuduCollection:
-        if self.id is None:
-            raise ValueError("Cannot list folders without a company id")
-        return self._client.folders.list(
-            company_id=self._require_id(),
-            **params
-        )
+        return self._list_company_resource("folders", **params)
 
     def list_password_folders(self, **params) -> HuduCollection:
-        if self.id is None:
-            raise ValueError("Cannot list password folders without a company id")
-        return self._client.password_folders.list(company_id=self._require_id(), **params)
+        return self._list_company_resource("password_folders", **params)
 
+    def list_photos(self, **params) -> HuduCollection:
+        self._require_id()
+        return self._client.photos.list_photos(to_object=self, **params)
+
+    # Other company-specific actions
     def save(self, **kwargs):
         if self.id is None:
             raise ValueError("Cannot save object without an id")
@@ -424,8 +410,7 @@ class Asset(HuduObject):
     resource_photo_type = "Asset"
     endpoint = HuduEndpoint.ASSETS
 
-    def update(self, payload: dict[str, Any] | None = None,
-               **kwargs) -> Self:
+    def update(self, payload: dict[str, Any] | None = None, **kwargs) -> Self:
         if self.id is None:
             raise ValueError("Cannot update object without an id")
         if self.company_id is None:
@@ -445,13 +430,10 @@ class Asset(HuduObject):
 
         if isinstance(updated, HuduObject):
             self._data = dict(updated._data)
-            return self
-
-        if isinstance(updated, dict):
+        elif isinstance(updated, dict):
             self._data = dict(updated)
-            return self
 
-        return updated
+        return self
 
     def get(self, key, default=None) -> Any:
 
@@ -477,12 +459,12 @@ class Asset(HuduObject):
         id = self._require_id()
         if not hasattr(self, "resource_pubphoto_type"):
             raise ValueError(
-                f"{self.__class__.__name__} with ID {id} not public photoable")
+                f"{self.__class__.__name__} with ID {id} not public photoable"
+            )
 
         return self.resource_pubphoto_type
 
-    def add_public_photo(self,
-                         file_path: str | Path) -> PublicPhoto:
+    def add_public_photo(self, file_path: str | Path) -> PublicPhoto:
         return self._client.public_photos.create(
             file_path=file_path,
             to_object=self,
@@ -504,8 +486,9 @@ class Asset(HuduObject):
 
         return self
 
-    def list_for_company(self, company: int | str | HuduObject | None = None,
-                         **params) -> HuduCollection:
+    def list_for_company(
+        self, company: int | str | HuduObject | None = None, **params
+    ) -> HuduCollection:
         if isinstance(company, HuduObject):
             company_id = company.id
         elif company is None:
@@ -659,8 +642,7 @@ class PasswordFolder(HuduObject):
             pw = self._client.asset_passwords.get(password)
             return pw.to_folder(self.id)
 
-        raise ValueError(
-            "password must be an int, HuduObject, or list of those")
+        raise ValueError("password must be an int, HuduObject, or list of those")
 
 
 class Network(HuduObject):
@@ -776,8 +758,7 @@ class AssetPassword(HuduObject):
             raise ValueError("Cannot update object without an id")
 
         payload = normalize_password_payload_for_save(payload)
-        updated = self._client.update(
-            self._endpoint, self.id, payload, **kwargs)
+        updated = self._client.update(self._endpoint, self.id, payload, **kwargs)
 
         if isinstance(updated, HuduObject):
             self._data = dict(updated._data)
@@ -948,6 +929,7 @@ class HuduCollection(list):
             raise AttributeError(name)
 
         if callable(sample):
+
             def caller(*args, flatten: bool = False, unique: bool = False, **kwargs):
                 results = []
 
@@ -955,16 +937,27 @@ class HuduCollection(list):
                     method = getattr(obj, name)
                     value = method(*args, **kwargs)
 
-                    if flatten and isinstance(value, (list, HuduCollection, tuple, set)):
+                    if flatten and isinstance(
+                        value, (list, HuduCollection, tuple, set)
+                    ):
                         results.extend(value)
                     else:
                         results.append(value)
 
                 if unique:
                     deduped = []
+                    seen = set()
+
                     for item in results:
-                        if item not in deduped:
+                        if isinstance(item, HuduObject):
+                            key = (item.__class__.__name__, item.id)
+                        else:
+                            key = repr(item)
+
+                        if key not in seen:
+                            seen.add(key)
                             deduped.append(item)
+
                     results = deduped
 
                 if results and all(isinstance(x, HuduObject) for x in results):
@@ -983,14 +976,12 @@ class HuduCollection(list):
         return [obj.id for obj in self if getattr(obj, "id", None) is not None]
 
     def to_dicts(self):
-        return [obj.to_dict() if hasattr(obj, "to_dict") else
-                obj for obj in self]
+        return [obj.to_dict() if hasattr(obj, "to_dict") else obj for obj in self]
 
     def filter(self, **criteria):
         def matches(obj):
             return all(
-                getattr(obj, key, None) == value
-                for key, value in criteria.items()
+                getattr(obj, key, None) == value for key, value in criteria.items()
             )
 
         return HuduCollection([obj for obj in self if matches(obj)])
