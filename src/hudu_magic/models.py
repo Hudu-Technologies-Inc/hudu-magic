@@ -327,6 +327,38 @@ class Asset(HuduObject):
     resource_photo_type = "Asset"
     endpoint = HuduEndpoint.ASSETS
 
+    def update(self, payload: dict[str, Any] | None = None, **kwargs):
+        if self.id is None:
+            raise ValueError("Cannot update object without an id")
+        if self.company_id is None:
+            raise ValueError("Cannot update object without a company id")
+
+        merged = dict(payload or {})
+        if kwargs:
+            merged.update(kwargs)
+
+        merged = normalize_asset_payload_for_save(merged)
+
+        updated = self._client.assets.update(
+            item_id=self.id,
+            company_id=self.company_id,
+            payload=merged,
+        )
+
+        if isinstance(updated, HuduObject):
+            self._data = dict(updated._data)
+            return self
+
+        if isinstance(updated, dict):
+            self._data = dict(updated)
+            return self
+
+        return updated
+
+    def get(self, key, default=None):
+        
+        return self._data.get(key, default)
+
     def archive(self):
         return self._client.assets.archive(
             item_id=self.id,
@@ -376,6 +408,19 @@ class Asset(HuduObject):
             self._data = dict(refreshed)
 
         return self
+        
+    def list_for_company(self, company: int | str | HuduObject | None = None, **params):
+        if isinstance(company, HuduObject):
+            company_id = company.id
+        elif company is None:
+            company_id = self.company_id
+        else:
+            company_id = company
+
+        if company_id is None:
+            raise ValueError("Cannot list assets without a company id")
+
+        return self._client.assets.list(company_id=company_id, **params)
 
     @classmethod
     def from_dict(cls, client, endpoint, data):
