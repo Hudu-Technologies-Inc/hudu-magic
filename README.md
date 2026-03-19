@@ -89,6 +89,8 @@ Collection-level operations:
 - get()
 - create()
 - delete()
+- archive()
+- unarchive()
 
 ## Models (HuduObject)
 Instance-level operations:
@@ -96,6 +98,8 @@ Instance-level operations:
 - delete()
 - refresh()
 - relate_to()
+- list_photos()
+- list_uploads()
 
 ```python
 asset.save()
