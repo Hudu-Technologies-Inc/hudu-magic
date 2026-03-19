@@ -7,7 +7,7 @@ from hudu_magic.help import describe_single, supported_methods
 from hudu_magic.helpers.general import is_version_greater_or_equal
 
 from .endpoints import HuduEndpoint
-from .models import Asset, HuduObject, Photo, PublicPhoto, Upload
+from .models import Asset, HuduCollection, HuduObject, Photo, PublicPhoto, Upload
 from .validation import (
     HuduNotImplementedError,
     HuduValidationError,
@@ -47,18 +47,34 @@ class BaseResource:
             f"{exc}\n\n{describe_single(self.endpoint)}"
         ) from None
 
-    # core methods for interacting with the API
     def get(self, item_id=None, **params):
-        if item_id is None:
-            if not self.endpoint.meta.supports_list:
-                raise ValueError(f"{self.endpoint.name} does not support list")
-            return self.list(**params)
+        if item_id is None and "id" in params:
+            item_id = params.pop("id")
 
-        if not self.endpoint.meta.supports_get:
-            raise ValueError(f"{self.endpoint.name} does not support get")
+        if item_id is not None:
+            if not self.endpoint.meta.supports_get:
+                raise ValueError(f"{self.endpoint.name} does not support get")
 
-        path = self.client.resolve_path(self.endpoint, item_id)
-        return self.client.get(path, paginate=False)
+            path = self.client.resolve_path(self.endpoint, item_id)
+            raw = self.client._get_nonpaginated(path)
+
+            item_endpoint = getattr(HuduEndpoint, f"{self.endpoint.name}_ID", self.endpoint)
+            result = self.client._wrap_result(item_endpoint, raw)
+            if isinstance(result, HuduCollection):
+                if not result:
+                    return None
+                if len(result) == 1 or item_id is not None:
+                    return result.first() or None
+
+            if isinstance(result, list):
+                if not result:
+                    return None
+                if len(result) == 1 or item_id is not None:
+                    return result[0] or None
+
+            return result
+
+        return self.list(**params)
 
     def create(self, payload: dict[str, Any], **kwargs) -> Any:
         try:
@@ -391,17 +407,65 @@ class PasswordFoldersResource(BaseResource):
 class AssetsResource(BaseResource):
     endpoint = HuduEndpoint.ASSETS
 
-    def delete(self, item_id: int | str, company_id: int | str) -> Any:
-        if item_id is None:
-            raise ValueError("Cannot delete object without an id")
-        if company_id is None:
-            raise ValueError("Asset delete() requires company_id")
-        return self.client.delete(f"companies/{company_id}/assets/{item_id}")
+    def list(self, company_id=None, **params):
+        if company_id is None and "company_id" in params:
+            company_id = params.pop("company_id")
 
-    def create(self, company_id: int | str, payload: dict[str, Any], **kwargs) -> Any:
-        wrapped = {"asset": payload}
-        result = self.client.post(
-            f"companies/{company_id}/assets", json=wrapped)
+        if company_id is not None:
+            path = f"companies/{company_id}/assets"
+            return self.client.get(path, params=params or None, paginate=True)
+
+        return self.client.get(self.endpoint, params=params or None, paginate=True)
+
+    def get(self, item_id=None, company_id=None, **params):
+        if item_id is None and "id" in params:
+            item_id = params.pop("id")
+
+        if company_id is None and "company_id" in params:
+            company_id = params.pop("company_id")
+
+        if item_id is not None:
+            if company_id is not None:
+                path = f"companies/{company_id}/assets/{item_id}"
+                raw = self.client._get_nonpaginated(path)
+                return self.client._wrap_result(HuduEndpoint.ASSETS_ID, raw)
+
+            result = self.client.get(
+                self.endpoint,
+                params={"id": item_id, **params},
+                paginate=False,
+            )
+
+            if isinstance(result, HuduCollection):
+                if not result:
+                    return None
+                if len(result) == 1:
+                    return result[0]
+
+            if isinstance(result, list):
+                if not result:
+                    return None
+                if len(result) == 1:
+                    return result[0]
+                
+            if isinstance(result, dict):
+                result = self.client._extract_primary_object(result)
+
+            return result
+
+        return self.list(company_id=company_id, **params)
+    def create(
+        self,
+        company_id: int | str,
+        payload: dict[str, Any] | None = None,
+        **kwargs,
+    ) -> Any:
+        if company_id is None:
+            raise ValueError("Asset create() requires company_id")
+
+        merged = self._merge_payload(payload, kwargs)
+        wrapped = {"asset": merged}
+        result = self.client.post(f"companies/{company_id}/assets", json=wrapped)
 
         if isinstance(result, dict):
             result = self.client._extract_primary_object(result)
@@ -409,10 +473,57 @@ class AssetsResource(BaseResource):
 
         return result
 
-    def list_for_company(self, company_id: int | str, **params) -> Any:
-        path = f"companies/{company_id}/assets"
-        return self.client.get(path, params=params or None, paginate=False)
+    def update(
+        self,
+        item_id: int | str,
+        company_id: int | str,
+        payload: dict[str, Any] | None = None,
+        **kwargs,
+    ) -> Any:
+        if item_id is None:
+            raise ValueError("Cannot update asset without an id")
+        if company_id is None:
+            raise ValueError("Asset update() requires company_id")
 
+        merged = self._merge_payload(payload, kwargs)
+        path = f"companies/{company_id}/assets/{item_id}"
+        result = self.client.put(path, json={"asset": merged})
+        return self.client._wrap_result(HuduEndpoint.ASSETS, result)
+
+    def delete(self, item_id: int | str, company_id: int | str) -> Any:
+        if item_id is None:
+            raise ValueError("Cannot delete object without an id")
+        if company_id is None:
+            raise ValueError("Asset delete() requires company_id")
+
+        return self.client.delete(f"companies/{company_id}/assets/{item_id}")
+
+    def archive(self, item_id: int | str, company_id: int | str) -> Any:
+        if item_id is None:
+            raise ValueError("Cannot archive object without an id")
+        if company_id is None:
+            raise ValueError("Asset archive() requires company_id")
+
+        path = f"companies/{company_id}/assets/{item_id}/archive"
+        return self.client.put(path)
+
+    def unarchive(self, item_id: int | str, company_id: int | str) -> Any:
+        if item_id is None:
+            raise ValueError("Cannot unarchive object without an id")
+        if company_id is None:
+            raise ValueError("Asset unarchive() requires company_id")
+
+        path = f"companies/{company_id}/assets/{item_id}/unarchive"
+        return self.client.put(path)
+
+    def list_for_company(self, company_id: int | str | HuduObject, **params) -> Any:
+        if isinstance(company_id, HuduObject):
+            company_id = company_id.id
+
+        if company_id is None:
+            raise ValueError("Cannot list assets without a company id")
+
+        return self.list(company_id=company_id, **params)
 
 class NetworksResource(BaseResource):
     endpoint = HuduEndpoint.NETWORKS

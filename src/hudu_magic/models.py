@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from types import NoneType
+from typing import Any, Self
 
 from hudu_magic.help import describe_endpoint
 
@@ -40,7 +41,7 @@ class HuduObject:
             return self._data[item]
         except KeyError as exc:
             raise AttributeError(item) from exc
-        
+
     def help(self) -> str:
         return "\n".join(describe_endpoint(self._endpoint))
 
@@ -54,7 +55,7 @@ class HuduObject:
         return self._client.archive(endpoint=self._endpoint, item_id=self.id)
 
     def unarchive(self):
-        return self._client.unarchive(self._endpoint, self.id)
+        return self._client.unarchive(endpoint=self._endpoint, item_id=self.id)
 
     def items(self):
         return self._data.items()
@@ -81,7 +82,8 @@ class HuduObject:
         if self.id is None:
             raise ValueError("Cannot save object without an id")
 
-        update_endpoint = getattr(self.__class__, "update_endpoint", self._endpoint)
+        update_endpoint = getattr(
+            self.__class__, "update_endpoint", self._endpoint)
 
         payload = clean_payload(self.to_dict())
 
@@ -173,7 +175,8 @@ class HuduObject:
         if self.id is None:
             raise ValueError("Cannot update object without an id")
 
-        updated = self._client.update(self._endpoint, self.id, payload, **kwargs)
+        updated = self._client.update(
+            self._endpoint, self.id, payload, **kwargs)
 
         if isinstance(updated, HuduObject):
             self._data = updated._data
@@ -223,7 +226,8 @@ class HuduObject:
     @classmethod
     def fetch(cls, client, item_id: int | str | None = None, **params):
         if not cls.resource_attr:
-            raise NotImplementedError(f"{cls.__name__} does not define resource_attr")
+            raise NotImplementedError(
+                f"{cls.__name__} does not define resource_attr")
 
         resource = getattr(client, cls.resource_attr)
 
@@ -249,6 +253,61 @@ class Company(HuduObject):
     relation_type = "Company"
     resource_upl_type = "Company"
     resource_photo_type = "Company"
+
+    def list_assets(self, **params) -> HuduCollection:
+        if self.id is None:
+            raise ValueError("Cannot list assets without a company id")
+        return self._client.assets.list(company_id=self.id, **params)
+
+    def list_articles(self, **params) -> HuduCollection:
+        if self.id is None:
+            raise ValueError("Cannot list articles without a company id")
+        return self._client.articles.list(company_id=self.id, **params)
+
+    def list_passwords(self, **params) -> HuduCollection:
+        if self.id is None:
+            raise ValueError("Cannot list passwords without a company id")
+        return self._client.asset_passwords.list(company_id=self.id, **params)
+
+    def list_procedures(self, **params) -> HuduCollection:
+        if self.id is None:
+            raise ValueError("Cannot list procedures without a company id")
+        return self._client.procedures.list(company_id=self.id, **params)
+
+    def list_public_photos(self, **params) -> HuduCollection:
+        if self.id is None:
+            raise ValueError("Cannot list public photos without a company id")
+        return self._client.public_photos.list(company_id=self.id, **params)
+
+    def list_photos(self, **params) -> HuduCollection:
+        if self.id is None:
+            raise ValueError("Cannot list photos without a company id")
+        return self._client.photos.list_photos(company_id=self.id, **params)
+
+    def list_websites(self, **params) -> HuduCollection:
+        if self.id is None:
+            raise ValueError("Cannot list websites without a company id")
+        return self._client.websites.list(company_id=self.id, **params)
+
+    def list_folders(self, **params) -> HuduCollection:
+        if self.id is None:
+            raise ValueError("Cannot list folders without a company id")
+        return self._client.folders.list(company_id=self.id, **params)
+
+    def list_password_folders(self, **params) -> HuduCollection:
+        if self.id is None:
+            raise ValueError("Cannot list password folders without a company id")
+        return self._client.password_folders.list(company_id=self.id, **params)
+
+    # def list_uploads(self):
+    #     asset_ids = self.list_assets().ids()
+    #     article_ids = self.list_articles().ids()
+    #     uploads = [u for u in self._client.uploads.list() if
+    #                (u.get("uploadable_type") == "asset"
+    #                 and u.get("uploadable_id") in asset_ids) or
+    #                (u.get("uploadable_type") == "article"
+    #                 and u.get("uploadable_id") in article_ids)]
+    #     return uploads
 
     def save(self, **kwargs):
         if self.id is None:
@@ -282,13 +341,13 @@ class Article(HuduObject):
 
         return self.resource_pubphoto_type
 
-    def add_public_photo(self, file_path: str | Path):
+    def add_public_photo(self, file_path: str | Path) -> PublicPhoto:
         return self._client.public_photos.create(
             file_path=file_path,
             to_object=self,
         )
 
-    def to_folder(self, folder: int | HuduObject):
+    def to_folder(self, folder: int | HuduObject) -> Self:
         if self.id is None:
             raise ValueError("Cannot add article to folder without an id")
         if isinstance(folder, HuduObject):
@@ -301,7 +360,7 @@ class Article(HuduObject):
         self._data["folder_id"] = folder_id
         return self.save()
 
-    def save(self, **kwargs):
+    def save(self, **kwargs) -> Self:
         if self.id is None:
             raise ValueError("Cannot save object without an id")
 
@@ -327,19 +386,57 @@ class Asset(HuduObject):
     resource_photo_type = "Asset"
     endpoint = HuduEndpoint.ASSETS
 
-    def archive(self):
-        return self._client.archive(self._endpoint, self.id)
+    def update(self, payload: dict[str, Any] | None = None,
+               **kwargs) -> Self:
+        if self.id is None:
+            raise ValueError("Cannot update object without an id")
+        if self.company_id is None:
+            raise ValueError("Cannot update object without a company id")
 
-    def unarchive(self):
-        return self._client.archive(self._endpoint, self.id)
+        merged = dict(payload or {})
+        if kwargs:
+            merged.update(kwargs)
+
+        merged = normalize_asset_payload_for_save(merged)
+
+        updated = self._client.assets.update(
+            item_id=self.id,
+            company_id=self.company_id,
+            payload=merged,
+        )
+
+        if isinstance(updated, HuduObject):
+            self._data = dict(updated._data)
+            return self
+
+        if isinstance(updated, dict):
+            self._data = dict(updated)
+            return self
+
+        return updated
+
+    def get(self, key, default=None) -> Any:
+
+        return self._data.get(key, default)
+
+    def archive(self) -> Any:
+        return self._client.assets.archive(
+            item_id=self.id,
+            company_id=self.company_id,
+        )
+
+    def unarchive(self) -> Any:
+        return self._client.assets.unarchive(
+            item_id=self.id,
+            company_id=self.company_id,
+        )
 
     def get_path(self) -> str:
         if self.id is None:
             raise ValueError("Cannot save object without an id")
         company_id = self.to_dict().get("company_id") or self.get("company_id")
         if company_id is None:
-            raise ValueError("Asset save() requires company_id")
-
+            raise ValueError("Cannot save object without a company id")
         return f"companies/{company_id}/assets/{self.id}"
 
     def to_pubphoto_ref(self) -> str:
@@ -350,13 +447,14 @@ class Asset(HuduObject):
 
         return self.resource_pubphoto_type
 
-    def add_public_photo(self, file_path: str | Path):
+    def add_public_photo(self,
+                         file_path: str | Path) -> PublicPhoto:
         return self._client.public_photos.create(
             file_path=file_path,
             to_object=self,
         )
 
-    def save(self, **kwargs):
+    def save(self, **kwargs) -> Self:
         if self.id is None:
             raise ValueError("Cannot save object without an id")
 
@@ -371,6 +469,20 @@ class Asset(HuduObject):
             self._data = dict(refreshed)
 
         return self
+
+    def list_for_company(self, company: int | str | HuduObject | None = None,
+                         **params) -> HuduCollection:
+        if isinstance(company, HuduObject):
+            company_id = company.id
+        elif company is None:
+            company_id = self.company_id
+        else:
+            company_id = company
+
+        if company_id is None:
+            raise ValueError("Cannot list assets without a company id")
+
+        return self._client.assets.list(company_id=company_id, **params)
 
     @classmethod
     def from_dict(cls, client, endpoint, data):
@@ -513,7 +625,8 @@ class PasswordFolder(HuduObject):
             pw = self._client.asset_passwords.get(password)
             return pw.to_folder(self.id)
 
-        raise ValueError("password must be an int, HuduObject, or list of those")
+        raise ValueError(
+            "password must be an int, HuduObject, or list of those")
 
 
 class Network(HuduObject):
@@ -629,7 +742,8 @@ class AssetPassword(HuduObject):
             raise ValueError("Cannot update object without an id")
 
         payload = normalize_password_payload_for_save(payload)
-        updated = self._client.update(self._endpoint, self.id, payload, **kwargs)
+        updated = self._client.update(
+            self._endpoint, self.id, payload, **kwargs)
 
         if isinstance(updated, HuduObject):
             self._data = dict(updated._data)
@@ -791,6 +905,21 @@ MODEL_MAP = {
 
 
 class HuduCollection(list):
+    def delete(self):
+        for obj in self:
+            if isinstance(obj, HuduObject) and obj.id is not None:
+                obj.delete()
+
+    def archive(self):
+        for obj in self:
+            if isinstance(obj, HuduObject) and obj.id is not None:
+                obj.archive()
+
+    def unarchive(self):
+        for obj in self:
+            if isinstance(obj, HuduObject) and obj.id is not None:
+                obj.unarchive()
+
     def first(self):
         return self[0] if self else None
 
