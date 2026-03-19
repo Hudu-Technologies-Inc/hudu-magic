@@ -210,9 +210,9 @@ class HuduObject:
             caption=caption,
         )
 
-    def list_photos(self, **params):
-        if not hasattr(self, "resource_photo_type"):
-            raise ValueError(f"{self.__class__.__name__} not photoable")
+    def list_photos(self, **params) -> HuduCollection:
+        if self.id is None:
+            raise ValueError("Cannot list photos without a company id")
         return self._client.photos.list_photos(to_object=self, **params)
 
     def list_uploads(self):
@@ -905,20 +905,42 @@ MODEL_MAP = {
 
 
 class HuduCollection(list):
-    def delete(self):
-        for obj in self:
-            if isinstance(obj, HuduObject) and obj.id is not None:
-                obj.delete()
+    def __getattr__(self, name: str):
+        if not self:
+            raise AttributeError(name)
 
-    def archive(self):
-        for obj in self:
-            if isinstance(obj, HuduObject) and obj.id is not None:
-                obj.archive()
+        sample = getattr(self[0], name, None)
+        if sample is None:
+            raise AttributeError(name)
 
-    def unarchive(self):
-        for obj in self:
-            if isinstance(obj, HuduObject) and obj.id is not None:
-                obj.unarchive()
+        if callable(sample):
+            def caller(*args, flatten: bool = False, unique: bool = False, **kwargs):
+                results = []
+
+                for obj in self:
+                    method = getattr(obj, name)
+                    value = method(*args, **kwargs)
+
+                    if flatten and isinstance(value, (list, HuduCollection, tuple, set)):
+                        results.extend(value)
+                    else:
+                        results.append(value)
+
+                if unique:
+                    deduped = []
+                    for item in results:
+                        if item not in deduped:
+                            deduped.append(item)
+                    results = deduped
+
+                if results and all(isinstance(x, HuduObject) for x in results):
+                    return HuduCollection(results)
+
+                return results
+
+            return caller
+
+        return [getattr(obj, name, None) for obj in self]
 
     def first(self):
         return self[0] if self else None
@@ -927,12 +949,14 @@ class HuduCollection(list):
         return [obj.id for obj in self if getattr(obj, "id", None) is not None]
 
     def to_dicts(self):
-        return [obj.to_dict() if hasattr(obj, "to_dict") else obj for obj in self]
+        return [obj.to_dict() if hasattr(obj, "to_dict") else
+                obj for obj in self]
 
     def filter(self, **criteria):
         def matches(obj):
             return all(
-                getattr(obj, key, None) == value for key, value in criteria.items()
+                getattr(obj, key, None) == value
+                for key, value in criteria.items()
             )
 
         return HuduCollection([obj for obj in self if matches(obj)])
