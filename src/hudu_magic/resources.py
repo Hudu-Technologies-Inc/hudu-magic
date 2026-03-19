@@ -7,7 +7,7 @@ from hudu_magic.help import describe_single, supported_methods
 from hudu_magic.helpers.general import is_version_greater_or_equal
 
 from .endpoints import HuduEndpoint
-from .models import Asset, HuduObject, Photo, PublicPhoto, Upload
+from .models import Asset, HuduCollection, HuduObject, Photo, PublicPhoto, Upload
 from .validation import (
     HuduNotImplementedError,
     HuduValidationError,
@@ -47,18 +47,34 @@ class BaseResource:
             f"{exc}\n\n{describe_single(self.endpoint)}"
         ) from None
 
-    # core methods for interacting with the API
     def get(self, item_id=None, **params):
-        if item_id is None:
-            if not self.endpoint.meta.supports_list:
-                raise ValueError(f"{self.endpoint.name} does not support list")
-            return self.list(**params)
+        if item_id is None and "id" in params:
+            item_id = params.pop("id")
 
-        if not self.endpoint.meta.supports_get:
-            raise ValueError(f"{self.endpoint.name} does not support get")
+        if item_id is not None:
+            if not self.endpoint.meta.supports_get:
+                raise ValueError(f"{self.endpoint.name} does not support get")
 
-        path = self.client.resolve_path(self.endpoint, item_id)
-        return self.client.get(path, paginate=False)
+            path = self.client.resolve_path(self.endpoint, item_id)
+            raw = self.client._get_nonpaginated(path)
+
+            item_endpoint = getattr(HuduEndpoint, f"{self.endpoint.name}_ID", self.endpoint)
+            result = self.client._wrap_result(item_endpoint, raw)
+            if isinstance(result, HuduCollection):
+                if not result:
+                    return None
+                if len(result) == 1 or item_id is not None:
+                    return result.first() or None
+
+            if isinstance(result, list):
+                if not result:
+                    return None
+                if len(result) == 1 or item_id is not None:
+                    return result[0] or None
+
+            return result
+
+        return self.list(**params)
 
     def create(self, payload: dict[str, Any], **kwargs) -> Any:
         try:
@@ -390,6 +406,24 @@ class PasswordFoldersResource(BaseResource):
 
 class AssetsResource(BaseResource):
     endpoint = HuduEndpoint.ASSETS
+
+    def archive(self, item_id: int | str, company_id: int | str) -> Any:
+        if item_id is None:
+            raise ValueError("Cannot archive object without an id")
+        if company_id is None:
+            raise ValueError("Asset archive() requires company_id")
+
+        path = f"companies/{company_id}/assets/{item_id}/archive"
+        return self.client.put(path)
+
+    def unarchive(self, item_id: int | str, company_id: int | str) -> Any:
+        if item_id is None:
+            raise ValueError("Cannot unarchive object without an id")
+        if company_id is None:
+            raise ValueError("Asset unarchive() requires company_id")
+
+        path = f"companies/{company_id}/assets/{item_id}/unarchive"
+        return self.client.put(path)
 
     def delete(self, item_id: int | str, company_id: int | str) -> Any:
         if item_id is None:

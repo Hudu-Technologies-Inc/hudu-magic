@@ -162,20 +162,22 @@ class HuduClient:
         if model_cls is None:
             return result
 
+        def wrap_item(item):
+            return model_cls(self, endpoint, item) if isinstance(item, dict) else item
+
+        def wrap_many(items):
+            wrapped = [wrap_item(item) for item in items]
+            if len(wrapped) == 1:
+                return wrapped[0]
+            return HuduCollection(wrapped)
+
         if isinstance(result, list):
-            return HuduCollection(
-                [model_cls(self, endpoint, item) if isinstance(item, dict)
-                 else item for item in result]
-            )
+            return wrap_many(result)
 
         if isinstance(result, dict):
             collection_key = endpoint.resource_name
             if collection_key in result and isinstance(result[collection_key], list):
-                return [
-                    model_cls(self, endpoint, item)
-                    if isinstance(item, dict) else item
-                    for item in result[collection_key]
-                ]
+                return wrap_many(result[collection_key])
 
             primary = self._extract_primary_object(result)
             if isinstance(primary, dict):

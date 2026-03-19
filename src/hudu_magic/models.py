@@ -54,7 +54,7 @@ class HuduObject:
         return self._client.archive(endpoint=self._endpoint, item_id=self.id)
 
     def unarchive(self):
-        return self._client.unarchive(self._endpoint, self.id)
+        return self._client.unarchive(endpoint=self._endpoint, item_id=self.id)
 
     def items(self):
         return self._data.items()
@@ -328,18 +328,23 @@ class Asset(HuduObject):
     endpoint = HuduEndpoint.ASSETS
 
     def archive(self):
-        return self._client.archive(self._endpoint, self.id)
+        return self._client.assets.archive(
+            item_id=self.id,
+            company_id=self.company_id,
+        )
 
     def unarchive(self):
-        return self._client.archive(self._endpoint, self.id)
-
+        return self._client.assets.unarchive(
+            item_id=self.id,
+            company_id=self.company_id,
+        )
+        
     def get_path(self) -> str:
         if self.id is None:
             raise ValueError("Cannot save object without an id")
         company_id = self.to_dict().get("company_id") or self.get("company_id")
         if company_id is None:
-            raise ValueError("Asset save() requires company_id")
-
+            raise ValueError("Cannot save object without a company id")
         return f"companies/{company_id}/assets/{self.id}"
 
     def to_pubphoto_ref(self) -> str:
@@ -791,6 +796,21 @@ MODEL_MAP = {
 
 
 class HuduCollection(list):
+    def delete(self):
+        for obj in self:
+            if isinstance(obj, HuduObject) and obj.id is not None:
+                obj.delete()
+    
+    def archive(self):
+        for obj in self:
+            if isinstance(obj, HuduObject) and obj.id is not None:
+                obj.archive()
+                
+    def unarchive(self):
+        for obj in self:
+            if isinstance(obj, HuduObject) and obj.id is not None:
+                obj.unarchive()
+    
     def first(self):
         return self[0] if self else None
 
