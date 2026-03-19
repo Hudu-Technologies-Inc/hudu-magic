@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from types import NoneType
 from typing import Any, Self
 
 from hudu_magic.help import describe_endpoint
@@ -27,6 +26,16 @@ class HuduObject:
         self._client = client
         self._endpoint = endpoint
         self._data = data
+
+    def _require_id(self) -> int | str:
+        if self.id is None:
+            raise ValueError(f"Cannot use {self.__class__.__name__} without an id")
+        return self.id
+    
+    def _require_company_id(self) -> int | str:
+        if self.company_id is None:
+            raise ValueError(f"Cannot use {self.__class__.__name__} without a company id")
+        return self.company_id
 
     def __repr__(self):
         object_id = self._data.get("id")
@@ -253,69 +262,98 @@ class Company(HuduObject):
     relation_type = "Company"
     resource_upl_type = "Company"
     resource_photo_type = "Company"
+    
+    def _list_company_resource(self, resource_name: str, **params) -> HuduCollection:
+        resource = getattr(self._client, resource_name)
+        return resource.list(company_id=self._require_id(), **params)
+    
+    def create_asset(self, payload: dict[str, Any] | None = None, **kwargs) -> Asset:
+        merged = dict(payload or {})
+        if kwargs:
+            merged.update(kwargs)
+
+        return self._client.assets.create(
+            company_id=self._require_id(),
+            payload=merged,
+        )
+
+    def create_article(self, **kwargs) -> Article:
+        return self._client.articles.create(company_id=self._require_id(), payload=kwargs)
+
+    def create_password(self, **kwargs) -> AssetPassword:
+        return self._client.asset_passwords.create(company_id=self._require_id(), payload=kwargs)
+
+    def create_procedure(self, **kwargs) -> Procedure:
+        return self._client.procedures.create(company_id=self._require_id(), payload=kwargs)
+
+    def create_website(self, **kwargs) -> Website:
+        return self._client.websites.create(company_id=self._require_id(), payload=kwargs)        
 
     def list_assets(self, **params) -> HuduCollection:
-        if self.id is None:
-            raise ValueError("Cannot list assets without a company id")
-        return self._client.assets.list(company_id=self.id, **params)
+        return self._list_company_resource("assets", **params)
 
     def list_articles(self, **params) -> HuduCollection:
-        if self.id is None:
-            raise ValueError("Cannot list articles without a company id")
-        return self._client.articles.list(company_id=self.id, **params)
-
+        return self._list_company_resource("articles", **params)
+    
     def list_passwords(self, **params) -> HuduCollection:
         if self.id is None:
             raise ValueError("Cannot list passwords without a company id")
-        return self._client.asset_passwords.list(company_id=self.id, **params)
+        return self._client.asset_passwords.list(
+            company_id=self._require_id(),
+            **params
+        )
 
     def list_procedures(self, **params) -> HuduCollection:
         if self.id is None:
             raise ValueError("Cannot list procedures without a company id")
-        return self._client.procedures.list(company_id=self.id, **params)
+        return self._client.procedures.list(
+            company_id=self._require_id(),
+            **params
+        )
 
     def list_public_photos(self, **params) -> HuduCollection:
         if self.id is None:
             raise ValueError("Cannot list public photos without a company id")
-        return self._client.public_photos.list(company_id=self.id, **params)
+        return self._client.public_photos.list(
+            company_id=self._require_id(),
+            **params
+        )
 
     def list_photos(self, **params) -> HuduCollection:
         if self.id is None:
             raise ValueError("Cannot list photos without a company id")
-        return self._client.photos.list_photos(company_id=self.id, **params)
+        return self._client.photos.list_photos(
+            company_id=self._require_id(),
+            **params
+        )
 
     def list_websites(self, **params) -> HuduCollection:
         if self.id is None:
             raise ValueError("Cannot list websites without a company id")
-        return self._client.websites.list(company_id=self.id, **params)
+        return self._client.websites.list(
+            company_id=self._require_id(),
+            **params
+        )
 
     def list_folders(self, **params) -> HuduCollection:
         if self.id is None:
             raise ValueError("Cannot list folders without a company id")
-        return self._client.folders.list(company_id=self.id, **params)
+        return self._client.folders.list(
+            company_id=self._require_id(),
+            **params
+        )
 
     def list_password_folders(self, **params) -> HuduCollection:
         if self.id is None:
             raise ValueError("Cannot list password folders without a company id")
-        return self._client.password_folders.list(company_id=self.id, **params)
-
-    # def list_uploads(self):
-    #     asset_ids = self.list_assets().ids()
-    #     article_ids = self.list_articles().ids()
-    #     uploads = [u for u in self._client.uploads.list() if
-    #                (u.get("uploadable_type") == "asset"
-    #                 and u.get("uploadable_id") in asset_ids) or
-    #                (u.get("uploadable_type") == "article"
-    #                 and u.get("uploadable_id") in article_ids)]
-    #     return uploads
+        return self._client.password_folders.list(company_id=self._require_id(), **params)
 
     def save(self, **kwargs):
         if self.id is None:
             raise ValueError("Cannot save object without an id")
 
         payload = normalize_company_payload_for_save(self.to_dict())
-
-        path = f"companies/{self.id}"
+        path = f"companies/{self._require_id()}"
         updated = self._client.put(path, json=payload)
         refreshed = self._client.get(path, paginate=False)
         if hasattr(refreshed, "_data"):
@@ -421,29 +459,25 @@ class Asset(HuduObject):
 
     def archive(self) -> Any:
         return self._client.assets.archive(
-            item_id=self.id,
-            company_id=self.company_id,
+            item_id=self._require_id(),
+            company_id=self._require_company_id(),
         )
 
     def unarchive(self) -> Any:
         return self._client.assets.unarchive(
-            item_id=self.id,
-            company_id=self.company_id,
+            item_id=self._require_id(),
+            company_id=self._require_company_id(),
         )
 
     def get_path(self) -> str:
-        if self.id is None:
-            raise ValueError("Cannot save object without an id")
-        company_id = self.to_dict().get("company_id") or self.get("company_id")
-        if company_id is None:
-            raise ValueError("Cannot save object without a company id")
-        return f"companies/{company_id}/assets/{self.id}"
+        company_id = self._require_company_id()
+        return f"companies/{company_id}/assets/{self._require_id()}"
 
     def to_pubphoto_ref(self) -> str:
-        if self.id is None:
-            raise ValueError(f"{self.__class__.__name__} has no id")
+        id = self._require_id()
         if not hasattr(self, "resource_pubphoto_type"):
-            raise ValueError(f"{self.__class__.__name__} not public photoable")
+            raise ValueError(
+                f"{self.__class__.__name__} with ID {id} not public photoable")
 
         return self.resource_pubphoto_type
 
