@@ -83,12 +83,20 @@ Handles auth, requests, pagination, wrapping.
 client.assets.list()
 ```
 
-## Resources
+## Collections
 Collection-level operations:
 - list()
 - get()
 - create()
 - delete()
+- archive()
+- unarchive()
+
+```python
+assetsforcompany.save()
+assetsforcompany.delete()
+assetsforcompany.archive()
+```
 
 ## Models (HuduObject)
 Instance-level operations:
@@ -96,11 +104,29 @@ Instance-level operations:
 - delete()
 - refresh()
 - relate_to()
+- list_photos()
+- list_uploads()
+- relate_to()
+- upload_to()
 
 ```python
 asset.save()
 asset.delete()
 ```
+
+## Special Model Methods
+
+### Companies
+
+```python
+mycompany.list_assets()
+mycompany.list_articles()
+mycompany.list_passwords()
+mycompany.list_procedures()
+mycompany.list_websites()
+mycompany.create_website
+```
+
 
 ---
 
