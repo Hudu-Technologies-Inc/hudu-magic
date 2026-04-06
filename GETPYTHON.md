@@ -1,17 +1,34 @@
+# Install Python
 
-## Installing Python
+Quick install scripts for setting up **Python 3.14** for the Python client libraries.
 
-#### Windows 11 Windows 10 version 2004 or newer with (May 2020 Update, which contains winget) Windows 8.1 (non-ARM architecture) with (May 2020 Update, which contains winget)
+
+#### These Scripts Will:
+
+- Install Python3.14
+- Create a Virtual Environment ***(in your current directory)***
+- Upgrade Pip
+
+## Windows
+
+Run either of these in PowerShell ***(elevated permissions may be required)***:
 
 ```powershell
-. .\install-python.ps1
+irm https://raw.githubusercontent.com/Hudu-Technologies-Inc/Community-Scripts/main/Client-Libraries/Python/Install-Python/install-python.ps1 | iex
 ```
 
-#### Linux and MacOS
-On macOS or Linux with [Homebrew](https://brew.sh/), run `install-python.sh` (it installs a current Python via Homebrew). On Debian-based distros without Homebrew, install Python 3.10+ with your package manager, then create a venv: `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"`.
-
-```bash/zsh/csh/sh
-chmod +x ./install-python.sh && ./install-python.sh
+```powershell
+iex ((Invoke-WebRequest https://raw.githubusercontent.com/Hudu-Technologies-Inc/Community-Scripts/main/Client-Libraries/Python/Install-Python/install-python.ps1).Content)
 ```
 
----
+## macOS / Linux
+
+Run either of these in your shell ***(avoid running as root)***:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Hudu-Technologies-Inc/Community-Scripts/main/Client-Libraries/Python/Install-Python/install-python.sh | bash
+```
+
+```bash
+wget -qO- https://raw.githubusercontent.com/Hudu-Technologies-Inc/Community-Scripts/main/Client-Libraries/Python/Install-Python/install-python.sh | bash
+```
