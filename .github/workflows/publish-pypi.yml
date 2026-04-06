@@ -1,0 +1,44 @@
+# Publishes the sdist/wheel to PyPI when a GitHub Release is published.
+#
+# One-time PyPI setup (trusted publishing):
+# 1. PyPI → Your project → Settings → Publishing → Add a new pending publisher
+# 2. Provider: GitHub, repo: <owner>/hudu-magic, workflow: publish-pypi.yml, environment: pypi (optional)
+# 3. After the first successful run, the publisher is activated.
+#
+# Optional: create a GitHub Environment named "pypi" with protection rules, then uncomment
+# the `environment:` block below.
+
+name: Publish to PyPI
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  pypi:
+    runs-on: ubuntu-latest
+    # environment: pypi
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install build
+        run: python -m pip install -U pip build
+
+      - name: Build
+        run: python -m build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
