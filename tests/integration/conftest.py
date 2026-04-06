@@ -4,8 +4,6 @@ import pytest
 from dotenv import load_dotenv
 
 from hudu_magic import HuduClient
-from hudu_magic.endpoints import HuduEndpoint
-run_integration = "1"
 
 load_dotenv("testenv")
 
@@ -21,7 +19,10 @@ def integration_client():
     api_key, instance_url = _get_test_config()
 
     if not api_key or not instance_url:
-        pytest.skip("Integration test credentials not set in .testenv")
+        pytest.skip(
+            "Integration test credentials not set (copy testenv.example to testenv "
+            "and set HUDU_TEST_API_KEY, HUDU_TEST_INSTANCE)"
+        )
 
     return HuduClient(
         api_key=api_key,

@@ -20,7 +20,7 @@ function Invoke-Step {
 
 $PythonCmd = Join-Path $PSScriptRoot ".venv\Scripts\python.exe"
 if (-not (Test-Path $PythonCmd)) {
-    throw "Virtual environment not found. Run .\install.ps1 first."
+    throw "Virtual environment not found. Create one (py -m venv .venv) or run .\install-python.ps1 — see GETPYTHON.md"
 }
 
 if ($Clean) {
