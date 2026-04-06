@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Self
+from typing import Any
+
+from typing_extensions import Self
 
 from hudu_magic.help import describe_endpoint
 
@@ -340,7 +342,7 @@ class Company(HuduObject):
 
         payload = normalize_company_payload_for_save(self.to_dict())
         path = f"companies/{self._require_id()}"
-        updated = self._client.put(path, json=payload)
+        self._client.put(path, json=payload)
         refreshed = self._client.get(path, paginate=False)
         if hasattr(refreshed, "_data"):
             self._data = dict(refreshed._data)
@@ -391,7 +393,7 @@ class Article(HuduObject):
         payload = clean_payload(self.to_dict())
 
         path = f"articles/{self.id}"
-        updated = self._client.put(path, json=payload)
+        self._client.put(path, json=payload)
         refreshed = self._client.get(path, paginate=False)
         if hasattr(refreshed, "_data"):
             self._data = dict(refreshed._data)
@@ -540,7 +542,7 @@ class Folder(HuduObject):
         payload = normalize_folder_payload_for_save(self.to_dict())
 
         path = f"folders/{self.id}"
-        updated = self._client.put(path, json=payload)
+        self._client.put(path, json=payload)
         refreshed = self._client.get(path, paginate=False)
         if hasattr(refreshed, "_data"):
             self._data = dict(refreshed._data)
@@ -590,7 +592,7 @@ class Website(HuduObject):
 
         payload = normalize_website_payload_for_save(self.to_dict())
         path = f"websites/{self.id}"
-        updated = self._client.put(path, json=payload)
+        self._client.put(path, json=payload)
         refreshed = self._client.get(path, paginate=False)
         if hasattr(refreshed, "_data"):
             self._data = dict(refreshed._data)
@@ -749,7 +751,7 @@ class AssetPassword(HuduObject):
         payload = normalize_password_payload_for_save(self.to_dict())
 
         path = f"asset_passwords/{self.id}"
-        updated = self._client.put(path, json={"asset_password": payload})
+        self._client.put(path, json={"asset_password": payload})
         refreshed = self._client.get(path, paginate=False)
         if hasattr(refreshed, "_data"):
             self._data = dict(refreshed._data)

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hudu-magic"
-version = "0.1.0"
+version = "0.1.17"
 description = "Python client library for the Hudu API"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -27,6 +27,7 @@ classifiers = [
 
 dependencies = [
   "requests>=2.31.0",
+  "typing-extensions>=4.0.0",
 ]
 
 [project.optional-dependencies]
@@ -46,6 +47,10 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+  "integration: calls a live Hudu instance (enable with HUDU_RUN_INTEGRATION=1)",
+  "destructive: integration tests that create or change remote data",
+]
 
 [tool.ruff]
 line-length = 100

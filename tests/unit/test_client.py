@@ -2,9 +2,10 @@ from unittest.mock import MagicMock
 
 from hudu_magic.client import HuduClient
 from hudu_magic.endpoints import HuduEndpoint
+from hudu_magic.models import Article, HuduCollection
 
 
-def test_get_dispatches_paginated():
+def test_get_dispatches_paginated_single_item_wraps_to_model():
     client = HuduClient(api_key="x", instance_url="example.hudu.app")
 
     client._get_all_pages = MagicMock(return_value=[{"id": 1}])
@@ -15,9 +16,24 @@ def test_get_dispatches_paginated():
     client._get_all_pages.assert_called_once()
     client._get_nonpaginated.assert_not_called()
 
-    assert isinstance(result, list)
-    assert len(result) == 1
+    assert isinstance(result, Article)
+    assert result.id == 1
+
+
+def test_get_dispatches_paginated_multiple_items_returns_collection():
+    client = HuduClient(api_key="x", instance_url="example.hudu.app")
+
+    client._get_all_pages = MagicMock(
+        return_value=[{"id": 1, "name": "a"}, {"id": 2, "name": "b"}]
+    )
+    client._get_nonpaginated = MagicMock()
+
+    result = client.get(HuduEndpoint.ARTICLES)
+
+    assert isinstance(result, HuduCollection)
+    assert len(result) == 2
     assert result[0].id == 1
+    assert result[1].id == 2
 
 def test_get_dispatches_nonpaginated():
     client = HuduClient(api_key="x", instance_url="example.hudu.app")
