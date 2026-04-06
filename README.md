@@ -1,6 +1,11 @@
 # hudu-magic
 
-[![Publish to PyPI](https://github.com/Hudu-Technologies-Inc/hudu-magic/actions/workflows/publish-pypi.yml/badge.svg?branch=main)](https://github.com/Hudu-Technologies-Inc/hudu-magic/actions/workflows/publish-pypi.yml)
+A **tiny, enum-driven, class-based Python API client** for Hudu.
+
+- Minimal dependencies (requests)
+- Generated from OpenAPI  
+- Low Maintenance
+- Designed for clarity and maintainability
 
 
 ---
@@ -8,16 +13,6 @@
 [PyWheels](https://www.piwheels.org/project/hudu-magic/)
 
 [PyPi](https://pypi.org/project/hudu-magic/)
-
----
-
-
-A **tiny, enum-driven, class-based Python API client** for Hudu.
-
-- Minimal dependencies (requests)
-- Generated from OpenAPI  
-- Low Maintenance
-- Designed for clarity and maintainability
 
 ---
 
