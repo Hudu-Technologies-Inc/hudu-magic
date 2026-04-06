@@ -45,7 +45,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PYTHON_CMD="$SCRIPT_DIR/.venv/bin/python"
 
 if [[ ! -x "$PYTHON_CMD" ]]; then
-  echo "Virtual environment not found. Run ./install.sh first."
+  echo "Virtual environment not found. Create one (python3 -m venv .venv) or run ./install-python.sh — see GETPYTHON.md"
   exit 1
 fi
 
