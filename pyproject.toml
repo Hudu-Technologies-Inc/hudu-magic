@@ -46,6 +46,10 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+  "integration: calls a live Hudu instance (enable with HUDU_RUN_INTEGRATION=1)",
+  "destructive: integration tests that create or change remote data",
+]
 
 [tool.ruff]
 line-length = 100
