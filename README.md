@@ -259,8 +259,13 @@ PyPI releases use a **library** SemVer prefix and a numeric suffix derived from 
 
   `hudu_spec_major * 1000 + hudu_spec_minor * 10 + hudu_spec_patch`
 
-  Example: OpenAPI **2.43.0** → `2 * 1000 + 43 * 10 + 0` = **2430** → package segment **0.1.2430** (with `0.1` as the current library prefix).
+  Example: OpenAPI **2.41.0** → `2 * 1000 + 41 * 10 + 0` = **2410** → package segment **0.1.2410** (with `0.1` as the current library prefix).
 
-When Hudu publishes a new spec, regenerate and bump **`HUDUSPECVERSION`** accordingly. For **Python-only** fixes (same spec, no regeneration), prefer a **PEP 440** suffix such as `0.1.2430.post1` so the encoded spec stays honest.
+When Hudu publishes a new spec, regenerate and bump **`HUDUSPECVERSION`** accordingly. For **Python-only** fixes (same spec, no regeneration), prefer a **PEP 440** suffix such as `0.1.2410.post1` so the encoded spec stays honest.
 
-**Spec used for the current release:** Hudu OpenAPI **2.43.0** (as of 2026-04-06). The canonical package version is in `pyproject.toml`.
+**Spec used for the current release:** Hudu OpenAPI **2.41.0** (as of 2026-04-06). The canonical package version is in `pyproject.toml`.
+
+# History
+
+## Hudu 2.41.0 Spec
+- v0.1.2410 - Apr 6, 2026
