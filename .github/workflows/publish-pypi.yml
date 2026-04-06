@@ -4,13 +4,12 @@
 # versions. `skip-existing: true` avoids a hard failure if that version was
 # already uploaded.
 #
-# One-time PyPI setup (trusted publishing):
-# 1. PyPI → Your project → Settings → Publishing → Add a new pending publisher
-# 2. Provider: GitHub, repo: <owner>/hudu-magic, workflow: publish-pypi.yml, environment: pypi (optional)
+# One-time PyPI setup (trusted publishing, no GitHub Environment):
+# 1. PyPI → project → Settings → Publishing → remove any publisher that lists
+#    Environment name "pypi", then add a new pending publisher with Environment
+#    left blank (must match this workflow: no `environment:` on the job).
+# 2. Provider: GitHub, repo: <owner>/hudu-magic, workflow: publish-pypi.yml
 # 3. After the first successful run, the publisher is activated.
-#
-# Optional: create a GitHub Environment named "pypi" with protection rules, then uncomment
-# the `environment:` block below.
 
 name: Publish to PyPI
 
@@ -25,7 +24,6 @@ permissions:
 jobs:
   pypi:
     runs-on: ubuntu-latest
-    environment: pypi
 
     steps:
       - uses: actions/checkout@v4
