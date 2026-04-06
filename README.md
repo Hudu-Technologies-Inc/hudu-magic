@@ -2,11 +2,10 @@
 
 A **tiny, enum-driven, class-based Python API client** for Hudu.
 
-- Minimal dependencies  
+- Minimal dependencies (requests)
 - Generated from OpenAPI  
 - Low Maintenance
-- Designed for clarity and maintainability  
-
+- Designed for clarity and maintainability
 
 ---
 
@@ -181,7 +180,7 @@ photos = asset.list_photos()
 
 ***todo: `.\build.ps1`***
 
-this is designed to be suyper simple so that subsequent releases can eventually just be automatically generated, tested, validated, and pushed to pypi.
+this is designed to be super simple so that subsequent releases can eventually just be automatically generated, tested, validated, and pushed to pypi.
 
 #### Note on building and tests
 
