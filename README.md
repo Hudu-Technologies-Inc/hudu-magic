@@ -2,8 +2,15 @@
 
 [![Publish to PyPI](https://github.com/Hudu-Technologies-Inc/hudu-magic/actions/workflows/publish-pypi.yml/badge.svg?branch=main)](https://github.com/Hudu-Technologies-Inc/hudu-magic/actions/workflows/publish-pypi.yml)
 
+
+---
+
 [PyWheels](https://www.piwheels.org/project/hudu-magic/)
+
 [PyPi](https://pypi.org/project/hudu-magic/)
+
+---
+
 
 A **tiny, enum-driven, class-based Python API client** for Hudu.
 
@@ -239,4 +246,21 @@ client2.assets.create(
 
 MIT
 
+---
 
+# Versioning convention
+
+PyPI releases use a **library** SemVer prefix and a numeric suffix derived from the **Hudu OpenAPI spec** used to generate `HuduEndpoint` and related code:
+
+`MAJOR.MINOR.HUDUSPECVERSION`
+
+- **`MAJOR` / `MINOR`** — reserved for this Python package (breaking API changes, larger feature sets, and so on).
+- **`HUDUSPECVERSION`** — encodes the spec’s `(major, minor, patch)` as a single integer:
+
+  `hudu_spec_major * 1000 + hudu_spec_minor * 10 + hudu_spec_patch`
+
+  Example: OpenAPI **2.43.0** → `2 * 1000 + 43 * 10 + 0` = **2430** → package segment **0.1.2430** (with `0.1` as the current library prefix).
+
+When Hudu publishes a new spec, regenerate and bump **`HUDUSPECVERSION`** accordingly. For **Python-only** fixes (same spec, no regeneration), prefer a **PEP 440** suffix such as `0.1.2430.post1` so the encoded spec stays honest.
+
+**Spec used for the current release:** Hudu OpenAPI **2.43.0** (as of 2026-04-06). The canonical package version is in `pyproject.toml`.
