@@ -456,13 +456,46 @@ class PasswordFoldersResource(BaseResource):
 class AssetsResource(BaseResource):
     endpoint = HuduEndpoint.ASSETS
 
+    def _list_company_assets(self, company_id: int | str, params: dict | None) -> Any:
+        """GET companies/{company_id}/assets — path is not an endpoint enum, so paginate and wrap here."""
+        path = f"companies/{company_id}/assets"
+        page = 1
+        all_items: list[dict] = []
+        p = dict(params or {})
+        seen_signatures: set[tuple] = set()
+        while True:
+            page_params = {**p, "page": page}
+            result = self.client._get_nonpaginated(path, page_params)
+            if isinstance(result, dict):
+                items = (
+                    result.get("companies_assets")
+                    or result.get("assets")
+                    or result.get("items")
+                    or result.get("data")
+                    or []
+                )
+            elif isinstance(result, list):
+                items = result
+            else:
+                items = []
+            if not items:
+                break
+            signature = tuple(
+                item.get("id") for item in items if isinstance(item, dict)
+            )
+            if signature in seen_signatures:
+                break
+            seen_signatures.add(signature)
+            all_items.extend(items)
+            page += 1
+        return self.client._wrap_result(HuduEndpoint.ASSETS, all_items)
+
     def list(self, company_id=None, **params):
         if company_id is None and "company_id" in params:
             company_id = params.pop("company_id")
 
         if company_id is not None:
-            path = f"companies/{company_id}/assets"
-            return self.client.get(path, params=params or None, paginate=True)
+            return self._list_company_assets(company_id, params)
 
         return self.client.get(self.endpoint, params=params or None, paginate=True)
 
@@ -477,7 +510,7 @@ class AssetsResource(BaseResource):
             if company_id is not None:
                 path = f"companies/{company_id}/assets/{item_id}"
                 raw = self.client._get_nonpaginated(path)
-                return self.client._wrap_result(HuduEndpoint.ASSETS_ID, raw)
+                return self.client._wrap_result(HuduEndpoint.ASSETS, raw)
 
             result = self.client.get(
                 self.endpoint,
@@ -673,17 +706,6 @@ class ProceduresResource(BaseResource):
 
 class ProcedureTasksResource(BaseResource):
     endpoint = HuduEndpoint.PROCEDURE_TASKS
-
-    def get(self, item_id=None, **params):
-        if item_id is not None and params:
-            raise ValueError(
-                "Provide either item_id or query params, not both")
-
-        if item_id is None:
-            return self.list(**params)
-
-        path = self.client.resolve_path(self.endpoint, item_id)
-        return self.client.get(path, paginate=False, property_name="procedure_tasks")
 
 
 class CardsResource(BaseResource):
