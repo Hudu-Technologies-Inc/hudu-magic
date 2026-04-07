@@ -586,6 +586,9 @@ class Procedure(HuduObject):
     
     def list_tasks(self) -> list:
         return self.tasks
+    
+    def kickoff(self):
+        return self.kick_off()
 
 
 class ProcedureTasks(HuduObject):
