@@ -186,3 +186,9 @@ CLIENT_SIDE_ONLY_PROCEDURE_PROPS = {
     "isrun"
 }
 
+PROCEDURE_TASK_RUN_ONLY_FIELDS = {
+    "Priority",
+    "UserId",
+    "AssignedUsers",
+    "DueDate"
+}

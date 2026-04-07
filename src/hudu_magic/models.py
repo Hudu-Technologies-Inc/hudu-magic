@@ -17,6 +17,7 @@ from .payloads import (
     normalize_website_payload_for_save,
     normalize_folder_payload_for_save,
     normalize_ipam_payload_for_save,
+    strip_run_only_fields_from_payload,
 )
 from .validation import (
     HuduValidationError,
@@ -598,6 +599,24 @@ class ProcedureTasks(HuduObject):
     @property
     def procedure(self) -> Procedure:
         return self._client.procedures.get(self.procedure_id)
+    
+    def update(self, payload: dict[str, Any], **kwargs):
+        if self.id is None:
+            raise ValueError("Cannot update object without an id")
+
+        if self.procedure.is_run:
+            payload = strip_run_only_fields_from_payload(payload)
+
+        updated = self._client.update(self._endpoint, self.id, payload,
+                                      **kwargs)
+
+        if isinstance(updated, HuduObject):
+            self._data = updated._data
+            return self
+
+        if isinstance(updated, dict):
+            self._data = updated
+            return self
 
 
 class Website(HuduObject):
