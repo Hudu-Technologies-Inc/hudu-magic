@@ -7,7 +7,15 @@ from hudu_magic.help import describe_single, supported_methods
 from hudu_magic.helpers.general import is_version_greater_or_equal
 
 from .endpoints import HuduEndpoint
-from .models import Asset, HuduCollection, HuduObject, Photo, PublicPhoto, Upload
+from .models import (
+    Asset,
+    HuduCollection,
+    HuduObject,
+    Photo,
+    PublicPhoto,
+    Upload,
+    ordered_procedure_tasks,
+)
 from .validation import (
     HuduNotImplementedError,
     HuduValidationError,
@@ -693,9 +701,38 @@ class UsersResource(BaseResource):
     def assign_task(self, task_id: int | str, user_id: int | str):
         if task_id is None:
             raise ValueError("task_id is required to assign a user to a procedure task")
-        task_path = f"procedure_tasks/{task_id}"
+        taskItem = self.client.procedure_tasks.get(task_id)
+        procedure = taskItem.procedure
 
+        if not procedure.is_run:
+            template_tasks = ordered_procedure_tasks(self.client, procedure.id)
+            try:
+                tid = int(task_id)
+                idx = next(
+                    i
+                    for i, t in enumerate(template_tasks)
+                    if int(t.id) == tid
+                )
+            except (StopIteration, TypeError, ValueError) as exc:
+                raise ValueError(
+                    f"Task {task_id!r} is not listed for procedure {procedure.id!r}"
+                ) from exc
 
+            run = procedure.kick_off()
+            run_tasks = ordered_procedure_tasks(self.client, run.id)
+            if idx >= len(run_tasks):
+                raise ValueError(
+                    "kick_off succeeded but run task list length does not match template"
+                )
+            taskItem = run_tasks[idx]
+
+        assignedusers = list(taskItem.assigned_users or [])
+        if user_id in assignedusers:
+            raise ValueError(
+                f"User {user_id} is already assigned to task {taskItem.id}"
+            )
+        assignedusers.append(user_id)
+        return taskItem.update({"assigned_users": assignedusers})
 class GroupsResource(BaseResource):
     endpoint = HuduEndpoint.GROUPS
 

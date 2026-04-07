@@ -21,6 +21,7 @@ from .payloads import (
 )
 from .validation import (
     HuduValidationError,
+    to_bool,
     validate_relatables,
 )
 
@@ -566,30 +567,63 @@ class Procedure(HuduObject):
 
     @property
     def is_run(self) -> bool:
-        return is_zero_percent(
-            self._data.get("completion_percentage", 0)
-            ) is False
+        if self._data.get("run") is not None:
+            return to_bool(self._data.get("run", False))
+        return False
 
-    def kick_off(self):
+    def as_run(self) -> ProcedureRun:
+        if not self.is_run:
+            raise ValueError(
+                "This procedure is a template, not a run. Call kick_off() first."
+            )
+        return ProcedureRun(self._client, self._endpoint, dict(self._data))
+
+    def kick_off(self) -> Procedure:
         if self.id is None:
             raise ValueError("Cannot kick off procedure without an id")
         if self.is_run:
             raise ValueError(
                 "Cannot kick off procedure that has already started"
-                )
+            )
         path = f"procedures/{self.id}/kickoff"
-        return self._client.post(path)
+        raw = self._client.post(path)
+        wrapped = self._client._wrap_result(HuduEndpoint.PROCEDURES_ID, raw)
+        if wrapped is None:
+            raise ValueError("kick_off returned an empty response")
+        if isinstance(wrapped, Procedure):
+            proc = wrapped
+        elif isinstance(wrapped, dict):
+            primary = self._client._extract_primary_object(wrapped)
+            if not isinstance(primary, dict):
+                raise ValueError("kick_off response was not a procedure object")
+            proc = Procedure(self._client, HuduEndpoint.PROCEDURES_ID, primary)
+        else:
+            raise TypeError(f"Unexpected kick_off response type: {type(wrapped)!r}")
 
-# aliases
+        if proc.is_run:
+            return ProcedureRun(self._client, proc._endpoint, dict(proc._data))
+        return proc
+
     @property
     def procedure_tasks(self) -> list:
         return self.tasks
-    
+
     def list_tasks(self) -> list:
         return self.tasks
-    
+
     def kickoff(self):
         return self.kick_off()
+
+
+class ProcedureRun(Procedure):
+    """Kicked-off procedure instance: same API resource as `Procedure` with `run` true."""
+
+    def __init__(self, client, endpoint, data):
+        super().__init__(client, endpoint, data)
+        if not self.is_run:
+            raise ValueError(
+                "ProcedureRun requires kicked-off procedure data (run flag true from API)"
+            )
 
 
 class ProcedureTasks(HuduObject):
@@ -604,7 +638,7 @@ class ProcedureTasks(HuduObject):
         if self.id is None:
             raise ValueError("Cannot update object without an id")
 
-        if self.procedure.is_run:
+        if not self.procedure.is_run:
             payload = strip_run_only_fields_from_payload(payload)
 
         updated = self._client.update(self._endpoint, self.id, payload,
@@ -617,7 +651,13 @@ class ProcedureTasks(HuduObject):
         if isinstance(updated, dict):
             self._data = updated
             return self
-        
+
+        return self
+
+    @property
+    def run_procedure(self) -> ProcedureRun:
+        return self.procedure.as_run()
+
     def assign_to(self, user: Users):
         if self.id is None:
             raise ValueError("Cannot assign task without an id")
@@ -628,17 +668,8 @@ class ProcedureTasks(HuduObject):
         else:
             raise ValueError("user must be an int or HuduObject")
 
-        taskItem = self._client.procedure_tasks.get(self._require_id())
-        procedure = taskItem.procedure
-        if not procedure.is_run:
-            raise ValueError(
-                "Cannot assign task for a procedure that is not started")
-        assignedusers = procedure.assigned_users or []
-        if user_id in assignedusers:
-            raise ValueError(
-                f"User {user_id} is already assigned to proc {procedure.id}")
-        assignedusers.append(user_id)
-        return taskItem.update({"assigned_users": assignedusers})
+        return self._client.users.assign_task(self.id, user_id)
+
 
 class Website(HuduObject):
     relation_type = "Website"
@@ -955,6 +986,35 @@ class RackstorageItems(HuduObject):
 class Cards(HuduObject):
     endpoint = HuduEndpoint.CARDS_LOOKUP
     resource_attr = "card"
+
+
+def ordered_procedure_tasks(client: Any, procedure_id: int | str) -> list[Any]:
+    """Return tasks for ``procedure_id``, ordered by ``position`` then ``id``."""
+    raw = client.procedure_tasks.list(procedure_id=procedure_id)
+    if raw is None:
+        return []
+    if isinstance(raw, list):
+        items = list(raw)
+    else:
+        try:
+            items = list(raw)
+        except TypeError:
+            items = [raw]
+
+    def sort_key(t: Any) -> tuple:
+        try:
+            pos = t.get("position")
+            pos = int(pos) if pos is not None else 0
+        except (TypeError, ValueError):
+            pos = 0
+        tid = t.get("id")
+        try:
+            tid = int(tid) if tid is not None else 0
+        except (TypeError, ValueError):
+            tid = 0
+        return (pos, tid)
+
+    return sorted(items, key=sort_key)
 
 
 MODEL_MAP = {

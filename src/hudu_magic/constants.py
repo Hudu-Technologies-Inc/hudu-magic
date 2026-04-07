@@ -186,9 +186,15 @@ CLIENT_SIDE_ONLY_PROCEDURE_PROPS = {
     "isrun"
 }
 
-PROCEDURE_TASK_RUN_ONLY_FIELDS = {
+# Fields Hudu accepts on run-instance tasks but rejects on template (blueprint) tasks.
+# Use API/snake_case keys; PascalCase kept for any legacy callers.
+PROCEDURE_TASK_RUN_ONLY_FIELDS = frozenset({
+    "priority",
+    "user_id",
+    "assigned_users",
+    "due_date",
     "Priority",
     "UserId",
     "AssignedUsers",
-    "DueDate"
-}
+    "DueDate",
+})
