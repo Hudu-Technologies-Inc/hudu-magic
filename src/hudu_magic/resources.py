@@ -657,7 +657,13 @@ class RackStorageItemResource(BaseResource):
 class UsersResource(BaseResource):
     endpoint = HuduEndpoint.USERS
 
-
+    def assign_task(self, task_id: int | str, user_id: int | str):
+        if task_id is None:
+            raise ValueError("task_id is required to assign a user to a procedure task")
+        task_path = f"procedure_tasks/{task_id}"
+        
+        
+x
 class GroupsResource(BaseResource):
     endpoint = HuduEndpoint.GROUPS
 

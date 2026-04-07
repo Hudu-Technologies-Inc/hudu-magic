@@ -617,6 +617,27 @@ class ProcedureTasks(HuduObject):
         if isinstance(updated, dict):
             self._data = updated
             return self
+        
+    def assign_to(self, user: Users):
+        if self.id is None:
+            raise ValueError("Cannot assign task without an id")
+        if isinstance(user, HuduObject):
+            user_id = user.id
+        elif isinstance(user, int):
+            user_id = user
+        else:
+            raise ValueError("user must be an int or HuduObject")
+
+        task_id= self._require_id()
+        taskItem = self._client.procedure_tasks.get(task_id)
+        procedure = taskItem.procedure
+        if not procedure.is_run:
+            raise ValueError("Cannot assign task for a procedure that has not been kicked off")
+        assignedusers = procedure.assigned_users or []
+        if user_id in assignedusers:
+            raise ValueError(f"User {user_id} is already assigned to procedure {procedure.id}")
+        assignedusers.append(user_id)
+        taskItem.update({"assigned_users": assignedusers})
 
 
 class Website(HuduObject):
