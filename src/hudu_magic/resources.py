@@ -7,7 +7,15 @@ from hudu_magic.help import describe_single, supported_methods
 from hudu_magic.helpers.general import is_version_greater_or_equal
 
 from .endpoints import HuduEndpoint
-from .models import Asset, HuduCollection, HuduObject, Photo, PublicPhoto, Upload
+from .models import (
+    Asset,
+    HuduCollection,
+    HuduObject,
+    Photo,
+    PublicPhoto,
+    Upload,
+    ordered_procedure_tasks,
+)
 from .validation import (
     HuduNotImplementedError,
     HuduValidationError,
@@ -456,13 +464,46 @@ class PasswordFoldersResource(BaseResource):
 class AssetsResource(BaseResource):
     endpoint = HuduEndpoint.ASSETS
 
+    def _list_company_assets(self, company_id: int | str, params: dict | None) -> Any:
+        """GET companies/{company_id}/assets — path is not an endpoint enum, so paginate and wrap here."""
+        path = f"companies/{company_id}/assets"
+        page = 1
+        all_items: list[dict] = []
+        p = dict(params or {})
+        seen_signatures: set[tuple] = set()
+        while True:
+            page_params = {**p, "page": page}
+            result = self.client._get_nonpaginated(path, page_params)
+            if isinstance(result, dict):
+                items = (
+                    result.get("companies_assets")
+                    or result.get("assets")
+                    or result.get("items")
+                    or result.get("data")
+                    or []
+                )
+            elif isinstance(result, list):
+                items = result
+            else:
+                items = []
+            if not items:
+                break
+            signature = tuple(
+                item.get("id") for item in items if isinstance(item, dict)
+            )
+            if signature in seen_signatures:
+                break
+            seen_signatures.add(signature)
+            all_items.extend(items)
+            page += 1
+        return self.client._wrap_result(HuduEndpoint.ASSETS, all_items)
+
     def list(self, company_id=None, **params):
         if company_id is None and "company_id" in params:
             company_id = params.pop("company_id")
 
         if company_id is not None:
-            path = f"companies/{company_id}/assets"
-            return self.client.get(path, params=params or None, paginate=True)
+            return self._list_company_assets(company_id, params)
 
         return self.client.get(self.endpoint, params=params or None, paginate=True)
 
@@ -477,7 +518,7 @@ class AssetsResource(BaseResource):
             if company_id is not None:
                 path = f"companies/{company_id}/assets/{item_id}"
                 raw = self.client._get_nonpaginated(path)
-                return self.client._wrap_result(HuduEndpoint.ASSETS_ID, raw)
+                return self.client._wrap_result(HuduEndpoint.ASSETS, raw)
 
             result = self.client.get(
                 self.endpoint,
@@ -657,7 +698,41 @@ class RackStorageItemResource(BaseResource):
 class UsersResource(BaseResource):
     endpoint = HuduEndpoint.USERS
 
+    def assign_task(self, task_id: int | str, user_id: int | str):
+        if task_id is None:
+            raise ValueError("task_id is required to assign a user to a procedure task")
+        taskItem = self.client.procedure_tasks.get(task_id)
+        procedure = taskItem.procedure
 
+        if not procedure.is_run:
+            template_tasks = ordered_procedure_tasks(self.client, procedure.id)
+            try:
+                tid = int(task_id)
+                idx = next(
+                    i
+                    for i, t in enumerate(template_tasks)
+                    if int(t.id) == tid
+                )
+            except (StopIteration, TypeError, ValueError) as exc:
+                raise ValueError(
+                    f"Task {task_id!r} is not listed for procedure {procedure.id!r}"
+                ) from exc
+
+            run = procedure.kick_off()
+            run_tasks = ordered_procedure_tasks(self.client, run.id)
+            if idx >= len(run_tasks):
+                raise ValueError(
+                    "kick_off succeeded but run task list length does not match template"
+                )
+            taskItem = run_tasks[idx]
+
+        assignedusers = list(taskItem.assigned_users or [])
+        if user_id in assignedusers:
+            raise ValueError(
+                f"User {user_id} is already assigned to task {taskItem.id}"
+            )
+        assignedusers.append(user_id)
+        return taskItem.update({"assigned_users": assignedusers})
 class GroupsResource(BaseResource):
     endpoint = HuduEndpoint.GROUPS
 
@@ -668,17 +743,6 @@ class ProceduresResource(BaseResource):
 
 class ProcedureTasksResource(BaseResource):
     endpoint = HuduEndpoint.PROCEDURE_TASKS
-
-    def get(self, item_id=None, **params):
-        if item_id is not None and params:
-            raise ValueError(
-                "Provide either item_id or query params, not both")
-
-        if item_id is None:
-            return self.list(**params)
-
-        path = self.endpoint.item_path(item_id)
-        return self.client.get(path, paginate=False, property_name="procedure_tasks")
 
 
 class CardsResource(BaseResource):
@@ -703,6 +767,14 @@ class ActivityLogsResource(BaseResource):
 
 class ExpirationsResource(BaseResource):
     endpoint = HuduEndpoint.EXPIRATIONS
+
+
+class ExportsResource(BaseResource):
+    endpoint = HuduEndpoint.EXPORTS
+
+
+class S3ExportsResource(BaseResource):
+    endpoint = HuduEndpoint.S3_EXPORTS
 
 
 class ListResourceListResource(BaseResource):

@@ -215,6 +215,34 @@ if an object type or resource doesnt support a method call or payload param, you
 
 # Special Class Methods
 
+## Procedures and Tasks
+
+### Listing from Company
+
+```
+mycompany = client.companies.get(slug="ca4aec69021e")
+companyprocedures = mycompany.list_procedures()
+```
+
+### Determining if Procedure is Run
+
+you can call `is_run` property (bool) on a procedure
+
+```python
+myprocedure.is_run
+```
+
+### Getting tasks from procedure
+
+you can directly call the method
+`list_tasks()`
+or 
+`myprocedure.tasks`
+to get the list of task objects
+
+
+
+
 
 
 ## Advanced Use Possibilities

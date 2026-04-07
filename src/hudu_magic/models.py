@@ -16,9 +16,11 @@ from .payloads import (
     normalize_website_payload_for_save,
     normalize_folder_payload_for_save,
     normalize_ipam_payload_for_save,
+    strip_run_only_fields_from_payload,
 )
 from .validation import (
     HuduValidationError,
+    to_bool,
     validate_relatables,
 )
 
@@ -558,6 +560,117 @@ class Procedure(HuduObject):
     resource_upl_type = "Procedure"
     endpoint = HuduEndpoint.PROCEDURES
 
+    @property
+    def tasks(self) -> list:
+        return self._data.get("procedure_tasks_attributes", [])
+
+    @property
+    def is_run(self) -> bool:
+        if self._data.get("run") is not None:
+            return to_bool(self._data.get("run", False))
+        return False
+
+    def as_run(self) -> ProcedureRun:
+        if not self.is_run:
+            raise ValueError(
+                "This procedure is a template, not a run. Call kick_off() first."
+            )
+        return ProcedureRun(self._client, self._endpoint, dict(self._data))
+
+    def kick_off(self) -> Procedure:
+        if self.id is None:
+            raise ValueError("Cannot kick off procedure without an id")
+        if self.is_run:
+            raise ValueError(
+                "Cannot kick off procedure that has already started"
+            )
+        path = f"procedures/{self.id}/kickoff"
+        raw = self._client.post(path)
+        wrapped = self._client._wrap_result(HuduEndpoint.PROCEDURES_ID, raw)
+        if wrapped is None:
+            raise ValueError("kick_off returned an empty response")
+        if isinstance(wrapped, Procedure):
+            proc = wrapped
+        elif isinstance(wrapped, dict):
+            primary = self._client._extract_primary_object(wrapped)
+            if not isinstance(primary, dict):
+                raise ValueError("kick_off response was not a procedure object")
+            proc = Procedure(self._client, HuduEndpoint.PROCEDURES_ID, primary)
+        else:
+            raise TypeError(f"Unexpected kick_off response type: {type(wrapped)!r}")
+
+        if proc.is_run:
+            return ProcedureRun(self._client, proc._endpoint, dict(proc._data))
+        return proc
+
+    @property
+    def procedure_tasks(self) -> list:
+        return self.tasks
+
+    def list_tasks(self) -> list:
+        return self.tasks
+
+    def kickoff(self):
+        return self.kick_off()
+
+
+class ProcedureRun(Procedure):
+    """Kicked-off procedure instance: same API resource as `Procedure` with `run` true."""
+
+    def __init__(self, client, endpoint, data):
+        super().__init__(client, endpoint, data)
+        if not self.is_run:
+            raise ValueError(
+                "ProcedureRun requires kicked-off procedure data (run flag true from API)"
+            )
+
+
+class ProcedureTasks(HuduObject):
+    endpoint = HuduEndpoint.PROCEDURE_TASKS
+    # List/create use PROCEDURE_TASKS; PUT must validate against PROCEDURE_TASKS_ID.
+    update_endpoint = HuduEndpoint.PROCEDURE_TASKS_ID
+    resource_attr = "procedure_tasks"
+
+    @property
+    def procedure(self) -> Procedure:
+        return self._client.procedures.get(self.procedure_id)
+
+    def update(self, payload: dict[str, Any], **kwargs):
+        if self.id is None:
+            raise ValueError("Cannot update object without an id")
+
+        if not self.procedure.is_run:
+            payload = strip_run_only_fields_from_payload(payload)
+
+        ep = getattr(self.__class__, "update_endpoint", self._endpoint)
+        updated = self._client.update(ep, self.id, payload, **kwargs)
+
+        if isinstance(updated, HuduObject):
+            self._data = updated._data
+            return self
+
+        if isinstance(updated, dict):
+            self._data = updated
+            return self
+
+        return self
+
+    @property
+    def run_procedure(self) -> ProcedureRun:
+        return self.procedure.as_run()
+
+    def assign_to(self, user: Users):
+        if self.id is None:
+            raise ValueError("Cannot assign task without an id")
+        if isinstance(user, HuduObject):
+            user_id = user.id
+        elif isinstance(user, int):
+            user_id = user
+        else:
+            raise ValueError("user must be an int or HuduObject")
+
+        return self._client.users.assign_task(self.id, user_id)
+
 
 class Website(HuduObject):
     relation_type = "Website"
@@ -650,7 +763,7 @@ class PasswordFolder(HuduObject):
             pw = self._client.asset_passwords.get(password)
             return pw.to_folder(self.id)
 
-        raise ValueError("password must be an int, HuduObject, or list of those")
+        raise ValueError("password must be an int, HuduObject, or list")
 
 
 class Network(HuduObject):
@@ -777,6 +890,19 @@ class AssetPassword(HuduObject):
         return updated
 
 
+class Exports(HuduObject):
+    endpoint = HuduEndpoint.EXPORTS
+    resource_attr = "exports"
+
+
+class S3Exports(HuduObject):
+    endpoint = HuduEndpoint.S3_EXPORTS
+    resource_attr = "s3_exports"
+    
+    def get(self) -> None:
+        raise NotImplementedError("S3Exports does not support get()")
+
+
 class Photo(HuduObject):
     endpoint = HuduEndpoint.PHOTOS
     resource_attr = "photos"
@@ -805,16 +931,10 @@ class Users(HuduObject):
     endpoint = HuduEndpoint.USERS
     resource_attr = "users"
 
-
-class Procedures(HuduObject):
-    endpoint = HuduEndpoint.PROCEDURES
-    resource_attr = "procedures"
-
-
-class ProcedureTasks(HuduObject):
-    endpoint = HuduEndpoint.PROCEDURE_TASKS
-    resource_attr = "procedure_tasks"
-
+    def assign_task(self, task: ProcedureTasks):
+        if self.id is None:
+            raise ValueError("Cannot assign task to user without an id")
+        return task.assign_to(self)
 
 class Groups(HuduObject):
     endpoint = HuduEndpoint.GROUPS
@@ -869,6 +989,35 @@ class Cards(HuduObject):
     resource_attr = "card"
 
 
+def ordered_procedure_tasks(client: Any, procedure_id: int | str) -> list[Any]:
+    """Return tasks for ``procedure_id``, ordered by ``position`` then ``id``."""
+    raw = client.procedure_tasks.list(procedure_id=procedure_id)
+    if raw is None:
+        return []
+    if isinstance(raw, list):
+        items = list(raw)
+    else:
+        try:
+            items = list(raw)
+        except TypeError:
+            items = [raw]
+
+    def sort_key(t: Any) -> tuple:
+        try:
+            pos = t.get("position")
+            pos = int(pos) if pos is not None else 0
+        except (TypeError, ValueError):
+            pos = 0
+        tid = t.get("id")
+        try:
+            tid = int(tid) if tid is not None else 0
+        except (TypeError, ValueError):
+            tid = 0
+        return (pos, tid)
+
+    return sorted(items, key=sort_key)
+
+
 MODEL_MAP = {
     HuduEndpoint.ACTIVITY_LOGS: ActivityLogs,
     HuduEndpoint.ASSET_LAYOUTS: AssetLayout,
@@ -887,11 +1036,15 @@ MODEL_MAP = {
     HuduEndpoint.GROUPS: Groups,
     HuduEndpoint.EXPIRATIONS: Expirations,
     HuduEndpoint.EXPIRATIONS_ID: Expirations,
+    HuduEndpoint.EXPORTS: Exports,
+    HuduEndpoint.EXPORTS_ID: Exports,
+    HuduEndpoint.S3_EXPORTS: S3Exports,
     HuduEndpoint.FLAGS: Flags,
     HuduEndpoint.FLAGS_ID: Flags,
     HuduEndpoint.LISTS: Lists,
     HuduEndpoint.LISTS_ID: Lists,
     HuduEndpoint.FLAG_TYPES: FlagTypes,
+    HuduEndpoint.FLAG_TYPES_ID: FlagTypes,
     HuduEndpoint.FOLDERS: Folder,
     HuduEndpoint.FOLDERS_ID: Folder,
     HuduEndpoint.GROUPS: Groups,
@@ -903,6 +1056,7 @@ MODEL_MAP = {
     HuduEndpoint.PASSWORD_FOLDERS: PasswordFolder,
     HuduEndpoint.PASSWORD_FOLDERS_ID: PasswordFolder,
     HuduEndpoint.PROCEDURES: Procedure,
+    HuduEndpoint.PROCEDURES_ID: Procedure,
     HuduEndpoint.PROCEDURE_TASKS: ProcedureTasks,
     HuduEndpoint.PROCEDURE_TASKS_ID: ProcedureTasks,
     HuduEndpoint.RELATIONS_ID: Relation,
@@ -918,6 +1072,7 @@ MODEL_MAP = {
     HuduEndpoint.UPLOADS: Upload,
     HuduEndpoint.UPLOADS_ID: Upload,
     HuduEndpoint.USERS: Users,
+    HuduEndpoint.USERS_ID: Users,
     HuduEndpoint.VLANS: VLan,
     HuduEndpoint.VLANS_ID: VLan,
     HuduEndpoint.VLAN_ZONES: VLanZone,
