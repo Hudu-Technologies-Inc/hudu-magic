@@ -818,6 +818,19 @@ class AssetPassword(HuduObject):
         return updated
 
 
+class Exports(HuduObject):
+    endpoint = HuduEndpoint.EXPORTS
+    resource_attr = "exports"
+
+
+class S3Exports(HuduObject):
+    endpoint = HuduEndpoint.S3_EXPORTS
+    resource_attr = "s3_exports"
+    
+    def get(self) -> None:
+        raise NotImplementedError("S3Exports does not support get()")
+
+
 class Photo(HuduObject):
     endpoint = HuduEndpoint.PHOTOS
     resource_attr = "photos"
@@ -845,8 +858,6 @@ class Upload(HuduObject):
 class Users(HuduObject):
     endpoint = HuduEndpoint.USERS
     resource_attr = "users"
-
-
 
 
 class Groups(HuduObject):
@@ -920,6 +931,8 @@ MODEL_MAP = {
     HuduEndpoint.GROUPS: Groups,
     HuduEndpoint.EXPIRATIONS: Expirations,
     HuduEndpoint.EXPIRATIONS_ID: Expirations,
+    HuduEndpoint.EXPORTS: Exports,
+    HuduEndpoint.S3_EXPORTS: S3Exports,
     HuduEndpoint.FLAGS: Flags,
     HuduEndpoint.FLAGS_ID: Flags,
     HuduEndpoint.LISTS: Lists,
