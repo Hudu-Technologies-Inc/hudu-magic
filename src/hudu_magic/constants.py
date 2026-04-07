@@ -181,3 +181,8 @@ ALLOWED_PUBLIC_PHOTOABLE_TYPES = {
 
 ALLOWED_PHOTO_EXTS = {".jpeg", ".jpg", ".png", ".gif", ".webp", ".heic"}
 ALLOWED_PUBPHOTO_EXTS = {".jpeg", ".jpg", ".png"}
+
+CLIENT_SIDE_ONLY_PROCEDURE_PROPS = {
+    "isrun"
+}
+

@@ -705,5 +705,13 @@ class ExpirationsResource(BaseResource):
     endpoint = HuduEndpoint.EXPIRATIONS
 
 
+class ExportsResource(BaseResource):
+    endpoint = HuduEndpoint.EXPORTS
+
+
+class S3ExportsResource(BaseResource):
+    endpoint = HuduEndpoint.S3_EXPORTS
+
+
 class ListResourceListResource(BaseResource):
     endpoint = HuduEndpoint.LISTS

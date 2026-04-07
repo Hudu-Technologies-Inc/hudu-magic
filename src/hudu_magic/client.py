@@ -20,6 +20,7 @@ from .resources import (ActivityLogsResource, ArticlesResource,
                         ProcedureTasksResource, PublicPhotosResource,
                         RackStorageItemResource, RackStorageResource,
                         RelationsResource, UploadsResource, UsersResource,
+                        ExportsResource, S3ExportsResource,
                         VlansResource, VLANZonesResource, WebsitesResource)
 from .validation import HuduAPIError, validate_payload
 
@@ -34,6 +35,7 @@ class HuduClient:
         self.companies = CompaniesResource(self)
         self.articles = ArticlesResource(self)
         self.folders = FoldersResource(self)
+        self.exports = ExportsResource(self)
         self.websites = WebsitesResource(self)
         self.asset_layouts = Asset_LayoutsResource(self)
         self.assets = AssetsResource(self)
