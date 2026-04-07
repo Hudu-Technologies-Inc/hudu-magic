@@ -98,6 +98,15 @@ asset.delete()
 
 ## Special Model Methods
 
+### Assets
+
+```python
+someasset.add_public_photo("smile.png")
+someasset.add_photo("dogslaughing.jpeg")
+```
+
+some objects can be attributed directly to or uploaded to assets
+
 ### Companies
 
 ```python
@@ -106,8 +115,60 @@ mycompany.list_articles()
 mycompany.list_passwords()
 mycompany.list_procedures()
 mycompany.list_websites()
+mycompany.list_folders()
+mycompany.list_password_folders()
+
+
 mycompany.create_website()
+mycompany.create_password()
+mycompany.create_procedure()
+mycompany.create_article()
+mycompany.create_asset()
 ```
+
+objects that require or can be attributed to a company often can be listed or created directly from a company object
+
+### Procedures and Tasks
+
+```python
+myprocedure.kick_off()
+myprocedure.kickoff()
+myprocedure.start()
+
+myprocedure.is_run
+
+someprocedure.list_tasks()
+someotherprocedure.tasks
+myprocedure.tasks[0].assign(ouruser)
+client.procedure_tasks.get(5).assign(ourotheruser)
+
+sometask.assign_user(mypersonaluser)
+```
+
+Starting a procedure with start, kick_off or kickoff methods results in new procedure [as-a-run] object. Runs still are procedures, and use the same model, but they and their tasks are slightly different.
+
+
+you can call `is_run` property (bool) on a procedure to check if it has been started (and therefore, a run)
+
+procedures that have tasks created already will have a huducollection of procedure_task
+
+proceduretasks can be assigned if the parent procedure has been started. like 'assigned_users', a task can only be assigned 'due_date', 'priority',
+
+you can assign a user using a user's id or a user object directly.
+
+### Users
+
+```python
+myuser.assign_task(thistask)
+myotheruser.assign_task(client.proceduretasks.get(56))
+```
+
+you can assign a task directly to a user object
+
+### Others
+
+there are many other handy and helpful class methods and many more that are planned. Whenever possible, I'll update this section with specific examples.
+
 
 
 ---
@@ -213,9 +274,6 @@ or for more verbose info:
 
 if an object type or resource doesnt support a method call or payload param, you'll be notified of which one(s), if any, are invalid.
 
-# Special Class Methods
-
-
 
 ## Advanced Use Possibilities
 
@@ -263,4 +321,7 @@ When Hudu publishes a new spec, regenerate and bump **`HUDUSPECVERSION`** accord
 # History
 
 ## Hudu 2.41.0 Spec
-- v0.1.2410 - Apr 6, 2026
+
+- v0.1.2410 - Apr 6, 2026; Initial Release
+
+- v0.2.2410 - Apr 7, 2026; added validation, differentiation for procedure-vs-run and task-vs-runtask, as well as some helpful class methods.

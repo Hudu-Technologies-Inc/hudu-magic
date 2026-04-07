@@ -151,3 +151,9 @@ def normalize_folder_payload_for_save(data: dict) -> dict:
 def normalize_ipam_payload_for_save(data: dict) -> dict:
     return {k: v for k, v in data.items()
             if k not in IPAM_PROPERTIES_TO_POP_ON_SAVE and v is not None}
+
+
+def strip_run_only_fields_from_payload(data: dict) -> dict:
+    from hudu_magic.constants import PROCEDURE_TASK_RUN_ONLY_FIELDS
+    return {k: v for k, v in data.items() 
+            if k not in PROCEDURE_TASK_RUN_ONLY_FIELDS and v is not None}

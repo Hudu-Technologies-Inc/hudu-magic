@@ -20,6 +20,7 @@ from .resources import (ActivityLogsResource, ArticlesResource,
                         ProcedureTasksResource, PublicPhotosResource,
                         RackStorageItemResource, RackStorageResource,
                         RelationsResource, UploadsResource, UsersResource,
+                        ExportsResource, S3ExportsResource,
                         VlansResource, VLANZonesResource, WebsitesResource)
 from .validation import HuduAPIError, validate_payload
 
@@ -60,7 +61,21 @@ class HuduClient:
         self.magic_dashes = MagicDashesResource(self)
         self.lists = ListResourceListResource(self)
         self.expirations = ExpirationsResource(self)
+        self.exports = ExportsResource(self)
+        self.s3_exports = S3ExportsResource(self)
         # aliases
+        self.export = self.exports
+        self.s3_export = self.s3_exports
+        self.aws_export = self.s3_exports
+        self.aws_exports = self.s3_exports
+        self.process = self.procedures
+        self.processes = self.procedures
+        self.checklists = self.procedures
+        self.checklist_tasks = self.procedure_tasks
+        self.run = self.procedure_tasks
+        self.runs = self.procedure_tasks
+        self.tasks = self.procedure_tasks
+        self.task = self.procedure_tasks
         self.ActivityLog = self.ActivityLogs
         self.activity_log = self.ActivityLogs
         self.flag = self.flags
