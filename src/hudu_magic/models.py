@@ -6,6 +6,7 @@ from typing import Any
 from typing_extensions import Self
 
 from hudu_magic.help import describe_endpoint
+from hudu_magic.helpers.general import is_zero_percent
 
 from .endpoints import HuduEndpoint
 from .payloads import (
@@ -558,6 +559,40 @@ class Procedure(HuduObject):
     resource_upl_type = "Procedure"
     endpoint = HuduEndpoint.PROCEDURES
 
+    @property
+    def tasks(self) -> list:
+        return self._data.get("procedure_tasks_attributes", [])
+
+    @property
+    def is_run(self) -> bool:
+        return is_zero_percent(
+            self._data.get("completion_percentage", 0)
+            ) is False
+
+    def kick_off(self):
+        if self.id is None:
+            raise ValueError("Cannot kick off procedure without an id")
+        if self.is_run:
+            raise ValueError(
+                "Cannot kick off procedure that has already started"
+                )
+        path = f"procedures/{self.id}/kickoff"
+        return self._client.post(path)
+
+# aliases
+    @property
+    def procedure_tasks(self) -> list:
+        return self.tasks
+
+
+class ProcedureTasks(HuduObject):
+    endpoint = HuduEndpoint.PROCEDURE_TASKS
+    resource_attr = "procedure_tasks"
+
+    @property
+    def procedure(self) -> Procedure:
+        return self._client.procedures.get(self.procedure_id)
+
 
 class Website(HuduObject):
     relation_type = "Website"
@@ -806,14 +841,6 @@ class Users(HuduObject):
     resource_attr = "users"
 
 
-class Procedures(HuduObject):
-    endpoint = HuduEndpoint.PROCEDURES
-    resource_attr = "procedures"
-
-
-class ProcedureTasks(HuduObject):
-    endpoint = HuduEndpoint.PROCEDURE_TASKS
-    resource_attr = "procedure_tasks"
 
 
 class Groups(HuduObject):
