@@ -628,12 +628,14 @@ class ProcedureRun(Procedure):
 
 class ProcedureTasks(HuduObject):
     endpoint = HuduEndpoint.PROCEDURE_TASKS
+    # List/create use PROCEDURE_TASKS; PUT must validate against PROCEDURE_TASKS_ID.
+    update_endpoint = HuduEndpoint.PROCEDURE_TASKS_ID
     resource_attr = "procedure_tasks"
 
     @property
     def procedure(self) -> Procedure:
         return self._client.procedures.get(self.procedure_id)
-    
+
     def update(self, payload: dict[str, Any], **kwargs):
         if self.id is None:
             raise ValueError("Cannot update object without an id")
@@ -641,8 +643,8 @@ class ProcedureTasks(HuduObject):
         if not self.procedure.is_run:
             payload = strip_run_only_fields_from_payload(payload)
 
-        updated = self._client.update(self._endpoint, self.id, payload,
-                                      **kwargs)
+        ep = getattr(self.__class__, "update_endpoint", self._endpoint)
+        updated = self._client.update(ep, self.id, payload, **kwargs)
 
         if isinstance(updated, HuduObject):
             self._data = updated._data
