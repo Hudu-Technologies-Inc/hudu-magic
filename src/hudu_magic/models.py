@@ -579,6 +579,55 @@ class Procedure(HuduObject):
             ]
             self._data["procedure_tasks"] = HuduCollection(tasks)
 
+    @property
+    def tasks(self) -> HuduCollection:
+        """Alias for ``procedure_tasks`` (same ``HuduCollection`` of task objects)."""
+        return self.procedure_tasks
+
+    def add_task(
+        self,
+        payload: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> ProcedureTasks:
+        if self.id is None:
+            raise ValueError("Cannot add a task to a procedure without an id")
+        task = self._client.procedure_tasks.create(
+            payload,
+            procedure_id=self.id,
+            **kwargs,
+        )
+        if isinstance(self.procedure_tasks, HuduCollection):
+            self.procedure_tasks.append(task)
+        return task
+
+    def add_tasks(
+        self,
+        tasks: list[str | dict[str, Any]],
+    ) -> HuduCollection:
+        if self.id is None:
+            raise ValueError("Cannot add tasks to a procedure without an id")
+        created: list[ProcedureTasks] = []
+        for item in tasks:
+            if isinstance(item, str):
+                created.append(self.add_task(name=item))
+            elif isinstance(item, dict):
+                created.append(self.add_task(item))
+            else:
+                raise TypeError(
+                    "add_tasks expects str names or dict payloads, "
+                    f"got {type(item).__name__}"
+                )
+        return HuduCollection(created)
+
+    def kickoff(self,
+        *,
+        name: str | None = None,
+        asset_id: int | str | None = None,
+    ) -> Any:
+        if self.id is None:
+            raise ValueError("Cannot kickoff a procedure without an id")
+        return self._client.procedures.kickoff(item_id=self.id, name=name, asset_id=asset_id)
+
 
 class Website(HuduObject):
     relation_type = "Website"
@@ -950,6 +999,20 @@ MODEL_MAP = {
 
 
 class HuduCollection(list):
+    def add_task(self, *args: Any, **kwargs: Any) -> Any:
+        raise TypeError(
+            "add_task() is defined on Procedure, not on a list of procedures. "
+            "Use a single procedure, e.g. proc = client.procedures.get(id=...); "
+            "proc.add_task(name=...)."
+        )
+
+    def add_tasks(self, *args: Any, **kwargs: Any) -> Any:
+        raise TypeError(
+            "add_tasks() is defined on Procedure, not on a list of procedures. "
+            "Use a single procedure, e.g. proc = client.procedures.first() or .get(...); "
+            "proc.add_tasks([...])."
+        )
+
     def __getattr__(self, name: str):
         if not self:
             raise AttributeError(name)

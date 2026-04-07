@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -9,6 +11,7 @@ from hudu_magic.helpers.general import is_version_greater_or_equal
 from .endpoints import HuduEndpoint
 from .models import Asset, HuduCollection, HuduObject, Photo, PublicPhoto, Upload
 from .validation import (
+    HuduAPIError,
     HuduNotImplementedError,
     HuduValidationError,
     to_bool,
@@ -27,6 +30,62 @@ def _extract_client_write_kwargs(kwargs: dict[str, Any]) -> tuple[bool, bool]:
         bool(kwargs.pop("validate", True)),
         bool(kwargs.pop("allow_unknown_fields", False)),
     )
+
+
+# Fields Hudu only accepts when the procedure is an active *run* (PowerShell run-only set).
+_RUN_ONLY_PROCEDURE_TASK_FIELDS = frozenset(
+    {"priority", "user_id", "assigned_users", "due_date"}
+)
+
+
+def _procedure_record_looks_like_run(d: Mapping[str, Any]) -> bool:
+    """Best-effort detection of an active procedure run vs a template (library) procedure."""
+    if d.get("is_run") is True:
+        return True
+    if d.get("procedure_is_run") is True:
+        return True
+    parent = d.get("parent_procedure_id")
+    if parent not in (None, "", 0):
+        return True
+    if d.get("company_template") is True:
+        return False
+    if d.get("global_template") is True:
+        return False
+    if d.get("remove_completion_ability") is True and parent in (None, "", 0):
+        return False
+    return False
+
+
+def _coerce_procedure_task_due_date(value: Any) -> Any:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.date().strftime("%Y-%m-%d")
+    if isinstance(value, date):
+        return value.strftime("%Y-%m-%d")
+    return value
+
+
+def _normalize_assigned_users(value: Any) -> list[int]:
+    if isinstance(value, (list, tuple)):
+        return [int(x) for x in value]
+    return [int(value)]
+
+
+def _prepare_procedure_task_create_payload(
+    merged: dict[str, Any],
+    *,
+    is_run: bool,
+) -> dict[str, Any]:
+    out = dict(merged)
+    if "due_date" in out:
+        out["due_date"] = _coerce_procedure_task_due_date(out.get("due_date"))
+    if out.get("assigned_users") is not None:
+        out["assigned_users"] = _normalize_assigned_users(out["assigned_users"])
+    if not is_run:
+        for k in _RUN_ONLY_PROCEDURE_TASK_FIELDS:
+            out.pop(k, None)
+    return out
 
 
 class BaseResource:
@@ -734,9 +793,90 @@ class ProceduresResource(BaseResource):
         except HuduValidationError as e:
             self._reraise_with_description(e)
 
+    def kickoff(
+        self,
+        item_id: int | str,
+        *,
+        name: str | None = None,
+        asset_id: int | str | None = None,
+    ) -> Any:
+        """POST ``/procedures/{id}/kickoff`` — start a run from a template when the API allows it."""
+        path = self.client.resolve_path(HuduEndpoint.PROCEDURES_ID_KICKOFF, item_id)
+        url = self.client.build_url(path.lstrip("/"))
+        params: dict[str, Any] = {}
+        if name is not None:
+            params["name"] = name
+        if asset_id is not None:
+            params["asset_id"] = asset_id
+        response = self.client.session.post(
+            url,
+            params=params or None,
+            timeout=self.client.timeout,
+        )
+        raw = self.client._handle_response(response)
+        return self.client._wrap_result(HuduEndpoint.PROCEDURES, raw)
+
 
 class ProcedureTasksResource(BaseResource):
     endpoint = HuduEndpoint.PROCEDURE_TASKS
+
+    def create(self, payload: dict[str, Any] | None = None, **kwargs) -> Any:
+        validate, allow_unknown_fields = _extract_client_write_kwargs(kwargs)
+        auto_kickoff = bool(kwargs.pop("auto_kickoff", False))
+        for_run = kwargs.pop("for_run", None)
+
+        try:
+            merged = self._merge_payload(payload, kwargs)
+
+            missing: list[str] = []
+            if merged.get("procedure_id") in (None, ""):
+                missing.append("procedure_id")
+            proc_name = merged.get("name")
+            if proc_name is None or (isinstance(proc_name, str) and not proc_name.strip()):
+                missing.append("name")
+            if missing:
+                raise ValueError(
+                    f"{', '.join(missing)} required to create a procedure task. "
+                    "Pass procedure_id=… and name=…, or use procedure.add_task(name=…) "
+                    "on a Procedure instance."
+                )
+
+            pid = int(merged["procedure_id"])
+
+            if for_run is True:
+                is_run = True
+            elif for_run is False:
+                is_run = False
+            else:
+                proc_obj = self.client.procedures.get(pid)
+                pdata = (
+                    proc_obj.to_dict()
+                    if hasattr(proc_obj, "to_dict")
+                    else proc_obj
+                )
+                pdata = pdata if isinstance(pdata, dict) else {}
+                is_run = _procedure_record_looks_like_run(pdata)
+
+            if not is_run and auto_kickoff:
+                try:
+                    kicked = self.client.procedures.kickoff(pid)
+                    new_id = getattr(kicked, "id", None)
+                    if new_id is not None:
+                        merged["procedure_id"] = int(new_id)
+                        is_run = True
+                except HuduAPIError:
+                    pass
+
+            merged = _prepare_procedure_task_create_payload(merged, is_run=is_run)
+
+            return self.client.create(
+                self.endpoint,
+                merged,
+                validate=validate,
+                allow_unknown_fields=allow_unknown_fields,
+            )
+        except HuduValidationError as e:
+            self._reraise_with_description(e)
 
     def get(self, item_id=None, **params):
         if item_id is not None and params:

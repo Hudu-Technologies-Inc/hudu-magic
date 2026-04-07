@@ -23,9 +23,8 @@ RESOURCE_WRAPPERS = {
     "lists": "list",
     "flags": "flag",
     "flag_types": "flag_type",
-    # procedures: POST/PUT expect a flat JSON body (same as HuduAPI PowerShell module),
-    # not {"procedure": {...}} — wrapping caused "Name can't be blank" on create.
-    "procedure_tasks": "procedure_task",
+    # procedures / procedure_tasks: POST/PUT use a flat JSON body on many Hudu builds.
+    # Nesting {"procedure": ...} or {"procedure_task": ...} caused 422 validation errors.
     "relations": "relation",
     "assets": "asset",
     "asset_layouts_move_layout": "asset",

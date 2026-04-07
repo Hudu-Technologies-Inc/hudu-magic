@@ -118,6 +118,9 @@ class HuduClient:
                 payload = response.json()
                 message = payload.get("message") or payload.get(
                     "error") or response.text
+                errors = payload.get("errors")
+                if errors is not None and errors != message:
+                    message = f"{message}\nerrors={errors!r}"
             except Exception:
                 message = response.text
 

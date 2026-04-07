@@ -179,8 +179,40 @@ photos = asset.list_photos()
 
 # Special Objects and Methods
 
-Procedures has the property of `.tasks` that can be used to access the procedure's nested tasks.
+## Procedures and tasks examples
 
+client.procedure_tasks.create(name="newtask", procedure_id=procedure.id)
+
+### Run-style fields on a template: stripped automatically if not a run, or kick off if it is a run
+
+```python
+client.procedure_tasks.create(
+    name="newtask",
+    procedure_id=template_id,
+    priority="high",
+    auto_kickoff=True,
+)
+```
+
+### When You know it’s already a run, you can assign due date, user id, etc
+
+```python
+client.procedure_tasks.create(
+    name="newtask",
+    procedure_id=run_id,
+    priority="high",
+    user_id=5,
+    due_date=date(2026, 4, 15),
+    for_run=True,
+)
+```
+
+### Procedures can have tasks assigned directly, such as
+
+```python
+proc = client.procedures.get(slug="...")
+proc.add_task(name="Step 1", priority="normal", auto_kickoff=True)
+```
 
 ---
 
