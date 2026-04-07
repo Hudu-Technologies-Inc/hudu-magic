@@ -628,17 +628,17 @@ class ProcedureTasks(HuduObject):
         else:
             raise ValueError("user must be an int or HuduObject")
 
-        task_id= self._require_id()
-        taskItem = self._client.procedure_tasks.get(task_id)
+        taskItem = self._client.procedure_tasks.get(self._require_id())
         procedure = taskItem.procedure
         if not procedure.is_run:
-            raise ValueError("Cannot assign task for a procedure that has not been kicked off")
+            raise ValueError(
+                "Cannot assign task for a procedure that is not started")
         assignedusers = procedure.assigned_users or []
         if user_id in assignedusers:
-            raise ValueError(f"User {user_id} is already assigned to procedure {procedure.id}")
+            raise ValueError(
+                f"User {user_id} is already assigned to proc {procedure.id}")
         assignedusers.append(user_id)
-        taskItem.update({"assigned_users": assignedusers})
-
+        return taskItem.update({"assigned_users": assignedusers})
 
 class Website(HuduObject):
     relation_type = "Website"
@@ -731,7 +731,7 @@ class PasswordFolder(HuduObject):
             pw = self._client.asset_passwords.get(password)
             return pw.to_folder(self.id)
 
-        raise ValueError("password must be an int, HuduObject, or list of those")
+        raise ValueError("password must be an int, HuduObject, or list")
 
 
 class Network(HuduObject):
@@ -899,6 +899,10 @@ class Users(HuduObject):
     endpoint = HuduEndpoint.USERS
     resource_attr = "users"
 
+    def assign_task(self, task: ProcedureTasks):
+        if self.id is None:
+            raise ValueError("Cannot assign task to user without an id")
+        return task.assign_to(self)
 
 class Groups(HuduObject):
     endpoint = HuduEndpoint.GROUPS

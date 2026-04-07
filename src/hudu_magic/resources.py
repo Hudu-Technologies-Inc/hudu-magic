@@ -661,9 +661,8 @@ class UsersResource(BaseResource):
         if task_id is None:
             raise ValueError("task_id is required to assign a user to a procedure task")
         task_path = f"procedure_tasks/{task_id}"
-        
-        
-x
+
+
 class GroupsResource(BaseResource):
     endpoint = HuduEndpoint.GROUPS
 
@@ -683,7 +682,7 @@ class ProcedureTasksResource(BaseResource):
         if item_id is None:
             return self.list(**params)
 
-        path = self.endpoint.item_path(item_id)
+        path = self.client.resolve_path(self.endpoint, item_id)
         return self.client.get(path, paginate=False, property_name="procedure_tasks")
 
 
