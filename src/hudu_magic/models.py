@@ -613,6 +613,8 @@ class Procedure(HuduObject):
     def kickoff(self):
         return self.kick_off()
 
+    def start(self):
+        return self.kick_off()
 
 class ProcedureRun(Procedure):
     """Kicked-off procedure instance: same API resource as `Procedure` with `run` true."""
