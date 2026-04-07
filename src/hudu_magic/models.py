@@ -583,6 +583,9 @@ class Procedure(HuduObject):
     @property
     def procedure_tasks(self) -> list:
         return self.tasks
+    
+    def list_tasks(self) -> list:
+        return self.tasks
 
 
 class ProcedureTasks(HuduObject):
