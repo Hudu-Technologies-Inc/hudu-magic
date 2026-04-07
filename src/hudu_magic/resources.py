@@ -21,6 +21,14 @@ from .validation import (
 )
 
 
+def _extract_client_write_kwargs(kwargs: dict[str, Any]) -> tuple[bool, bool]:
+    """Pop HuduClient create/update options from resource kwargs (mutates kwargs)."""
+    return (
+        bool(kwargs.pop("validate", True)),
+        bool(kwargs.pop("allow_unknown_fields", False)),
+    )
+
+
 class BaseResource:
     endpoint: HuduEndpoint
     
@@ -94,16 +102,29 @@ class BaseResource:
         return self.list(**params)
 
     def create(self, payload: dict[str, Any], **kwargs) -> Any:
+        validate, allow_unknown_fields = _extract_client_write_kwargs(kwargs)
         try:
             merged = self._merge_payload(payload, kwargs)
-            return self.client.create(self.endpoint, merged, **kwargs)
+            return self.client.create(
+                self.endpoint,
+                merged,
+                validate=validate,
+                allow_unknown_fields=allow_unknown_fields,
+            )
         except HuduValidationError as e:
             self._reraise_with_description(e)
 
     def update(self, item_id: int | str, payload: dict[str, Any], **kwargs) -> Any:
+        validate, allow_unknown_fields = _extract_client_write_kwargs(kwargs)
         try:
             merged = self._merge_payload(payload, kwargs)
-            return self.client.update(self.endpoint, item_id, merged, **kwargs)
+            return self.client.update(
+                self.endpoint,
+                item_id,
+                merged,
+                validate=validate,
+                allow_unknown_fields=allow_unknown_fields,
+            )
         except HuduValidationError as e:
             self._reraise_with_description(e)
 
@@ -578,18 +599,30 @@ class NetworksResource(BaseResource):
     endpoint = HuduEndpoint.NETWORKS
 
     def create(self, payload: dict, **kwargs):
+        validate, allow_unknown_fields = _extract_client_write_kwargs(kwargs)
         validate_network_address(str(payload.get("address", None)))
 
-        return self.client.create(self.endpoint, payload, **kwargs)
+        return self.client.create(
+            self.endpoint,
+            payload,
+            validate=validate,
+            allow_unknown_fields=allow_unknown_fields,
+        )
 
 
 class IPAddressesResource(BaseResource):
     endpoint = HuduEndpoint.IP_ADDRESSES
 
     def create(self, payload: dict, **kwargs):
+        validate, allow_unknown_fields = _extract_client_write_kwargs(kwargs)
         validate_ip_address(str(payload.get("address", None)))
 
-        return self.client.create(self.endpoint, payload, **kwargs)
+        return self.client.create(
+            self.endpoint,
+            payload,
+            validate=validate,
+            allow_unknown_fields=allow_unknown_fields,
+        )
 
 
 class VlansResource(BaseResource):
@@ -602,20 +635,32 @@ class VlansResource(BaseResource):
             raise ValueError("vlan_id must be an integer")
         validate_vlan_id(vlanid)
 
+        validate, allow_unknown_fields = _extract_client_write_kwargs(kwargs)
         payload["archived"] = to_bool(
             str(payload.get("archived")), default=False)
-        return self.client.create(self.endpoint, payload, **kwargs)
+        return self.client.create(
+            self.endpoint,
+            payload,
+            validate=validate,
+            allow_unknown_fields=allow_unknown_fields,
+        )
 
 
 class VLANZonesResource(BaseResource):
     endpoint = HuduEndpoint.VLAN_ZONES
 
     def create(self, payload: dict, **kwargs):
+        validate, allow_unknown_fields = _extract_client_write_kwargs(kwargs)
         validate_vlan_id_ranges(str(payload.get("vlan_id_ranges")))
 
         payload["archived"] = to_bool(
             str(payload.get("archived")), default=False)
-        return self.client.create(self.endpoint, payload, **kwargs)
+        return self.client.create(
+            self.endpoint,
+            payload,
+            validate=validate,
+            allow_unknown_fields=allow_unknown_fields,
+        )
 
 
 class RelationsResource(BaseResource):
@@ -643,7 +688,13 @@ class RelationsResource(BaseResource):
         if description is not None:
             payload["description"] = description
 
-        return self.client.create(self.endpoint, payload, **kwargs)
+        validate, allow_unknown_fields = _extract_client_write_kwargs(kwargs)
+        return self.client.create(
+            self.endpoint,
+            payload,
+            validate=validate,
+            allow_unknown_fields=allow_unknown_fields,
+        )
 
 
 class RackStorageResource(BaseResource):
@@ -664,6 +715,24 @@ class GroupsResource(BaseResource):
 
 class ProceduresResource(BaseResource):
     endpoint = HuduEndpoint.PROCEDURES
+
+    def create(self, payload: dict[str, Any] | None = None, **kwargs) -> Any:
+        validate, allow_unknown_fields = _extract_client_write_kwargs(kwargs)
+        try:
+            merged = self._merge_payload(payload, kwargs)
+            if "descriptions" in merged and "description" not in merged:
+                merged["description"] = merged.pop("descriptions")
+            # Match Hudu/PowerShell: send explicit null when company_id is omitted.
+            if "company_id" not in merged:
+                merged["company_id"] = None
+            return self.client.create(
+                self.endpoint,
+                merged,
+                validate=validate,
+                allow_unknown_fields=allow_unknown_fields,
+            )
+        except HuduValidationError as e:
+            self._reraise_with_description(e)
 
 
 class ProcedureTasksResource(BaseResource):

@@ -177,6 +177,13 @@ photos = asset.list_photos()
 
 ---
 
+# Special Objects and Methods
+
+Procedures has the property of `.tasks` that can be used to access the procedure's nested tasks.
+
+
+---
+
 ## Generating builds for new Hudu versions or previous versions
 
 1. Place openapi spec file https://yoururl.huducloud.com/api-docs.json in project directory as hudu-openapiv1.json

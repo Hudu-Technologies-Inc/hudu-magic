@@ -558,6 +558,27 @@ class Procedure(HuduObject):
     resource_upl_type = "Procedure"
     endpoint = HuduEndpoint.PROCEDURES
 
+    def __init__(self, client, endpoint, data):
+        if isinstance(data, dict):
+            data = dict(data)
+        super().__init__(client, endpoint, data)
+        self._normalize_procedure_tasks()
+
+    def _normalize_procedure_tasks(self) -> None:
+        raw = self._data.get("procedure_tasks")
+        if isinstance(raw, HuduCollection):
+            return
+        if raw is None:
+            self._data["procedure_tasks"] = HuduCollection([])
+            return
+        if isinstance(raw, list):
+            tasks = [
+                ProcedureTasks(self._client, HuduEndpoint.PROCEDURE_TASKS, item)
+                for item in raw
+                if isinstance(item, dict)
+            ]
+            self._data["procedure_tasks"] = HuduCollection(tasks)
+
 
 class Website(HuduObject):
     relation_type = "Website"
@@ -903,6 +924,7 @@ MODEL_MAP = {
     HuduEndpoint.PASSWORD_FOLDERS: PasswordFolder,
     HuduEndpoint.PASSWORD_FOLDERS_ID: PasswordFolder,
     HuduEndpoint.PROCEDURES: Procedure,
+    HuduEndpoint.PROCEDURES_ID: Procedure,
     HuduEndpoint.PROCEDURE_TASKS: ProcedureTasks,
     HuduEndpoint.PROCEDURE_TASKS_ID: ProcedureTasks,
     HuduEndpoint.RELATIONS_ID: Relation,

@@ -144,7 +144,19 @@ class HuduClient:
 
         return response.text
 
-    def _extract_primary_object(self, result: dict):
+    def _extract_primary_object(
+        self, result: dict, endpoint: HuduEndpoint | None = None
+    ):
+        # Hudu often returns procedure metadata at the top level plus a nested
+        # "procedure" object with the full record (name, description, etc.).
+        if endpoint in (HuduEndpoint.PROCEDURES, HuduEndpoint.PROCEDURES_ID):
+            nested = result.get("procedure")
+            if isinstance(nested, dict) and "id" in nested:
+                merged = dict(nested)
+                if "procedure_tasks" in result:
+                    merged.setdefault("procedure_tasks", result["procedure_tasks"])
+                return merged
+
         if "id" in result:
             return result
 
@@ -179,7 +191,7 @@ class HuduClient:
             if collection_key in result and isinstance(result[collection_key], list):
                 return wrap_many(result[collection_key])
 
-            primary = self._extract_primary_object(result)
+            primary = self._extract_primary_object(result, endpoint)
             if isinstance(primary, dict):
                 return model_cls(self, endpoint, primary)
 

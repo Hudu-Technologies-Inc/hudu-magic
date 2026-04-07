@@ -23,7 +23,8 @@ RESOURCE_WRAPPERS = {
     "lists": "list",
     "flags": "flag",
     "flag_types": "flag_type",
-    "procedures": "procedure",
+    # procedures: POST/PUT expect a flat JSON body (same as HuduAPI PowerShell module),
+    # not {"procedure": {...}} — wrapping caused "Name can't be blank" on create.
     "procedure_tasks": "procedure_task",
     "relations": "relation",
     "assets": "asset",
