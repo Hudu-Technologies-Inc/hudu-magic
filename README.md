@@ -325,3 +325,6 @@ When Hudu publishes a new spec, regenerate and bump **`HUDUSPECVERSION`** accord
 - v0.1.2410 - Apr 6, 2026; Initial Release
 
 - v0.2.2410 - Apr 7, 2026; added validation, differentiation for procedure-vs-run and task-vs-runtask, as well as some helpful class methods.
+
+- v0.2.2410.post1 - Apr 21, 2026; Recent topical changes to verbiage, descriptions, for process runs / procedures
+
