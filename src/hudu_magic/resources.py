@@ -28,6 +28,9 @@ from .validation import (
     validate_vlan_id_ranges,
 )
 
+# Passed through to ``HuduClient.create`` / ``update``, not merged into JSON body.
+_CLIENT_HTTP_KWARGS = frozenset({"validate", "allow_unknown_fields"})
+
 
 class BaseResource:
     endpoint: HuduEndpoint
@@ -101,17 +104,21 @@ class BaseResource:
 
         return self.list(**params)
 
-    def create(self, payload: dict[str, Any], **kwargs) -> Any:
+    def create(self, payload: dict[str, Any] | None = None, **kwargs) -> Any:
         try:
-            merged = self._merge_payload(payload, kwargs)
-            return self.client.create(self.endpoint, merged, **kwargs)
+            client_kw = {k: v for k, v in kwargs.items() if k in _CLIENT_HTTP_KWARGS}
+            body_kw = {k: v for k, v in kwargs.items() if k not in _CLIENT_HTTP_KWARGS}
+            merged = self._merge_payload(payload, body_kw)
+            return self.client.create(self.endpoint, merged, **client_kw)
         except HuduValidationError as e:
             self._reraise_with_description(e)
 
-    def update(self, item_id: int | str, payload: dict[str, Any], **kwargs) -> Any:
+    def update(self, item_id: int | str, payload: dict[str, Any] | None = None, **kwargs) -> Any:
         try:
-            merged = self._merge_payload(payload, kwargs)
-            return self.client.update(self.endpoint, item_id, merged, **kwargs)
+            client_kw = {k: v for k, v in kwargs.items() if k in _CLIENT_HTTP_KWARGS}
+            body_kw = {k: v for k, v in kwargs.items() if k not in _CLIENT_HTTP_KWARGS}
+            merged = self._merge_payload(payload, body_kw)
+            return self.client.update(self.endpoint, item_id, merged, **client_kw)
         except HuduValidationError as e:
             self._reraise_with_description(e)
 
@@ -401,12 +408,14 @@ class ArticlesResource(BaseResource):
         return self.client._wrap_result(HuduEndpoint.ARTICLES_ID, raw)
 
     def create(self, payload: dict[str, Any] | None = None, **kwargs) -> Any:
-        merged = self._merge_payload(payload, kwargs)
+        body_kw = {k: v for k, v in kwargs.items() if k not in _CLIENT_HTTP_KWARGS}
+        merged = self._merge_payload(payload, body_kw)
         result = self.client.post(self._resolve_action_path(), json={"article": merged})
         return self.client._wrap_result(HuduEndpoint.ARTICLES, result)
 
     def update(self, item_id: int | str, payload: dict[str, Any] | None = None, **kwargs) -> Any:
-        merged = self._merge_payload(payload, kwargs)
+        body_kw = {k: v for k, v in kwargs.items() if k not in _CLIENT_HTTP_KWARGS}
+        merged = self._merge_payload(payload, body_kw)
         result = self.client.put(
             self._resolve_action_path(item_id),
             json={"article": merged},
@@ -553,7 +562,8 @@ class AssetsResource(BaseResource):
         if company_id is None:
             raise ValueError("Asset create() requires company_id")
 
-        merged = self._merge_payload(payload, kwargs)
+        body_kw = {k: v for k, v in kwargs.items() if k not in _CLIENT_HTTP_KWARGS}
+        merged = self._merge_payload(payload, body_kw)
         wrapped = {"asset": merged}
         result = self.client.post(f"companies/{company_id}/assets", json=wrapped)
 
@@ -575,7 +585,8 @@ class AssetsResource(BaseResource):
         if company_id is None:
             raise ValueError("Asset update() requires company_id")
 
-        merged = self._merge_payload(payload, kwargs)
+        body_kw = {k: v for k, v in kwargs.items() if k not in _CLIENT_HTTP_KWARGS}
+        merged = self._merge_payload(payload, body_kw)
         path = f"companies/{company_id}/assets/{item_id}"
         result = self.client.put(path, json={"asset": merged})
         return self.client._wrap_result(HuduEndpoint.ASSETS, result)

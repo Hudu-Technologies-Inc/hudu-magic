@@ -16,6 +16,7 @@ from .payloads import (
     normalize_website_payload_for_save,
     normalize_folder_payload_for_save,
     normalize_ipam_payload_for_save,
+    normalize_procedure_payload_for_save,
     strip_run_only_fields_from_payload,
 )
 from .validation import (
@@ -559,6 +560,7 @@ class Procedure(HuduObject):
     relation_type = "Procedure"
     resource_upl_type = "Procedure"
     endpoint = HuduEndpoint.PROCEDURES
+    update_endpoint = HuduEndpoint.PROCEDURES_ID
 
     @property
     def tasks(self) -> list:
@@ -615,6 +617,101 @@ class Procedure(HuduObject):
 
     def start(self):
         return self.kick_off()
+
+    def add_task(
+        self,
+        name: str,
+        *,
+        description: str | None = None,
+        position: int | None = None,
+        optional: bool | None = None,
+        parent_task_id: int | None = None,
+        auto_kickoff: bool = False,
+        **kwargs: Any,
+    ):
+        """Create a template task via ``POST /procedure_tasks`` (``procedure_id`` must be a process, not a run)."""
+        if self.id is None:
+            raise ValueError("Cannot add a task without a procedure id")
+        if self.is_run:
+            raise ValueError(
+                "add_task() applies to a process template, not a run. "
+                "Pass the template id to procedure_tasks.create, or fetch the parent process."
+            )
+        rejected = frozenset(kwargs) & frozenset(
+            ("priority", "due_date", "assigned_users", "user_id", "for_run", "completed")
+        )
+        if rejected:
+            raise ValueError(
+                "Invalid keyword(s) for template task create (set run fields after kick_off "
+                f"via task update or assign_task): {sorted(rejected)}"
+            )
+        if kwargs:
+            raise TypeError(
+                f"Unexpected keyword arguments for add_task: {sorted(kwargs)}"
+            )
+
+        payload: dict[str, Any] = {"name": name, "procedure_id": self.id}
+        if description is not None:
+            payload["description"] = description
+        if position is not None:
+            payload["position"] = position
+        if optional is not None:
+            payload["optional"] = optional
+        if parent_task_id is not None:
+            payload["parent_task_id"] = parent_task_id
+
+        task = self._client.procedure_tasks.create(payload=payload)
+        if auto_kickoff:
+            self.kick_off()
+        return task
+
+    def update(self, payload: dict[str, Any], **kwargs):
+        if self.id is None:
+            raise ValueError("Cannot update object without an id")
+
+        updated = self._client.update(
+            self.update_endpoint,
+            self.id,
+            payload,
+            **kwargs,
+        )
+
+        if isinstance(updated, HuduObject):
+            self._data = updated._data
+            return self
+
+        if isinstance(updated, dict):
+            self._data = updated
+            return self
+
+        return updated
+
+    def delete(self):
+        if self.id is None:
+            raise ValueError("Cannot delete object without an id")
+        return self._client.delete(
+            self._client.resolve_path(self.update_endpoint, self.id)
+        )
+
+    def save(self, **kwargs):
+        self._require_id()
+        payload = normalize_procedure_payload_for_save(self.to_dict())
+        updated = self._client.update(
+            self.update_endpoint,
+            self.id,
+            payload,
+            **kwargs,
+        )
+
+        if hasattr(updated, "_data"):
+            self._data = dict(updated._data)
+            return self
+
+        if isinstance(updated, dict):
+            self._data = dict(updated)
+            return self
+
+        return updated
 
 class ProcedureRun(Procedure):
     """Kicked-off procedure instance: same API resource as `Procedure` with `run` true."""

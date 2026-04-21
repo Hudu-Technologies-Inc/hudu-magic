@@ -182,8 +182,9 @@ class HuduClient:
 
         def wrap_many(items):
             wrapped = [wrap_item(item) for item in items]
-            if len(wrapped) == 1:
-                return wrapped[0]
+            # Always return HuduCollection so len() and iteration match list semantics.
+            # A single list item used to unwrap to a bare model, which made len(collection)
+            # equal len(model._data) and `for x in collection` iterate dict keys (strings).
             return HuduCollection(wrapped)
 
         if isinstance(result, list):
@@ -191,8 +192,12 @@ class HuduClient:
 
         if isinstance(result, dict):
             collection_key = endpoint.resource_name
-            if collection_key in result and isinstance(result[collection_key], list):
-                return wrap_many(result[collection_key])
+            keys_to_try = [collection_key]
+            if collection_key == "procedures":
+                keys_to_try.append("processes")
+            for key in keys_to_try:
+                if key in result and isinstance(result[key], list):
+                    return wrap_many(result[key])
 
             primary = self._extract_primary_object(result)
             if isinstance(primary, dict):
@@ -305,8 +310,18 @@ class HuduClient:
             result = self._get_nonpaginated(endpoint, params=page_params)
 
             if isinstance(result, dict):
-                items = result.get(property_name) or result.get(
-                    endpoint.resource_name) or result.get("items") or result.get("data") or []
+                items = (
+                    result.get(property_name)
+                    or result.get(endpoint.resource_name)
+                    or (
+                        result.get("processes")
+                        if endpoint.resource_name == "procedures"
+                        else None
+                    )
+                    or result.get("items")
+                    or result.get("data")
+                    or []
+                )
             elif isinstance(result, list):
                 items = result
             else:
