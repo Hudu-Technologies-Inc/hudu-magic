@@ -16,6 +16,7 @@ from .payloads import (
     normalize_website_payload_for_save,
     normalize_folder_payload_for_save,
     normalize_ipam_payload_for_save,
+    normalize_procedure_payload_for_save,
     strip_run_only_fields_from_payload,
 )
 from .validation import (
@@ -559,6 +560,7 @@ class Procedure(HuduObject):
     relation_type = "Procedure"
     resource_upl_type = "Procedure"
     endpoint = HuduEndpoint.PROCEDURES
+    update_endpoint = HuduEndpoint.PROCEDURES_ID
 
     @property
     def tasks(self) -> list:
@@ -615,6 +617,54 @@ class Procedure(HuduObject):
 
     def start(self):
         return self.kick_off()
+
+    def update(self, payload: dict[str, Any], **kwargs):
+        if self.id is None:
+            raise ValueError("Cannot update object without an id")
+
+        updated = self._client.update(
+            self.update_endpoint,
+            self.id,
+            payload,
+            **kwargs,
+        )
+
+        if isinstance(updated, HuduObject):
+            self._data = updated._data
+            return self
+
+        if isinstance(updated, dict):
+            self._data = updated
+            return self
+
+        return updated
+
+    def delete(self):
+        if self.id is None:
+            raise ValueError("Cannot delete object without an id")
+        return self._client.delete(
+            self._client.resolve_path(self.update_endpoint, self.id)
+        )
+
+    def save(self, **kwargs):
+        self._require_id()
+        payload = normalize_procedure_payload_for_save(self.to_dict())
+        updated = self._client.update(
+            self.update_endpoint,
+            self.id,
+            payload,
+            **kwargs,
+        )
+
+        if hasattr(updated, "_data"):
+            self._data = dict(updated._data)
+            return self
+
+        if isinstance(updated, dict):
+            self._data = dict(updated)
+            return self
+
+        return updated
 
 class ProcedureRun(Procedure):
     """Kicked-off procedure instance: same API resource as `Procedure` with `run` true."""

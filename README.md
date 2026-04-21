@@ -128,7 +128,9 @@ mycompany.create_asset()
 
 objects that require or can be attributed to a company often can be listed or created directly from a company object
 
-### Procedures and Tasks
+### Procedures (processes) and tasks
+
+The API and OpenAPI 2.41.0 use **process** / **run** wording; this library still exposes `Procedure` / `procedure_tasks` and the `client.procedure` / `client.procedure_tasks` aliases (`client.process`, `client.tasks`, etc.).
 
 ```python
 myprocedure.kick_off()
@@ -139,31 +141,30 @@ myprocedure.is_run
 
 someprocedure.list_tasks()
 someotherprocedure.tasks
-myprocedure.tasks[0].assign(ouruser)
-client.procedure_tasks.get(5).assign(ourotheruser)
+myprocedure.tasks[0].assign_to(ouruser)
+client.procedure_tasks.get(5).assign_to(ourotheruser)
 
-sometask.assign_user(mypersonaluser)
+sometask.assign_to(mypersonaluser)
 ```
 
-Starting a procedure with start, kick_off or kickoff methods results in new procedure [as-a-run] object. Runs still are procedures, and use the same model, but they and their tasks are slightly different.
+Calling `kick_off`, `kickoff`, or `start` returns a new **run** (still a `Procedure` with `is_run` true). Runs share the same model as templates but behave differently for tasks.
 
+Use `is_run` to tell a template from a run.
 
-you can call `is_run` property (bool) on a procedure to check if it has been started (and therefore, a run)
+**Creating tasks** (`POST /procedure_tasks`) is for **process** (template) tasks only: supported body fields include `name`, `description`, `procedure_id`, `position`, `optional`, and `parent_task_id`. You cannot set assignees or run-only fields on create; kick off the process first, then set **`due_date`**, **`priority`**, and **`assigned_users`** on the **run** task via `PUT /procedure_tasks/{id}`, or use `Users.assign_task` (which updates `assigned_users` on the run task).
 
-procedures that have tasks created already will have a huducollection of procedure_task
+**Updating a procedure/run** (`PUT /procedures/{id}`) accepts **`name`**, **`description`**, and **`archived`** (company processes only for archiving). It no longer accepts moving a process between companies via **`company_id`** or legacy **`company_template`** on PATCH—use create/duplicate flows per Hudu’s API.
 
-proceduretasks can be assigned if the parent procedure has been started. like 'assigned_users', a task can only be assigned 'due_date', 'priority',
-
-you can assign a user using a user's id or a user object directly.
+`Procedure.save()` sends only those allowed fields so validation matches the spec.
 
 ### Users
 
 ```python
 myuser.assign_task(thistask)
-myotheruser.assign_task(client.proceduretasks.get(56))
+myotheruser.assign_task(client.procedure_tasks.get(56))
 ```
 
-you can assign a task directly to a user object
+You can assign a run task from a `Users` instance or call `task.assign_to(user)`; both use `assigned_users` on the run task.
 
 ### Others
 
@@ -326,5 +327,5 @@ When Hudu publishes a new spec, regenerate and bump **`HUDUSPECVERSION`** accord
 
 - v0.2.2410 - Apr 7, 2026; added validation, differentiation for procedure-vs-run and task-vs-runtask, as well as some helpful class methods.
 
-- v0.2.2410.post1 - Apr 21, 2026; Recent topical changes to verbiage, descriptions, for process runs / procedures
+- v0.2.2410.post1 - Apr 21, 2026; README aligned with process/run task rules; `Procedure.save`/`update`/`delete` use `PROCEDURES_ID` and allowed PATCH fields; `PROCEDURE_TASK_RUN_ONLY_FIELDS` no longer lists removed `user_id` update key.
 

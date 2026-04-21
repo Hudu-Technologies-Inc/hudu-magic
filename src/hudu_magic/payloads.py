@@ -153,6 +153,12 @@ def normalize_ipam_payload_for_save(data: dict) -> dict:
             if k not in IPAM_PROPERTIES_TO_POP_ON_SAVE and v is not None}
 
 
+def normalize_procedure_payload_for_save(data: dict) -> dict:
+    """Fields allowed on ``PUT /procedures/{id}`` per OpenAPI (e.g. Hudu 2.41.0)."""
+    allowed = frozenset({"name", "description", "archived"})
+    return {k: v for k, v in data.items() if k in allowed and v is not None}
+
+
 def strip_run_only_fields_from_payload(data: dict) -> dict:
     from hudu_magic.constants import PROCEDURE_TASK_RUN_ONLY_FIELDS
     return {k: v for k, v in data.items() 
