@@ -137,12 +137,22 @@ myprocedure.kick_off()
 myprocedure.kickoff()
 myprocedure.start()
 
-myprocedure.is_run
+myprocedure.is_run #bool property
+
+companyprocedures = mycompany.list_procedures()
+procedures = client.procedures.list()
+
+myprocedure = client.procedures.create(payload={"name": "asdf", "company_id": 1})
+myprocedure.add_task(name="newtask", auto_kickoff=True)
+
+client.procedure_task.create(name="newtask", procedure_id=myprocedure.id)
+
+# One procedure only — not on .list() results
+proc = client.procedures.get(id=1)
+proc.add_task(name="Step 1", auto_kickoff=True)
 
 someprocedure.list_tasks()
 someotherprocedure.tasks
-myprocedure.tasks[0].assign_to(ouruser)
-client.procedure_tasks.get(5).assign_to(ourotheruser)
 
 sometask.assign_to(mypersonaluser)
 ```
@@ -155,7 +165,13 @@ Use `is_run` to tell a template from a run.
 
 **Updating a procedure/run** (`PUT /procedures/{id}`) accepts **`name`**, **`description`**, and **`archived`** (company processes only for archiving). It no longer accepts moving a process between companies via **`company_id`** or legacy **`company_template`** on PATCH—use create/duplicate flows per Hudu’s API.
 
+`POST` / `PUT` `/procedures` use a **flat** JSON body (`{"name": "...", "company_id": ...}`), not a nested `procedure` object—this matches Hudu **2.39.6+** and avoids `422` “Name can’t be blank” if the server ignored the old wrapper.
+
+Paginated **`GET /procedures`** responses are normalized to a **`HuduCollection`** even when only one row is returned (so `len()` is a row count and `for p in …` yields `Procedure` objects, not attribute names). List payloads may use **`procedures`** or **`processes`** as the collection key.
+
 `Procedure.save()` sends only those allowed fields so validation matches the spec.
+
+Use **`Procedure.add_task(...)`** to create a template task (optional **`auto_kickoff=True`** after create). Run-only fields belong on the run task after kickoff.
 
 ### Users
 
@@ -327,5 +343,5 @@ When Hudu publishes a new spec, regenerate and bump **`HUDUSPECVERSION`** accord
 
 - v0.2.2410 - Apr 7, 2026; added validation, differentiation for procedure-vs-run and task-vs-runtask, as well as some helpful class methods.
 
-- v0.2.2410.post1 - Apr 21, 2026; README aligned with process/run task rules; `Procedure.save`/`update`/`delete` use `PROCEDURES_ID` and allowed PATCH fields; `PROCEDURE_TASK_RUN_ONLY_FIELDS` no longer lists removed `user_id` update key.
+- v0.4.2410 - Apr 21, 2026; Procedures `POST`/`PUT` send a **flat** JSON body (no `procedure` wrapper), Paginated lists always return **`HuduCollection`** (removed previous single-page `len`/iteration quirks); accept **`processes`** list key on GET; add **`Procedure.add_task`**. README Re-aligned with process/run task rules; `Procedure.save`/`update`/`delete` use `PROCEDURES_ID` and allowed PATCH fields; `PROCEDURE_TASK_RUN_ONLY_FIELDS` no longer lists removed `user_id` update key. **`BaseResource.create` / `update`**: optional `payload` (kwargs-only body fields supported); `validate` / `allow_unknown_fields` are not merged into JSON.
 

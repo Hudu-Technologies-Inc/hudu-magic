@@ -618,6 +618,53 @@ class Procedure(HuduObject):
     def start(self):
         return self.kick_off()
 
+    def add_task(
+        self,
+        name: str,
+        *,
+        description: str | None = None,
+        position: int | None = None,
+        optional: bool | None = None,
+        parent_task_id: int | None = None,
+        auto_kickoff: bool = False,
+        **kwargs: Any,
+    ):
+        """Create a template task via ``POST /procedure_tasks`` (``procedure_id`` must be a process, not a run)."""
+        if self.id is None:
+            raise ValueError("Cannot add a task without a procedure id")
+        if self.is_run:
+            raise ValueError(
+                "add_task() applies to a process template, not a run. "
+                "Pass the template id to procedure_tasks.create, or fetch the parent process."
+            )
+        rejected = frozenset(kwargs) & frozenset(
+            ("priority", "due_date", "assigned_users", "user_id", "for_run", "completed")
+        )
+        if rejected:
+            raise ValueError(
+                "Invalid keyword(s) for template task create (set run fields after kick_off "
+                f"via task update or assign_task): {sorted(rejected)}"
+            )
+        if kwargs:
+            raise TypeError(
+                f"Unexpected keyword arguments for add_task: {sorted(kwargs)}"
+            )
+
+        payload: dict[str, Any] = {"name": name, "procedure_id": self.id}
+        if description is not None:
+            payload["description"] = description
+        if position is not None:
+            payload["position"] = position
+        if optional is not None:
+            payload["optional"] = optional
+        if parent_task_id is not None:
+            payload["parent_task_id"] = parent_task_id
+
+        task = self._client.procedure_tasks.create(payload=payload)
+        if auto_kickoff:
+            self.kick_off()
+        return task
+
     def update(self, payload: dict[str, Any], **kwargs):
         if self.id is None:
             raise ValueError("Cannot update object without an id")

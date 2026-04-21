@@ -23,7 +23,6 @@ RESOURCE_WRAPPERS = {
     "lists": "list",
     "flags": "flag",
     "flag_types": "flag_type",
-    "procedures": "procedure",
     "procedure_tasks": "procedure_task",
     "relations": "relation",
     "assets": "asset",
