@@ -128,6 +128,39 @@ mycompany.create_asset()
 
 objects that require or can be attributed to a company often can be listed or created directly from a company object
 
+### Exports
+
+starting a csv or PDF export
+
+```python
+newexport = client.exports.start(format="pdf", company_id=1, asset_layout_ids=[2],
+    include_passwords= True,
+    include_websites= True,
+    include_articles= True,
+    include_archived_articles= True,
+    include_archived_passwords= True,
+    include_archived_websites= True,
+    include_archived_assets= True,
+    )
+```
+
+awaitable / async-friendly check on export status
+
+```python
+ready = client.exports.wait_until_downloadable(newexport, interval=2.0, timeout=3600)
+someexport.wait_until_downloadable(newexport, interval=5.0, timeout=600)
+```
+
+download
+
+```python
+download = client.exports.download(newexport.id, "/home/myoutputfolder")
+download = client.exports.download(otherexportobject)
+someexportobject.download()
+myexportobject.download("/home/myoutputfolder")
+```
+
+
 ### Procedures (processes) and tasks
 
 The API and OpenAPI 2.41.0 use **process** / **run** wording; this library still exposes `Procedure` / `procedure_tasks` and the `client.procedure` / `client.procedure_tasks` aliases (`client.process`, `client.tasks`, etc.).
