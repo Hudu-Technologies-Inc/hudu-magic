@@ -43,6 +43,7 @@ def test_procedure_tasks_create_splits_validate_kwarg():
 def test_exports_start_delegates_to_create():
     client = MagicMock()
     client.create = MagicMock(return_value={"id": 1})
+    client.asset_layouts.list = MagicMock(return_value=[])
     res = ExportsResource(client)
 
     res.start({"format": "csv", "company_id": 1, "include_passwords": False, "include_websites": True})
@@ -54,8 +55,54 @@ def test_exports_start_delegates_to_create():
             "company_id": 1,
             "include_passwords": False,
             "include_websites": True,
+            "include_articles": True,
+            "include_archived_articles": True,
+            "include_archived_passwords": True,
+            "include_archived_websites": True,
+            "include_archived_assets": True,
         },
     )
+
+
+def test_exports_start_populates_asset_layout_ids_when_missing():
+    client = MagicMock()
+    client.create = MagicMock(return_value={"id": 1})
+    layout_a = MagicMock()
+    layout_a.id = 3
+    layout_b = MagicMock()
+    layout_b.id = 7
+    client.asset_layouts.list = MagicMock(return_value=[layout_a, layout_b])
+    res = ExportsResource(client)
+
+    res.start({"format": "pdf", "company_id": 2})
+
+    client.create.assert_called_once_with(
+        HuduEndpoint.EXPORTS,
+        {
+            "format": "pdf",
+            "company_id": 2,
+            "include_passwords": True,
+            "include_websites": True,
+            "include_articles": True,
+            "include_archived_articles": True,
+            "include_archived_passwords": True,
+            "include_archived_websites": True,
+            "include_archived_assets": True,
+            "asset_layout_ids": [3, 7],
+        },
+    )
+
+
+def test_exports_start_respects_explicit_asset_layout_ids():
+    client = MagicMock()
+    client.create = MagicMock(return_value={"id": 1})
+    client.asset_layouts.list = MagicMock()
+    res = ExportsResource(client)
+
+    res.start({"format": "csv", "company_id": 1, "asset_layout_ids": [9]})
+
+    client.asset_layouts.list.assert_not_called()
+    assert client.create.call_args[0][1]["asset_layout_ids"] == [9]
 
 
 def test_s3_exports_start_delegates_to_create():

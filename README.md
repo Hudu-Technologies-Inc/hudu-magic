@@ -130,7 +130,7 @@ objects that require or can be attributed to a company often can be listed or cr
 
 ### Exports
 
-starting a csv or PDF export
+#### starting a CSV or PDF export
 
 ```python
 newexport = client.exports.start(format="pdf", company_id=1, asset_layout_ids=[2],
@@ -144,6 +144,21 @@ newexport = client.exports.start(format="pdf", company_id=1, asset_layout_ids=[2
     )
 ```
 
+client.Exports.new() is aliased to client.Exports.start()
+```python
+csvexport = client.exports.start(format="csv",company_id=mycompany.id)
+pdfexport = client.exports.start(format="pdf",company_id=mycompany.id)
+```
+
+
+##### Friendly defaults on create
+
+the include_* options here default to true if not provided
+
+the asset layout array defaults to all layouts found with `HuduClient.asset_layouts.list` are included.
+
+#### Checking status of export
+
 awaitable / async-friendly check on export status
 
 ```python
@@ -151,12 +166,12 @@ ready = client.exports.wait_until_downloadable(newexport, interval=2.0, timeout=
 someexport.wait_until_downloadable(newexport, interval=5.0, timeout=600)
 ```
 
-download
+#### downloading exports
 
 ```python
 download = client.exports.download(newexport.id, "/home/myoutputfolder")
-download = client.exports.download(otherexportobject)
-someexportobject.download()
+download = client.exports.download(otherexportobject) # download to current working dir
+someexportobject.download() # download to current working dir
 myexportobject.download("/home/myoutputfolder")
 ```
 

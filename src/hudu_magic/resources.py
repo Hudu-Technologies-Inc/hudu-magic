@@ -34,6 +34,17 @@ from .validation import (
 # Passed through to ``HuduClient.create`` / ``update``, not merged into JSON body.
 _CLIENT_HTTP_KWARGS = frozenset({"validate", "allow_unknown_fields"})
 
+# ``POST /exports`` include flags default to True in :meth:`ExportsResource.start` when omitted.
+_EXPORT_START_DEFAULT_TRUE_INCLUDES = (
+    "include_passwords",
+    "include_websites",
+    "include_articles",
+    "include_archived_articles",
+    "include_archived_passwords",
+    "include_archived_websites",
+    "include_archived_assets",
+)
+
 
 class BaseResource:
     endpoint: HuduEndpoint
@@ -787,13 +798,66 @@ class ExportsResource(BaseFileResource):
     endpoint = HuduEndpoint.EXPORTS
     model_cls = Exports
 
+    @staticmethod
+    def _export_asset_layout_id(item: Any) -> int | None:
+        if item is None:
+            return None
+        if isinstance(item, dict):
+            inner = item.get("asset_layout") or item
+            if isinstance(inner, dict):
+                raw = inner.get("id")
+            else:
+                raw = None
+        else:
+            raw = getattr(item, "id", None)
+        if raw is None:
+            return None
+        try:
+            return int(raw)
+        except (TypeError, ValueError):
+            return None
+
+    def _normalize_export_start_body(self, body: dict[str, Any]) -> dict[str, Any]:
+        for key in _EXPORT_START_DEFAULT_TRUE_INCLUDES:
+            if key not in body:
+                body[key] = True
+
+        raw_ids = body.get("asset_layout_ids")
+        needs_layouts = raw_ids is None or (
+            isinstance(raw_ids, (list, tuple)) and len(raw_ids) == 0
+        )
+        if needs_layouts:
+            layouts = self.client.asset_layouts.list()
+            ids: list[int] = []
+            for layout in layouts or []:
+                lid = self._export_asset_layout_id(layout)
+                if lid is not None:
+                    ids.append(lid)
+            if ids:
+                body["asset_layout_ids"] = ids
+
+        return body
+
     def start(
         self,
         payload: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> Any:
-        """Queue a company data export (``POST /exports``); same as :meth:`create`."""
-        return self.create(payload, **kwargs)
+        """Queue a company data export (``POST /exports``).
+
+        Omitted ``include_*`` booleans default to ``True``. When ``asset_layout_ids`` is
+        omitted or empty, all layout IDs from :meth:`HuduClient.asset_layouts.list` are
+        sent (matches Hudu behavior of exporting every layout type).
+        """
+        client_kw = {k: v for k, v in kwargs.items() if k in _CLIENT_HTTP_KWARGS}
+        body_kw = {k: v for k, v in kwargs.items() if k not in _CLIENT_HTTP_KWARGS}
+        merged = self._merge_payload(payload, body_kw)
+        normalized = self._normalize_export_start_body(dict(merged))
+        return self.create(normalized, **client_kw)
+
+    def new(self, payload: dict[str, Any] | None = None, **kwargs: Any) -> Any:
+        """Same as :meth:`start` (export queue helper)."""
+        return self.start(payload, **kwargs)
 
     def get(self, item_id=None, **params):
         if item_id is None and "id" in params:
