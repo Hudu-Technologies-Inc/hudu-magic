@@ -24,13 +24,18 @@ newexport = client.exports.start(format="pdf", company_id=1, asset_layout_ids=[2
     include_archived_assets= True,
     )
 print("new export:", newexport.id)
-
-# Readiness matches Save-HuduExports: wait for non-empty download_url, not a specific status string.
 ready = client.exports.wait_until_downloadable(newexport, interval=2.0, timeout=3600)
 print("export ready:", ready.get("status"), "download_url set:", bool(ready.get("download_url")))
 download = client.exports.download(ready)
 print("downloaded export to:", download)
 
+
+myotherexport = client.exports.new(format="csv",company_id=1)
+print("new export:", myotherexport.id)
+ready = client.exports.wait_until_downloadable(myotherexport, interval=2.0, timeout=3600)
+print("export ready:", ready.get("status"), "download_url set:", bool(ready.get("download_url")))
+download = client.exports.download(ready)
+print("downloaded export to:", download)
 
 companyprocedures = mycompany.list_procedures()
 
