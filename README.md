@@ -159,11 +159,11 @@ the asset layout array defaults to all layouts found with `HuduClient.asset_layo
 
 #### Checking status of export
 
-awaitable / async-friendly check on export status
+blocking-check on export status
 
 ```python
 ready = client.exports.wait_until_downloadable(newexport, interval=2.0, timeout=3600)
-someexport.wait_until_downloadable(newexport, interval=5.0, timeout=600)
+someexport.wait_until_downloadable(interval=5.0, timeout=600)
 ```
 
 #### downloading exports
@@ -391,5 +391,6 @@ When Hudu publishes a new spec, regenerate and bump **`HUDUSPECVERSION`** accord
 
 - v0.2.2410 - Apr 7, 2026; added validation, differentiation for procedure-vs-run and task-vs-runtask, as well as some helpful class methods.
 
-- v0.4.2410 - Apr 21, 2026; Procedures `POST`/`PUT` send a **flat** JSON body (no `procedure` wrapper), Paginated lists always return **`HuduCollection`** (removed previous single-page `len`/iteration quirks); accept **`processes`** list key on GET; add **`Procedure.add_task`**. README Re-aligned with process/run task rules; `Procedure.save`/`update`/`delete` use `PROCEDURES_ID` and allowed PATCH fields; `PROCEDURE_TASK_RUN_ONLY_FIELDS` no longer lists removed `user_id` update key. **`BaseResource.create` / `update`**: optional `payload` (kwargs-only body fields supported); `validate` / `allow_unknown_fields` are not merged into JSON.
+- v0.3.2410 - Apr 21, 2026; Procedures `POST`/`PUT` send a **flat** JSON body (no `procedure` wrapper), Paginated lists always return **`HuduCollection`** (removed previous single-page `len`/iteration quirks); accept **`processes`** list key on GET; add **`Procedure.add_task`**. README Re-aligned with process/run task rules; `Procedure.save`/`update`/`delete` use `PROCEDURES_ID` and allowed PATCH fields; `PROCEDURE_TASK_RUN_ONLY_FIELDS` no longer lists removed `user_id` update key. **`BaseResource.create` / `update`**: optional `payload` (kwargs-only body fields supported); `validate` / `allow_unknown_fields` are not merged into JSON.
 
+- v0.4.2410 - Added better support for exports, aliased create methods for exports to `new()` and `start()`. Added kind defaults to these and extended resource from `BaseFileResource` to allow for downloading. Lastly, added blocking method that until an export is ready for download
