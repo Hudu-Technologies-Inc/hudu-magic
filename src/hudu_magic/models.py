@@ -996,6 +996,11 @@ class Exports(HuduObject):
     def download(self, out_dir="."):
         return self._client.exports.download(self, out_dir)
 
+    def wait_until_downloadable(self, **kwargs: Any) -> Self:
+        refreshed = self._client.exports.wait_until_downloadable(self, **kwargs)
+        self._data = dict(refreshed._data)
+        return self
+
 
 class S3Exports(HuduObject):
     endpoint = HuduEndpoint.S3_EXPORTS

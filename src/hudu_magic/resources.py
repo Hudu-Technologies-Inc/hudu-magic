@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -18,6 +19,7 @@ from .models import (
     ordered_procedure_tasks,
 )
 from .validation import (
+    HuduAPIError,
     HuduNotImplementedError,
     HuduValidationError,
     to_bool,
@@ -796,14 +798,98 @@ class ExportsResource(BaseFileResource):
     def get(self, item_id=None, **params):
         if item_id is None and "id" in params:
             item_id = params.pop("id")
-        url = self.client.build_url(f"exports/{item_id}?download=false")
-        return self.client.get(url)
+
+        if item_id is None:
+            return super().get(None, **params)
+
+        if not self.endpoint.meta.supports_get:
+            raise ValueError(f"{self.endpoint.name} does not support get")
+
+        # Plain GET /exports/{id} returns JSON metadata while the job runs. A
+        # ``download=false`` query hits file semantics and can 404 with "Export file
+        # not available" until the export completes (see Get-HuduExports in HuduAPI).
+        path = self.client.resolve_path(self.endpoint, item_id)
+        raw = self.client._get_nonpaginated(path)
+        item_endpoint = HuduEndpoint.EXPORTS_ID
+        result = self.client._wrap_result(item_endpoint, raw)
+        if isinstance(result, HuduCollection):
+            if not result:
+                return None
+            if len(result) == 1 or item_id is not None:
+                return result.first() or None
+
+        if isinstance(result, list):
+            if not result:
+                return None
+            if len(result) == 1 or item_id is not None:
+                return result[0] or None
+
+            return result
+
+        return result
+
+    def wait_until_downloadable(
+        self,
+        export_or_id,
+        *,
+        interval: float = 2.0,
+        timeout: float | None = 1800.0,
+    ) -> Exports:
+        """Poll until ``download_url`` is set (same readiness signal as ``Save-HuduExports``).
+
+        Relying on ``status == \"completed\"`` is brittle across Hudu versions; the API
+        exposes a ``download_url`` when the file can be fetched.
+        """
+        if hasattr(export_or_id, "id"):
+            export_id = export_or_id.id
+        else:
+            export_id = export_or_id
+
+        deadline = None if timeout is None else time.monotonic() + timeout
+        terminal_fail = frozenset({"failed", "error", "cancelled", "canceled"})
+
+        while True:
+            try:
+                current = self.get(export_id)
+            except HuduAPIError as exc:
+                if exc.status_code != 404 or "not available" not in str(exc).lower():
+                    raise
+                if deadline is not None and time.monotonic() >= deadline:
+                    raise TimeoutError(
+                        f"Timed out after {timeout}s waiting for export {export_id!r} "
+                        f"(export still unavailable)"
+                    ) from exc
+                time.sleep(interval)
+                continue
+
+            if current is None:
+                raise ValueError(f"Export {export_id!r} not found while polling")
+
+            data = current.to_dict()
+            status = str(data.get("status") or "").strip().lower()
+            if status in terminal_fail:
+                raise RuntimeError(
+                    f"Export {export_id} ended with status={data.get('status')!r}"
+                )
+
+            if str(data.get("download_url") or "").strip():
+                return current
+
+            if deadline is not None and time.monotonic() >= deadline:
+                raise TimeoutError(
+                    f"Timed out after {timeout}s waiting for export {export_id} "
+                    f"(last status={data.get('status')!r})"
+                )
+
+            time.sleep(interval)
 
     def download(self, export_or_id, out_dir: str | Path = ".") -> Path:
         """Save export bytes to ``out_dir`` (uses ``download_url`` when set, else API download)."""
         if hasattr(export_or_id, "id"):
             obj = export_or_id
             object_id = obj.id
+            if not str(obj.get("download_url") or "").strip():
+                obj = self.get(object_id)
         else:
             object_id = export_or_id
             obj = self.get(object_id)

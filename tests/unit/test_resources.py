@@ -3,6 +3,8 @@
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import pytest
+
 from hudu_magic.endpoints import HuduEndpoint
 from hudu_magic.resources import (
     ExportsResource,
@@ -98,6 +100,52 @@ def test_exports_download_uses_download_url_when_present(tmp_path: Path):
     assert kwargs["allow_redirects"] is True
 
 
+def test_exports_wait_until_downloadable():
+    client = MagicMock()
+    res = ExportsResource(client)
+
+    pending = MagicMock()
+    pending.to_dict.return_value = {
+        "id": 7,
+        "status": "processing",
+        "download_url": None,
+    }
+    ready = MagicMock()
+    ready.to_dict.return_value = {
+        "id": 7,
+        "status": "complete",
+        "download_url": "https://cdn.example/file.pdf",
+    }
+
+    res.get = MagicMock(side_effect=[pending, ready])
+
+    out = res.wait_until_downloadable(7, interval=0.01, timeout=5)
+    assert out is ready
+    assert res.get.call_count == 2
+
+
+def test_exports_wait_until_downloadable_timeout():
+    client = MagicMock()
+    res = ExportsResource(client)
+    pending = MagicMock()
+    pending.to_dict.return_value = {"id": 1, "status": "pending", "download_url": None}
+    res.get = MagicMock(return_value=pending)
+
+    with pytest.raises(TimeoutError):
+        res.wait_until_downloadable(1, interval=0.01, timeout=0.05)
+
+
+def test_exports_wait_until_downloadable_failed_status():
+    client = MagicMock()
+    res = ExportsResource(client)
+    failed = MagicMock()
+    failed.to_dict.return_value = {"id": 2, "status": "failed", "download_url": None}
+    res.get = MagicMock(return_value=failed)
+
+    with pytest.raises(RuntimeError, match="ended with status"):
+        res.wait_until_downloadable(2, interval=0.01, timeout=5)
+
+
 def test_exports_download_without_download_url_builds_api_path(tmp_path: Path):
     client = MagicMock()
     client.timeout = 15
@@ -118,6 +166,7 @@ def test_exports_download_without_download_url_builds_api_path(tmp_path: Path):
     )
 
     res = ExportsResource(client)
+    res.get = MagicMock(return_value=export)
     out = res.download(export, tmp_path)
 
     assert out.name == "export-3.csv"
