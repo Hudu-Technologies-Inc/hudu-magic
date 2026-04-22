@@ -10,6 +10,7 @@ RESOURCE_WRAPPERS = {
     "asset_layouts": "asset_layout",
     "companies": "company",
     "articles": "article",
+    "exports": "export",
     "folders": "folder",
     "websites": "website",
     "asset_passwords": "asset_password",

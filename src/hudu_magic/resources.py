@@ -9,6 +9,7 @@ from hudu_magic.helpers.general import is_version_greater_or_equal
 from .endpoints import HuduEndpoint
 from .models import (
     Asset,
+    Exports,
     HuduCollection,
     HuduObject,
     Photo,
@@ -780,12 +781,68 @@ class ExpirationsResource(BaseResource):
     endpoint = HuduEndpoint.EXPIRATIONS
 
 
-class ExportsResource(BaseResource):
+class ExportsResource(BaseFileResource):
     endpoint = HuduEndpoint.EXPORTS
+    model_cls = Exports
+
+    def start(
+        self,
+        payload: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        """Queue a company data export (``POST /exports``); same as :meth:`create`."""
+        return self.create(payload, **kwargs)
+
+    def get(self, item_id=None, **params):
+        if item_id is None and "id" in params:
+            item_id = params.pop("id")
+        url = self.client.build_url(f"exports/{item_id}?download=false")
+        return self.client.get(url)
+
+    def download(self, export_or_id, out_dir: str | Path = ".") -> Path:
+        """Save export bytes to ``out_dir`` (uses ``download_url`` when set, else API download)."""
+        if hasattr(export_or_id, "id"):
+            obj = export_or_id
+            object_id = obj.id
+        else:
+            object_id = export_or_id
+            obj = self.get(object_id)
+
+        out_dir = Path(out_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        file_name = obj.get("file_name")
+        is_pdf = obj.get("is_pdf")
+        ext = ".pdf" if is_pdf else ".csv"
+        safe_name = self._safe_filename(file_name, f"export-{object_id}{ext}")
+        destination = out_dir / safe_name
+
+        download_url = obj.get("download_url")
+        if download_url and str(download_url).strip():
+            url = str(download_url).strip()
+        else:
+            url = self.client.build_url(f"exports/{object_id}?download=true")
+
+        response = self.client.session.get(
+            url,
+            timeout=self.client.timeout,
+            allow_redirects=True,
+        )
+        response.raise_for_status()
+        destination.write_bytes(response.content)
+        return destination
 
 
 class S3ExportsResource(BaseResource):
     endpoint = HuduEndpoint.S3_EXPORTS
+
+    def start(
+        self,
+        payload: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        """Begin an S3-side export (``POST /s3_exports``); same as :meth:`create`."""
+        return self.create(payload, **kwargs)
 
 
 class ListResourceListResource(BaseResource):
