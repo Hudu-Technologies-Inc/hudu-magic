@@ -128,6 +128,54 @@ mycompany.create_asset()
 
 objects that require or can be attributed to a company often can be listed or created directly from a company object
 
+### Exports
+
+#### starting a CSV or PDF export
+
+```python
+newexport = client.exports.start(format="pdf", company_id=1, asset_layout_ids=[2],
+    include_passwords= True,
+    include_websites= True,
+    include_articles= True,
+    include_archived_articles= True,
+    include_archived_passwords= True,
+    include_archived_websites= True,
+    include_archived_assets= True,
+    )
+```
+
+client.Exports.new() is aliased to client.Exports.start()
+```python
+csvexport = client.exports.start(format="csv",company_id=mycompany.id)
+pdfexport = client.exports.start(format="pdf",company_id=mycompany.id)
+```
+
+
+##### Friendly defaults on create
+
+the include_* options here default to true if not provided
+
+the asset layout array defaults to all layouts found with `HuduClient.asset_layouts.list` are included.
+
+#### Checking status of export
+
+blocking-check on export status
+
+```python
+ready = client.exports.wait_until_downloadable(newexport, interval=2.0, timeout=3600)
+someexport.wait_until_downloadable(interval=5.0, timeout=600)
+```
+
+#### downloading exports
+
+```python
+download = client.exports.download(newexport.id, "/home/myoutputfolder")
+download = client.exports.download(otherexportobject) # download to current working dir
+someexportobject.download() # download to current working dir
+myexportobject.download("/home/myoutputfolder")
+```
+
+
 ### Procedures (processes) and tasks
 
 The API and OpenAPI 2.41.0 use **process** / **run** wording; this library still exposes `Procedure` / `procedure_tasks` and the `client.procedure` / `client.procedure_tasks` aliases (`client.process`, `client.tasks`, etc.).
@@ -343,5 +391,6 @@ When Hudu publishes a new spec, regenerate and bump **`HUDUSPECVERSION`** accord
 
 - v0.2.2410 - Apr 7, 2026; added validation, differentiation for procedure-vs-run and task-vs-runtask, as well as some helpful class methods.
 
-- v0.4.2410 - Apr 21, 2026; Procedures `POST`/`PUT` send a **flat** JSON body (no `procedure` wrapper), Paginated lists always return **`HuduCollection`** (removed previous single-page `len`/iteration quirks); accept **`processes`** list key on GET; add **`Procedure.add_task`**. README Re-aligned with process/run task rules; `Procedure.save`/`update`/`delete` use `PROCEDURES_ID` and allowed PATCH fields; `PROCEDURE_TASK_RUN_ONLY_FIELDS` no longer lists removed `user_id` update key. **`BaseResource.create` / `update`**: optional `payload` (kwargs-only body fields supported); `validate` / `allow_unknown_fields` are not merged into JSON.
+- v0.3.2410 - Apr 21, 2026; Procedures `POST`/`PUT` send a **flat** JSON body (no `procedure` wrapper), Paginated lists always return **`HuduCollection`** (removed previous single-page `len`/iteration quirks); accept **`processes`** list key on GET; add **`Procedure.add_task`**. README Re-aligned with process/run task rules; `Procedure.save`/`update`/`delete` use `PROCEDURES_ID` and allowed PATCH fields; `PROCEDURE_TASK_RUN_ONLY_FIELDS` no longer lists removed `user_id` update key. **`BaseResource.create` / `update`**: optional `payload` (kwargs-only body fields supported); `validate` / `allow_unknown_fields` are not merged into JSON.
 
+- v0.4.2410 - Added better support for exports, aliased create methods for exports to `new()` and `start()`. Added kind defaults to these and extended resource from `BaseFileResource` to allow for downloading. Lastly, added blocking method that until an export is ready for download

@@ -10,6 +10,33 @@ client = HuduClient(
 # TODO: clean this up and make it more useful, organized
 
 mycompany = client.companies.get(1)
+
+myexports = client.exports.list()
+print("exports:", len(myexports))
+
+newexport = client.exports.start(format="pdf", company_id=1, asset_layout_ids=[2],
+    include_passwords= True,
+    include_websites= True,
+    include_articles= True,
+    include_archived_articles= True,
+    include_archived_passwords= True,
+    include_archived_websites= True,
+    include_archived_assets= True,
+    )
+print("new export:", newexport.id)
+ready = client.exports.wait_until_downloadable(newexport, interval=2.0, timeout=3600)
+print("export ready:", ready.get("status"), "download_url set:", bool(ready.get("download_url")))
+download = client.exports.download(ready)
+print("downloaded export to:", download)
+
+
+myotherexport = client.exports.new(format="csv",company_id=1)
+print("new export:", myotherexport.id)
+ready = client.exports.wait_until_downloadable(myotherexport, interval=2.0, timeout=3600)
+print("export ready:", ready.get("status"), "download_url set:", bool(ready.get("download_url")))
+download = client.exports.download(ready)
+print("downloaded export to:", download)
+
 companyprocedures = mycompany.list_procedures()
 
 procedures = client.procedures.list()

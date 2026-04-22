@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -9,6 +10,7 @@ from hudu_magic.helpers.general import is_version_greater_or_equal
 from .endpoints import HuduEndpoint
 from .models import (
     Asset,
+    Exports,
     HuduCollection,
     HuduObject,
     Photo,
@@ -17,6 +19,7 @@ from .models import (
     ordered_procedure_tasks,
 )
 from .validation import (
+    HuduAPIError,
     HuduNotImplementedError,
     HuduValidationError,
     to_bool,
@@ -30,6 +33,17 @@ from .validation import (
 
 # Passed through to ``HuduClient.create`` / ``update``, not merged into JSON body.
 _CLIENT_HTTP_KWARGS = frozenset({"validate", "allow_unknown_fields"})
+
+# ``POST /exports`` include flags default to True in :meth:`ExportsResource.start` when omitted.
+_EXPORT_START_DEFAULT_TRUE_INCLUDES = (
+    "include_passwords",
+    "include_websites",
+    "include_articles",
+    "include_archived_articles",
+    "include_archived_passwords",
+    "include_archived_websites",
+    "include_archived_assets",
+)
 
 
 class BaseResource:
@@ -780,12 +794,205 @@ class ExpirationsResource(BaseResource):
     endpoint = HuduEndpoint.EXPIRATIONS
 
 
-class ExportsResource(BaseResource):
+class ExportsResource(BaseFileResource):
     endpoint = HuduEndpoint.EXPORTS
+    model_cls = Exports
+
+    @staticmethod
+    def _export_asset_layout_id(item: Any) -> int | None:
+        if item is None:
+            return None
+        if isinstance(item, dict):
+            inner = item.get("asset_layout") or item
+            if isinstance(inner, dict):
+                raw = inner.get("id")
+            else:
+                raw = None
+        else:
+            raw = getattr(item, "id", None)
+        if raw is None:
+            return None
+        try:
+            return int(raw)
+        except (TypeError, ValueError):
+            return None
+
+    def _normalize_export_start_body(self, body: dict[str, Any]) -> dict[str, Any]:
+        for key in _EXPORT_START_DEFAULT_TRUE_INCLUDES:
+            if key not in body:
+                body[key] = True
+
+        raw_ids = body.get("asset_layout_ids")
+        needs_layouts = raw_ids is None or (
+            isinstance(raw_ids, (list, tuple)) and len(raw_ids) == 0
+        )
+        if needs_layouts:
+            layouts = self.client.asset_layouts.list()
+            ids: list[int] = []
+            for layout in layouts or []:
+                lid = self._export_asset_layout_id(layout)
+                if lid is not None:
+                    ids.append(lid)
+            if ids:
+                body["asset_layout_ids"] = ids
+
+        return body
+
+    def start(
+        self,
+        payload: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        """Queue a company data export (``POST /exports``).
+
+        Omitted ``include_*`` booleans default to ``True``. When ``asset_layout_ids`` is
+        omitted or empty, all layout IDs from :meth:`HuduClient.asset_layouts.list` are
+        sent (matches Hudu behavior of exporting every layout type).
+        """
+        client_kw = {k: v for k, v in kwargs.items() if k in _CLIENT_HTTP_KWARGS}
+        body_kw = {k: v for k, v in kwargs.items() if k not in _CLIENT_HTTP_KWARGS}
+        merged = self._merge_payload(payload, body_kw)
+        normalized = self._normalize_export_start_body(dict(merged))
+        return self.create(normalized, **client_kw)
+
+    def new(self, payload: dict[str, Any] | None = None, **kwargs: Any) -> Any:
+        """Same as :meth:`start` (export queue helper)."""
+        return self.start(payload, **kwargs)
+
+    def get(self, item_id=None, **params):
+        if item_id is None and "id" in params:
+            item_id = params.pop("id")
+
+        if item_id is None:
+            return super().get(None, **params)
+
+        if not self.endpoint.meta.supports_get:
+            raise ValueError(f"{self.endpoint.name} does not support get")
+
+        # Plain GET /exports/{id} returns JSON metadata while the job runs. A
+        # ``download=false`` query hits file semantics and can 404 with "Export file
+        # not available" until the export completes (see Get-HuduExports in HuduAPI).
+        path = self.client.resolve_path(self.endpoint, item_id)
+        raw = self.client._get_nonpaginated(path)
+        item_endpoint = HuduEndpoint.EXPORTS_ID
+        result = self.client._wrap_result(item_endpoint, raw)
+        if isinstance(result, HuduCollection):
+            if not result:
+                return None
+            if len(result) == 1 or item_id is not None:
+                return result.first() or None
+
+        if isinstance(result, list):
+            if not result:
+                return None
+            if len(result) == 1 or item_id is not None:
+                return result[0] or None
+
+            return result
+
+        return result
+
+    def wait_until_downloadable(
+        self,
+        export_or_id,
+        *,
+        interval: float = 2.0,
+        timeout: float | None = 1800.0,
+    ) -> Exports:
+        """Poll until ``download_url`` is set (same readiness signal as ``Save-HuduExports``).
+
+        Relying on ``status == \"completed\"`` is brittle across Hudu versions; the API
+        exposes a ``download_url`` when the file can be fetched.
+        """
+        if hasattr(export_or_id, "id"):
+            export_id = export_or_id.id
+        else:
+            export_id = export_or_id
+
+        deadline = None if timeout is None else time.monotonic() + timeout
+        terminal_fail = frozenset({"failed", "error", "cancelled", "canceled"})
+
+        while True:
+            try:
+                current = self.get(export_id)
+            except HuduAPIError as exc:
+                if exc.status_code != 404 or "not available" not in str(exc).lower():
+                    raise
+                if deadline is not None and time.monotonic() >= deadline:
+                    raise TimeoutError(
+                        f"Timed out after {timeout}s waiting for export {export_id!r} "
+                        f"(export still unavailable)"
+                    ) from exc
+                time.sleep(interval)
+                continue
+
+            if current is None:
+                raise ValueError(f"Export {export_id!r} not found while polling")
+
+            data = current.to_dict()
+            status = str(data.get("status") or "").strip().lower()
+            if status in terminal_fail:
+                raise RuntimeError(
+                    f"Export {export_id} ended with status={data.get('status')!r}"
+                )
+
+            if str(data.get("download_url") or "").strip():
+                return current
+
+            if deadline is not None and time.monotonic() >= deadline:
+                raise TimeoutError(
+                    f"Timed out after {timeout}s waiting for export {export_id} "
+                    f"(last status={data.get('status')!r})"
+                )
+
+            time.sleep(interval)
+
+    def download(self, export_or_id, out_dir: str | Path = ".") -> Path:
+        """Save export bytes to ``out_dir`` (uses ``download_url`` when set, else API download)."""
+        if hasattr(export_or_id, "id"):
+            obj = export_or_id
+            object_id = obj.id
+            if not str(obj.get("download_url") or "").strip():
+                obj = self.get(object_id)
+        else:
+            object_id = export_or_id
+            obj = self.get(object_id)
+
+        out_dir = Path(out_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        file_name = obj.get("file_name")
+        is_pdf = obj.get("is_pdf")
+        ext = ".pdf" if is_pdf else ".csv"
+        safe_name = self._safe_filename(file_name, f"export-{object_id}{ext}")
+        destination = out_dir / safe_name
+
+        download_url = obj.get("download_url")
+        if download_url and str(download_url).strip():
+            url = str(download_url).strip()
+        else:
+            url = self.client.build_url(f"exports/{object_id}?download=true")
+
+        response = self.client.session.get(
+            url,
+            timeout=self.client.timeout,
+            allow_redirects=True,
+        )
+        response.raise_for_status()
+        destination.write_bytes(response.content)
+        return destination
 
 
 class S3ExportsResource(BaseResource):
     endpoint = HuduEndpoint.S3_EXPORTS
+
+    def start(
+        self,
+        payload: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        """Begin an S3-side export (``POST /s3_exports``); same as :meth:`create`."""
+        return self.create(payload, **kwargs)
 
 
 class ListResourceListResource(BaseResource):
