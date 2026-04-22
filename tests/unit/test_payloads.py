@@ -20,3 +20,18 @@ def test_maybe_wrap_procedure_tasks_still_nested():
     assert maybe_wrap_payload(HuduEndpoint.PROCEDURE_TASKS, payload) == {
         "procedure_task": payload,
     }
+
+
+def test_maybe_wrap_exports_create_nested():
+    payload = {
+        "format": "pdf",
+        "company_id": 1,
+        "include_passwords": True,
+        "include_websites": True,
+    }
+    assert maybe_wrap_payload(HuduEndpoint.EXPORTS, payload) == {"export": payload}
+
+
+def test_maybe_wrap_exports_idempotent_when_already_wrapped():
+    payload = {"export": {"format": "csv", "company_id": 2}}
+    assert maybe_wrap_payload(HuduEndpoint.EXPORTS, payload) == payload
