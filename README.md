@@ -396,3 +396,5 @@ When Hudu publishes a new spec, regenerate and bump **`HUDUSPECVERSION`** accord
 - v0.4.2410.post1 - Added better support for exports, aliased create methods for exports to `new()` and `start()`. Added kind defaults to these and extended resource from `BaseFileResource` to allow for downloading. Lastly, added blocking method that until an export is ready for download. [PEP440 suffix noted for tag adjustment.]
 
 - v0.4.2411 - Generated Endpoints.py from new 2.41.1 spec, which is actually no different than previous release. For consistency and clarity, pushing new release tag, Fri, April 24th, 2026
+
+- v0.4.2412 - Generated Endpoints.py from 2.41.2 spec, Tues, April 28, 2026
