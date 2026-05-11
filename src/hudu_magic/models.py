@@ -8,6 +8,7 @@ from typing_extensions import Self
 from hudu_magic.help import describe_endpoint
 
 from .endpoints import HuduEndpoint
+from .helpers.asset_layouts import normalize_layout_for_create
 from .payloads import (
     clean_payload,
     normalize_asset_payload_for_save,
@@ -817,6 +818,29 @@ class Website(HuduObject):
 class AssetLayout(HuduObject):
     endpoint = HuduEndpoint.ASSET_LAYOUTS
     resource_attr = "asset_layouts"
+
+    def to_create_payload(
+        self,
+        *,
+        list_id_map: dict[int, int] | None = None,
+        layout_id_map: dict[int, int] | None = None,
+        batch_source_layout_ids: set[int] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Build a JSON body for ``POST /asset_layouts`` from this GET-style layout.
+
+        Delegates to :func:`hudu_magic.helpers.asset_layouts.normalize_layout_for_create`
+        (sanitized ``fields``, optional ``list_id`` / ``linkable_id`` remaps, and
+        :data:`~hudu_magic.constants.ASSET_LAYOUT_CREATE_DEFAULTS` for omitted cosmetic
+        keys). Client validation on :meth:`~hudu_magic.resources.BaseResource.create`
+        is unchanged.
+        """
+        return normalize_layout_for_create(
+            self,
+            list_id_map=list_id_map,
+            layout_id_map=layout_id_map,
+            batch_source_layout_ids=batch_source_layout_ids,
+        )
 
 
 class PasswordFolder(HuduObject):
