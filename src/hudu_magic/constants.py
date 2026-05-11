@@ -49,6 +49,73 @@ FIELD_TYPES = [
 
 NESTED_FIELD_TYPES = ["ListSelect"]
 
+# Asset layout definition fields (``POST /asset_layouts``), not asset custom-field values.
+# See :mod:`hudu_magic.helpers.asset_layouts`.
+LIST_SELECT_FIELD_TYPE: str = NESTED_FIELD_TYPES[0]
+HEADING_FIELD_TYPE: str = "Heading"
+DEFAULT_ASSET_LAYOUT_FIELD_TYPE: str = FIELD_TYPES[0]
+
+ASSET_LAYOUT_POST_BODY_KEYS: frozenset[str] = frozenset(
+    {
+        "name",
+        "icon",
+        "color",
+        "icon_color",
+        "include_passwords",
+        "include_photos",
+        "include_comments",
+        "include_files",
+        "password_types",
+        "fields",
+    }
+)
+
+ASSET_LAYOUT_FIELD_WRITE_KEYS: frozenset[str] = frozenset(
+    {
+        "label",
+        "field_type",
+        "position",
+        "required",
+        "show_in_list",
+        "hint",
+        "min",
+        "max",
+        "options",
+        "expiration",
+        "multiple_options",
+        "list_id",
+        "linkable_id",
+    }
+)
+
+ASSET_LAYOUT_FIELD_READ_ONLY_KEYS: frozenset[str] = frozenset(
+    {
+        "id",
+        "value",
+        "created_at",
+        "updated_at",
+        "encrypted",
+        "expiration_date",
+    }
+)
+
+# Merged by :func:`hudu_magic.helpers.asset_layouts.normalize_layout_for_create`
+# when the source layout omits a key or sets it to ``None`` (explicit ``False``
+# and other non-None values are kept). Keys must stay in sync with ``POST
+# /asset_layouts`` create fields in the bundled OpenAPI.
+#
+# ``active`` and ``sidebar_folder_id`` are not listed there on create; set them
+# with ``PUT /asset_layouts/{id}`` after create if your instance supports them.
+ASSET_LAYOUT_CREATE_DEFAULTS: dict[str, str | bool] = {
+    "icon": "fas fa-play-circle",
+    "color": "#6136ff",
+    "icon_color": "#ffffff",
+    "include_passwords": True,
+    "include_photos": True,
+    "include_comments": True,
+    "include_files": True,
+}
+
 # Isomorphism for get/save operations without raising errors for unknown fields
 
 PROPERTIES_TO_POP_ON_SAVE = {

@@ -1,3 +1,5 @@
+import math
+
 from hudu_magic.constants import (COMPANY_PROPERTIES_TO_POP_ON_SAVE,
                                   FOLDER_PROPERTIES_TO_POP_ON_SAVE,
                                   IPAM_PROPERTIES_TO_POP_ON_SAVE,
@@ -47,7 +49,83 @@ def maybe_wrap_payload(endpoint: HuduEndpoint | str, payload: dict) -> dict:
     return {wrapper: payload}
 
 
+def normalize_asset_website_field_value(value):
+    """
+    Coerce a **Website** custom-field value for Hudu save: strip whitespace,
+    require ``https://`` (upgrade ``http://``), and prepend ``https://`` when
+    the scheme is missing.
+
+    Non-strings and ``None`` are returned unchanged. Empty after strip returns
+    ``""`` so callers can clear a field.
+    """
+    if value is None or not isinstance(value, str):
+        return value
+    stripped = value.strip()
+    if not stripped:
+        return stripped
+    lower = stripped.lower()
+    if lower.startswith("https://"):
+        return stripped
+    if lower.startswith("http://"):
+        return f"https://{stripped[7:]}"
+    return f"https://{stripped}"
+
+
+def normalize_asset_number_field_value(value):
+    """
+    Coerce a **Number** custom-field value to a JSON integer for Hudu (no ``.0``
+    floats). Whole floats and numeric strings become ``int``; fractional values
+    use ``round`` before converting.
+
+    ``None`` is unchanged. ``bool`` is unchanged (avoids ``bool`` being treated
+    as ``0``/``1``). Unparseable strings and non-numeric types are returned as-is.
+    """
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            return value
+        return int(round(value))
+    if isinstance(value, str):
+        s = value.strip()
+        if not s:
+            return value
+        try:
+            d = float(s)
+        except ValueError:
+            return value
+        if not math.isfinite(d):
+            return value
+        return int(round(d))
+    return value
+
+
 def transform_asset_fields_for_save(fields):
+    """
+    Convert GET-style **asset** custom field rows (per-asset ``fields``) for save.
+
+    This is **not** for asset **layout** definition fields; use
+    :func:`hudu_magic.helpers.asset_layouts.layout_fields_for_create` for layout
+    templates.
+
+    **Website** fields (``field_type`` ``Website``): ``value`` is normalized with
+    :func:`normalize_asset_website_field_value` so bare hosts and ``http://``
+    become ``https://``, matching typical Hudu validation.
+
+    **Number** fields (``field_type`` ``Number``): ``value`` is normalized with
+    :func:`normalize_asset_number_field_value` so floats like ``1.0`` and strings
+    like ``"42"`` become integers.
+
+    **ListSelect** (``field_type`` ``ListSelect``): GET responses often expose
+    selected options as IDs or structured JSON, while create/update bodies expect
+    the **list item label** (or labels for multi-select). This function does **not**
+    call the Lists API; resolve IDs to names in your integration (for example via
+    ``client.lists``) before save, or pass values already in write shape.
+    """
     transformed = []
 
     for field in fields:
@@ -55,7 +133,13 @@ def transform_asset_fields_for_save(fields):
             # GET-style field object
             if "label" in field:
                 key = field["label"].replace(" ", "_").lower()
-                transformed.append({key: field.get("value")})
+                value = field.get("value")
+                ft = (field.get("field_type") or "").strip().lower()
+                if ft == "website":
+                    value = normalize_asset_website_field_value(value)
+                elif ft == "number":
+                    value = normalize_asset_number_field_value(value)
+                transformed.append({key: value})
                 continue
 
             # already in write-shape
