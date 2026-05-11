@@ -175,6 +175,50 @@ someexportobject.download() # download to current working dir
 myexportobject.download("/home/myoutputfolder")
 ```
 
+### Asset Layouts and Fields
+
+**`AssetLayout.to_create_payload()`** builds the same JSON body as **`normalize_layout_for_create`** on that layout’s underlying data. Prefer `to_create_payload` whenever you already have (or can wrap) an **`AssetLayout`**. Use **`normalize_layout_for_create`** only when you have a plain **`dict`** and no instance yet (for example after `json.load`).
+
+**Clone an existing layout** (GET-shaped data normalized for `POST`):
+
+```python
+mylayout = client.asset_layouts.get(2)
+payload = mylayout.to_create_payload()
+payload["name"] = "Updated New Layout"
+newlayout = client.asset_layouts.create(payload=payload)
+print(f"created new layout: {newlayout.name}")
+```
+
+**Create a layout from scratch** by wrapping a draft dict in `AssetLayout`, then calling `to_create_payload`. You can omit `position` on fields; contiguous positions and icon / include defaults are applied for you. For **`ListSelect`** fields you need a real **`list_id`** from your instance.
+
+```python
+from hudu_magic.endpoints import HuduEndpoint
+from hudu_magic.models import AssetLayout
+
+draft = AssetLayout(
+    client,
+    HuduEndpoint.ASSET_LAYOUTS,
+    {
+        "name": "Docking stations",
+        "fields": [
+            {"label": "Asset tag", "field_type": "Text"},
+            {"label": "Room", "field_type": "Text"},
+        ],
+    },
+)
+payload = draft.to_create_payload()
+layout = client.asset_layouts.create(payload=payload)
+```
+
+**Dict only, no `AssetLayout` yet** (same payload shape as above):
+
+```python
+from hudu_magic import normalize_layout_for_create
+
+layout_dict = {"name": "Docking stations", "fields": [{"label": "x", "field_type": "Text"}]}
+payload = normalize_layout_for_create(layout_dict)
+# pass `payload` to client.asset_layouts.create(payload=payload) when you have a client
+```
 
 ### Procedures (processes) and tasks
 
@@ -398,3 +442,8 @@ When Hudu publishes a new spec, regenerate and bump **`HUDUSPECVERSION`** accord
 - v0.4.2411 - Generated Endpoints.py from new 2.41.1 spec, which is actually no different than previous release. For consistency and clarity, pushing new release tag, Fri, April 24th, 2026
 
 - v0.4.2412 - Generated Endpoints.py from 2.41.2 spec, Tues, April 28, 2026
+
+- v0.5.2412 - Including some internally-developed helpers / sane defaults for asset layouts and fields. Such helpers facilitate creating new layouts or moving layouts (and objects referenced by fields) more easily.
+`FIELD_TYPES`, `ASSET_LAYOUT_FIELD_READ_ONLY_KEYS`, 
+`ASSET_LAYOUT_POST_BODY_KEYS` are for validation. 
+`normalize_layout_for_create` facilitates isomorphism for entire layouts (as huduobject-layout or layout from dictionary)

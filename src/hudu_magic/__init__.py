@@ -2,7 +2,7 @@ from __future__ import annotations
 from .client import HuduClient
 from .endpoints import HuduEndpoint
 from .helpers.asset_layouts import (
-    layout_create_payload_from_get,
+    normalize_layout_for_create,
     layout_fields_for_create,
 )
 from .helpers.general import (is_version_greater_or_equal, parse_version,
@@ -20,5 +20,5 @@ __all__ = [
     "parse_version",
     "is_version_greater_or_equal",
     "layout_fields_for_create",
-    "layout_create_payload_from_get",
+    "normalize_layout_for_create",
 ]

@@ -251,7 +251,7 @@ def apply_asset_layout_linkable_id_map(
         row.pop("linkable_type", None)
 
 
-def layout_create_payload_from_get(
+def normalize_layout_for_create(
     layout: Any,
     *,
     list_id_map: dict[int, int] | None = None,

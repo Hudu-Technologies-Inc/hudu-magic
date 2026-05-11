@@ -1,7 +1,7 @@
 from .general import strip_string
 from .asset_layouts import (
     collect_list_ids_from_layouts,
-    layout_create_payload_from_get,
+    normalize_layout_for_create,
     layout_field_linkable_is_asset_layout_scope,
     layout_fields_for_create,
     layout_linkable_asset_layout_ref_ids,
@@ -17,7 +17,7 @@ from .asset_layouts import (
 __all__ = [
     "strip_string",
     "collect_list_ids_from_layouts",
-    "layout_create_payload_from_get",
+    "normalize_layout_for_create",
     "layout_field_linkable_is_asset_layout_scope",
     "layout_fields_for_create",
     "layout_linkable_asset_layout_ref_ids",

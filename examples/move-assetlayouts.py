@@ -10,7 +10,7 @@ from typing import Any, Iterable
 from hudu_magic import HuduClient
 from hudu_magic.helpers.asset_layouts import (
     collect_list_ids_from_layouts,
-    layout_create_payload_from_get,
+    normalize_layout_for_create,
     layout_linkable_asset_layout_ref_ids,
     layout_linkable_asset_layout_ref_ids_in_batch,
     layout_to_dict,
@@ -612,7 +612,7 @@ Examples:
 
     for layout in ordered_layouts:
         try:
-            payload = layout_create_payload_from_get(
+            payload = normalize_layout_for_create(
                 layout,
                 list_id_map=list_id_map if not args.dry_run else None,
                 layout_id_map=layout_id_map if not args.dry_run else None,

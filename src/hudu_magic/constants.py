@@ -99,7 +99,7 @@ ASSET_LAYOUT_FIELD_READ_ONLY_KEYS: frozenset[str] = frozenset(
     }
 )
 
-# Merged by :func:`hudu_magic.helpers.asset_layouts.layout_create_payload_from_get`
+# Merged by :func:`hudu_magic.helpers.asset_layouts.normalize_layout_for_create`
 # when the source layout omits a key or sets it to ``None`` (explicit ``False``
 # and other non-None values are kept). Keys must stay in sync with ``POST
 # /asset_layouts`` create fields in the bundled OpenAPI.
