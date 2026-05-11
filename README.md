@@ -220,6 +220,27 @@ payload = normalize_layout_for_create(layout_dict)
 # pass `payload` to client.asset_layouts.create(payload=payload) when you have a client
 ```
 
+### Layout Fields
+
+Below are the valid layout field types (as of May11, 2026). These fields have different requirements and validation is intentionally somewhat loose for most of these, so that any error codes present will be reflected directly by Hudu itself. Not to worry, however, Hudu field validation does not change wildly.
+
+- Text
+- Number
+- CheckBox
+- Website
+- AssetTag
+- Email
+- Phone
+- Date
+- RichText
+- Heading
+- Password
+- ListSelect
+
+
+Website fields (which require https:// prefix) are automagically handled
+Number fields must be an integer, but we safely coerce when possible from float, double, oer either as number-string ("1" or "44.7")
+
 ### Procedures (processes) and tasks
 
 The API and OpenAPI 2.41.0 use **process** / **run** wording; this library still exposes `Procedure` / `procedure_tasks` and the `client.procedure` / `client.procedure_tasks` aliases (`client.process`, `client.tasks`, etc.).
