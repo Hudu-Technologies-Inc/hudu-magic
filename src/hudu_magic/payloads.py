@@ -48,6 +48,13 @@ def maybe_wrap_payload(endpoint: HuduEndpoint | str, payload: dict) -> dict:
 
 
 def transform_asset_fields_for_save(fields):
+    """
+    Convert GET-style **asset** custom field rows (per-asset ``fields``) for save.
+
+    This is **not** for asset **layout** definition fields; use
+    :func:`hudu_magic.helpers.asset_layouts.layout_fields_for_create` for layout
+    templates.
+    """
     transformed = []
 
     for field in fields:

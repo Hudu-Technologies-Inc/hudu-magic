@@ -49,6 +49,56 @@ FIELD_TYPES = [
 
 NESTED_FIELD_TYPES = ["ListSelect"]
 
+# Asset layout definition fields (``POST /asset_layouts``), not asset custom-field values.
+# See :mod:`hudu_magic.helpers.asset_layouts`.
+LIST_SELECT_FIELD_TYPE: str = NESTED_FIELD_TYPES[0]
+HEADING_FIELD_TYPE: str = "Heading"
+DEFAULT_ASSET_LAYOUT_FIELD_TYPE: str = FIELD_TYPES[0]
+
+ASSET_LAYOUT_POST_BODY_KEYS: frozenset[str] = frozenset(
+    {
+        "name",
+        "icon",
+        "color",
+        "icon_color",
+        "include_passwords",
+        "include_photos",
+        "include_comments",
+        "include_files",
+        "password_types",
+        "fields",
+    }
+)
+
+ASSET_LAYOUT_FIELD_WRITE_KEYS: frozenset[str] = frozenset(
+    {
+        "label",
+        "field_type",
+        "position",
+        "required",
+        "show_in_list",
+        "hint",
+        "min",
+        "max",
+        "options",
+        "expiration",
+        "multiple_options",
+        "list_id",
+        "linkable_id",
+    }
+)
+
+ASSET_LAYOUT_FIELD_READ_ONLY_KEYS: frozenset[str] = frozenset(
+    {
+        "id",
+        "value",
+        "created_at",
+        "updated_at",
+        "encrypted",
+        "expiration_date",
+    }
+)
+
 # Isomorphism for get/save operations without raising errors for unknown fields
 
 PROPERTIES_TO_POP_ON_SAVE = {

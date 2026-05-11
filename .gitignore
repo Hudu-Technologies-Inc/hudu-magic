@@ -11,3 +11,4 @@ venv/
 dev/testdev.py
 testenv
 uv.lock
+dev/*
