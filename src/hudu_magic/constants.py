@@ -99,6 +99,23 @@ ASSET_LAYOUT_FIELD_READ_ONLY_KEYS: frozenset[str] = frozenset(
     }
 )
 
+# Merged by :func:`hudu_magic.helpers.asset_layouts.layout_create_payload_from_get`
+# when the source layout omits a key or sets it to ``None`` (explicit ``False``
+# and other non-None values are kept). Keys must stay in sync with ``POST
+# /asset_layouts`` create fields in the bundled OpenAPI.
+#
+# ``active`` and ``sidebar_folder_id`` are not listed there on create; set them
+# with ``PUT /asset_layouts/{id}`` after create if your instance supports them.
+ASSET_LAYOUT_CREATE_DEFAULTS: dict[str, str | bool] = {
+    "icon": "fas fa-play-circle",
+    "color": "#6136ff",
+    "icon_color": "#ffffff",
+    "include_passwords": True,
+    "include_photos": True,
+    "include_comments": True,
+    "include_files": True,
+}
+
 # Isomorphism for get/save operations without raising errors for unknown fields
 
 PROPERTIES_TO_POP_ON_SAVE = {

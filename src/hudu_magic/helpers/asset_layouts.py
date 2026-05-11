@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any, Iterable
 
 from hudu_magic.constants import (
+    ASSET_LAYOUT_CREATE_DEFAULTS,
     ASSET_LAYOUT_FIELD_READ_ONLY_KEYS,
     ASSET_LAYOUT_FIELD_WRITE_KEYS,
     ASSET_LAYOUT_POST_BODY_KEYS,
@@ -266,6 +267,9 @@ def layout_create_payload_from_get(
     ``list_id`` and ``linkable_id`` reference target rows. When using
     ``layout_id_map``, also pass ``batch_source_layout_ids`` (all source layout
     ids considered in scope for link resolution).
+
+    Cosmetic / include flags default from :data:`~hudu_magic.constants.ASSET_LAYOUT_CREATE_DEFAULTS`
+    when the source omits a key or sets it to ``None``.
     """
     data = _layout_as_dict(layout)
     raw_fields = data.get("fields") or []
@@ -294,5 +298,9 @@ def layout_create_payload_from_get(
     name = data.get("name")
     if name is not None:
         payload["name"] = name
+
+    for key, default in ASSET_LAYOUT_CREATE_DEFAULTS.items():
+        if key not in payload or payload[key] is None:
+            payload[key] = default
 
     return payload

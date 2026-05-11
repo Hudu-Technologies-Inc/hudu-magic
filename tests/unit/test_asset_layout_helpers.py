@@ -86,6 +86,29 @@ def test_layout_create_payload_from_get_list_id_map():
     payload = layout_create_payload_from_get(layout, list_id_map={10: 200})
     assert payload["name"] == "L1"
     assert payload["fields"][0]["list_id"] == 200
+    assert payload["icon"] == "fas fa-server"
+
+
+def test_layout_create_payload_from_get_applies_create_defaults():
+    layout = {"name": "Bare", "fields": []}
+    payload = layout_create_payload_from_get(layout)
+    assert payload["icon"] == "fas fa-play-circle"
+    assert payload["color"] == "#6136ff"
+    assert payload["icon_color"] == "#ffffff"
+    assert payload["include_passwords"] is True
+    assert payload["include_photos"] is True
+    assert payload["include_comments"] is True
+    assert payload["include_files"] is True
+
+
+def test_layout_create_payload_from_get_preserves_explicit_false_include():
+    layout = {
+        "name": "X",
+        "include_photos": False,
+        "fields": [],
+    }
+    payload = layout_create_payload_from_get(layout)
+    assert payload["include_photos"] is False
 
 
 def test_layout_create_payload_from_get_missing_list_id_raises():
