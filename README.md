@@ -467,4 +467,4 @@ When Hudu publishes a new spec, regenerate and bump **`HUDUSPECVERSION`** accord
 - v0.5.2412 - Including some internally-developed helpers / sane defaults for asset layouts and fields. Such helpers facilitate creating new layouts or moving layouts (and objects referenced by fields) more easily.
 `FIELD_TYPES`, `ASSET_LAYOUT_FIELD_READ_ONLY_KEYS`, 
 `ASSET_LAYOUT_POST_BODY_KEYS` are for validation. 
-`normalize_layout_for_create` facilitates isomorphism for entire layouts (as huduobject-layout or layout from dictionary)
+`normalize_layout_for_create` facilitates isomorphism for entire layouts (as huduobject-layout or layout from dictionary). Furthermore, added some very basic and specific field validation for website fields and number fields, specifically.
