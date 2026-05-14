@@ -12,3 +12,4 @@ dev/testdev.py
 testenv
 uv.lock
 dev/*
+hudu-openapiv1.json
