@@ -472,3 +472,5 @@ When Hudu publishes a new spec, regenerate and bump **`HUDUSPECVERSION`** accord
 - v0.5.2420 - Generated Endpoints.py from 2.42.0 spec, Thurs, May 14, 2026
 
 - v0.5.2421 - Generated Endpoints.py from 2.42.1 hotfix, Thurs, May 20, 2026
+
+- v0.5.2430 - Generated Endpoints.py from 2.43.0 definitions, Wed, May 27, 2026
