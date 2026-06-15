@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hudu-magic"
-version = "v0.5.2431"
+version = "v0.5.2432"
 description = "Python client library for the Hudu API"
 readme = "README.md"
 requires-python = ">=3.10"
