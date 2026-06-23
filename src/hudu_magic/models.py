@@ -1119,6 +1119,14 @@ class Cards(HuduObject):
     endpoint = HuduEndpoint.CARDS_LOOKUP
     resource_attr = "card"
 
+class Label(HuduObject):
+    endpoint = HuduEndpoint.LABELS
+    resource_attr = "labels"
+
+class LabelType(HuduObject):
+    endpoint = HuduEndpoint.LABEL_TYPES
+    resource_attr = "label_types"
+
 
 def ordered_procedure_tasks(client: Any, procedure_id: int | str) -> list[Any]:
     """Return tasks for ``procedure_id``, ordered by ``position`` then ``id``."""
@@ -1180,6 +1188,10 @@ MODEL_MAP = {
     HuduEndpoint.FOLDERS_ID: Folder,
     HuduEndpoint.GROUPS: Groups,
     HuduEndpoint.GROUPS_ID: Groups,
+    HuduEndpoint.LABELS: Label,
+    HuduEndpoint.LABELS_ID: Label,
+    HuduEndpoint.LABEL_TYPES: LabelType,
+    HuduEndpoint.LABEL_TYPES_ID: LabelType,
     HuduEndpoint.MAGIC_DASH: MagicDashes,
     HuduEndpoint.MAGIC_DASH_ID: MagicDashes,
     HuduEndpoint.NETWORKS: Network,

@@ -264,3 +264,16 @@ PROCEDURE_TASK_RUN_ONLY_FIELDS = frozenset({
     "AssignedUsers",
     "DueDate",
 })
+
+LABELABLE_TYPES = (
+    "Article",
+    "Asset",
+    "AssetPassword",
+    "Website",
+    "IpAddress",
+    "Vlan",
+    "VlanZone",
+    "Procedure",
+    "Network",
+    "RackStorage",
+)

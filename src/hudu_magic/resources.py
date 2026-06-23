@@ -649,6 +649,18 @@ class NetworksResource(BaseResource):
         return self.client.create(self.endpoint, payload, **kwargs)
 
 
+class LabelsResource(BaseResource):
+    endpoint = HuduEndpoint.LABELS
+
+    def create(self, payload: dict, **kwargs):
+        return self.client.create(self.endpoint, payload, **kwargs)
+
+class LabelTypesResource(BaseResource):
+    endpoint = HuduEndpoint.LABEL_TYPES
+
+    def create(self, payload: dict, **kwargs):
+        return self.client.create(self.endpoint, payload, **kwargs)
+
 class IPAddressesResource(BaseResource):
     endpoint = HuduEndpoint.IP_ADDRESSES
 
