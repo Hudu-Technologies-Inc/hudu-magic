@@ -90,10 +90,14 @@ Instance-level operations:
 - list_uploads()
 - relate_to()
 - upload_to()
+- add_label() / assign_label()
+- list_labels()
+- strip_labels()
 
 ```python
 asset.save()
 asset.delete()
+asset.add_label(priority_type)
 ```
 
 ## Special Model Methods
@@ -295,6 +299,151 @@ myotheruser.assign_task(client.procedure_tasks.get(56))
 
 You can assign a run task from a `Users` instance or call `task.assign_to(user)`; both use `assigned_users` on the run task.
 
+### Labels and label types
+
+Labels attach a **label type** to a **labelable record**. Labelable types (see `LABELABLE_TYPES` in `constants.py`) are:
+
+`Article`, `Asset`, `AssetPassword`, `Website`, `IpAddress`, `Vlan`, `VlanZone`, `Procedure`, `Network`, `RackStorage`
+
+Client entry points:
+
+```python
+client.labels          # alias: client.label
+client.label_types     # aliases: client.label_type, client.labeltypes, client.labeltype
+```
+
+See also **`examples/using_labels.py`** for a full smoke-test flow.
+
+#### Creating and modifying label types
+
+**Create** (`POST /label_types`). Required body fields: **`name`**, **`color`**, **`applicable_record_types`**. Optional: **`access_level`** (`all_companies` or `specific_companies`), **`allowed_company_ids`** (when scoped to specific companies).
+
+```python
+priority = client.label_types.create({
+    "name": "Priority",
+    "color": "#6136ff",
+    "applicable_record_types": ["Article", "Asset"],
+})
+
+# kwargs style also works
+status = client.label_types.create(
+    name="Status",
+    color="#00aa00",
+    applicable_record_types=["Article"],
+)
+```
+
+`applicable_record_types` is validated locally against `LABELABLE_TYPES` before the request is sent.
+
+**List / get:**
+
+```python
+types = client.label_types.list()
+types = client.label_types.list(name="Priority")
+one = client.label_types.get(3)
+```
+
+**Update** (`PUT /label_types/{id}`):
+
+```python
+client.label_types.update(priority.id, {"color": "#ff0000", "name": "High Priority"})
+priority.update({"color": "#ff0000"})
+```
+
+**Delete** a label type via the model (uses `DELETE /label_types/{id}`):
+
+```python
+priority.delete()
+```
+
+#### Applying, listing, and removing labels
+
+A **label** row links one label type to one record (`label_type_id`, `labelable_type`, `labelable_id`). These paths are equivalent; pick whichever reads best in your script.
+
+**From the labelable object** (recommended for single records):
+
+```python
+article.add_label(priority_type)       # alias: assign_label
+labels = article.list_labels()
+typed = article.list_labels(priority_type)
+article.strip_labels(priority_type)    # one type
+article.strip_labels()                 # all labels on this record
+```
+
+**From the label type:**
+
+```python
+priority_type.assign_to(article)
+priority_type.strip_from(article)
+```
+
+**From `LabelsResource`** (single object or `HuduCollection`):
+
+```python
+client.labels.assign(article, priority_type)
+client.labels.assign(articles, priority_type)   # HuduCollection → HuduCollection of Label
+
+client.labels.list_for(article)
+client.labels.list_for(article, label_type_id=priority_type.id)
+
+client.labels.strip(article, priority_type)
+client.labels.strip(articles)                   # batch strip
+```
+
+Aliases on `LabelsResource`: **`add_label`** = **`assign`**, **`strip_labels`** = **`strip`**.
+
+**From any `BaseResource`** (delegates to `client.labels`; useful when you already have `client.articles` in hand):
+
+```python
+client.articles.add_label(article, priority_type)
+client.articles.add_label(articles, priority_type)
+client.articles.list_labels(article, priority_type)
+client.articles.strip_labels(article)
+client.articles.strip_labels(articles, priority_type)
+```
+
+**Global label list** (filter by record or type):
+
+```python
+client.labels.list(labelable_type="Article", labelable_id=article.id)
+client.labels.list(label_type_id=priority_type.id)
+client.labels.delete(label_id)   # DELETE /labels/{id}
+```
+
+Non-labelable objects (for example `Company`) raise **`ValueError`** from **`to_labelable_ref()`** before any API call.
+
+#### `HuduCollection` batch helpers
+
+When **`list_*`** returns a **`HuduCollection`**, you can batch label operations without a manual loop.
+
+**Labelable object collections** (for example `company.list_articles()`):
+
+```python
+articles = company.list_articles()
+
+articles.add_label(priority_type)              # alias: assign_label
+all_labels = articles.list_labels()           # flattened across members
+articles.strip_labels(priority_type)
+articles.strip_labels()
+```
+
+**Label type collections** (for example `client.label_types.list()`):
+
+```python
+types = client.label_types.list()
+article_types = types.for_record_type("Article")
+
+types.assign_to(article)
+types.strip_from(article)
+```
+
+**Label collections** (for example `client.labels.list(...)`):
+
+```python
+labels = client.labels.list(labelable_type="Article", labelable_id=article.id)
+labels.delete_all()
+```
+
 ### Others
 
 there are many other handy and helpful class methods and many more that are planned. Whenever possible, I'll update this section with specific examples.
@@ -365,6 +514,21 @@ asset.add_photo("image.png")
 
 photos = asset.list_photos()
 ```
+
+---
+
+# Labels (quick reference)
+
+| Goal | Example |
+|------|---------|
+| Create label type | `client.label_types.create({...})` |
+| Update label type | `client.label_types.update(id, {...})` |
+| Apply to one record | `record.add_label(label_type)` |
+| Apply to many records | `client.labels.assign(records, label_type)` |
+| List on one record | `record.list_labels()` |
+| Strip from one record | `record.strip_labels(label_type)` |
+| Strip from many records | `client.labels.strip(records, label_type)` |
+| Batch on a collection | `records.add_label(label_type)` |
 
 ---
 
@@ -477,4 +641,4 @@ When Hudu publishes a new spec, regenerate and bump **`HUDUSPECVERSION`** accord
 
 - v0.5.2432 - Generated Endpoints.py from 2.43.2 definitions, Version incremented for clarity and consistency Mon, Jun 15, 2026
 
-- v0.6.2440 - Inclusion of labels and labeltypes, model/resource methods for easy labeling
+- v0.6.2440 - Generated Endpoints from Hudu OpenAPI **2.44.0**; **`LabelsResource`** / **`LabelTypesResource`**; label helpers on **`HuduObject`**, **`BaseResource`**, and **`HuduCollection`** (`add_label`, `list_labels`, `strip_labels`, `assign_to`, `strip_from`, `for_record_type`, `delete_all`); client aliases `label`, `label_type`, `labeltypes`; see **Labels and label types** above and **`examples/using_labels.py`**.
