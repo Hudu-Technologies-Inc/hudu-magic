@@ -22,8 +22,10 @@ from .validation import (
     HuduAPIError,
     HuduNotImplementedError,
     HuduValidationError,
+    resolve_label_type_id,
     to_bool,
     validate_ip_address,
+    validate_labelable_type,
     validate_network_address,
     validate_pubphoto_file,
     validate_uploadable_type,
@@ -226,6 +228,42 @@ class BaseResource:
             if u.uploadable_type == uploadable_type
             and str(u.uploadable_id) == object_id
         ]
+
+    def add_label(
+        self,
+        to_object: HuduObject,
+        label_type: int | str | HuduObject,
+        user_id: int | None = None,
+        **kwargs,
+    ) -> Any:
+        return self.client.labels.assign(
+            to_object,
+            label_type,
+            user_id=user_id,
+            **kwargs,
+        )
+
+    def list_labels(
+        self,
+        to_object: HuduObject,
+        label_type: int | str | HuduObject | None = None,
+        **params,
+    ) -> Any:
+        label_type_id = None
+        if label_type is not None:
+            label_type_id = resolve_label_type_id(label_type)
+        return self.client.labels.list_for(
+            to_object,
+            label_type_id=label_type_id,
+            **params,
+        )
+
+    def strip_labels(
+        self,
+        to_object: HuduObject,
+        label_type: int | str | HuduObject | None = None,
+    ) -> list[Any]:
+        return self.client.labels.strip(to_object, label_type=label_type)
 
 
 class BaseFileResource(BaseResource):
@@ -649,17 +687,107 @@ class NetworksResource(BaseResource):
         return self.client.create(self.endpoint, payload, **kwargs)
 
 
+def _iter_label_results(result: Any) -> list[Any]:
+    if result is None:
+        return []
+    if isinstance(result, HuduCollection):
+        return list(result)
+    if isinstance(result, list):
+        return list(result)
+    try:
+        return list(result)
+    except TypeError:
+        return [result]
+
+
 class LabelsResource(BaseResource):
     endpoint = HuduEndpoint.LABELS
 
-    def create(self, payload: dict, **kwargs):
-        return self.client.create(self.endpoint, payload, **kwargs)
+    def delete(self, item_id: int | str) -> Any:
+        try:
+            path = self.client.resolve_path(HuduEndpoint.LABELS_ID, item_id)
+            return self.client.delete(path)
+        except HuduValidationError as e:
+            raise HuduValidationError(
+                f"{e}\n\n{describe_single(HuduEndpoint.LABELS_ID)}"
+            ) from None
+
+    def assign(
+        self,
+        to_object: HuduObject,
+        label_type: int | str | HuduObject,
+        user_id: int | None = None,
+        **kwargs,
+    ) -> Any:
+        ref = to_object.to_labelable_ref()
+        payload: dict[str, Any] = {
+            "label_type_id": resolve_label_type_id(label_type),
+            "labelable_type": ref["type"],
+            "labelable_id": ref["id"],
+        }
+        if user_id is not None:
+            payload["user_id"] = user_id
+        return self.create(payload, **kwargs)
+
+    add_label = assign
+
+    def list_for(
+        self,
+        to_object: HuduObject,
+        label_type_id: int | str | None = None,
+        **params,
+    ) -> Any:
+        ref = to_object.to_labelable_ref()
+        query = {
+            **params,
+            "labelable_type": ref["type"],
+            "labelable_id": ref["id"],
+        }
+        if label_type_id is not None:
+            query["label_type_id"] = label_type_id
+        return self.list(**query)
+
+    def strip(
+        self,
+        to_object: HuduObject,
+        label_type: int | str | HuduObject | None = None,
+    ) -> list[Any]:
+        label_type_id = None
+        if label_type is not None:
+            label_type_id = resolve_label_type_id(label_type)
+
+        removed: list[Any] = []
+        for label in _iter_label_results(
+            self.list_for(to_object, label_type_id=label_type_id)
+        ):
+            label_id = label.id if hasattr(label, "id") else label.get("id")
+            if label_id is None:
+                continue
+            removed.append(self.delete(label_id))
+        return removed
+
+    strip_labels = strip
+
 
 class LabelTypesResource(BaseResource):
     endpoint = HuduEndpoint.LABEL_TYPES
 
-    def create(self, payload: dict, **kwargs):
-        return self.client.create(self.endpoint, payload, **kwargs)
+    def create(self, payload: dict[str, Any] | None = None, **kwargs) -> Any:
+        client_kw = {k: v for k, v in kwargs.items() if k in _CLIENT_HTTP_KWARGS}
+        body_kw = {k: v for k, v in kwargs.items() if k not in _CLIENT_HTTP_KWARGS}
+        merged = self._merge_payload(payload, body_kw)
+
+        record_types = merged.get("applicable_record_types")
+        if record_types is not None:
+            merged["applicable_record_types"] = [
+                validate_labelable_type(str(record_type))
+                for record_type in record_types
+            ]
+
+        try:
+            return self.client.create(self.endpoint, merged, **client_kw)
+        except HuduValidationError as e:
+            self._reraise_with_description(e)
 
 class IPAddressesResource(BaseResource):
     endpoint = HuduEndpoint.IP_ADDRESSES

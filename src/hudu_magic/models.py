@@ -20,8 +20,10 @@ from .payloads import (
     normalize_procedure_payload_for_save,
     strip_run_only_fields_from_payload,
 )
+from .constants import LABELABLE_TYPES
 from .validation import (
     HuduValidationError,
+    resolve_label_type_id,
     to_bool,
     validate_relatables,
 )
@@ -235,6 +237,44 @@ class HuduObject:
     def list_relations(self):
         self.to_relation_ref()
         return self._client.relations.list_relations(to_object=self)
+
+    def to_labelable_ref(self) -> dict[str, object]:
+        if self.id is None:
+            raise ValueError(f"{self.__class__.__name__} has no id")
+
+        labelable_type = getattr(self.__class__, "labelable_type", None)
+        if labelable_type is None:
+            labelable_type = getattr(self.__class__, "relation_type", None)
+
+        if not labelable_type or labelable_type not in LABELABLE_TYPES:
+            raise ValueError(f"{self.__class__.__name__} not labelable")
+
+        return {
+            "id": self.id,
+            "type": labelable_type,
+        }
+
+    def assign_label(self, label_type, user_id: int | None = None):
+        return self._client.labels.assign(
+            to_object=self,
+            label_type=label_type,
+            user_id=user_id,
+        )
+
+    add_label = assign_label
+
+    def list_labels(self, label_type=None, **params):
+        return self._client.labels.list_for(
+            to_object=self,
+            label_type_id=resolve_label_type_id(label_type) if label_type is not None else None,
+            **params,
+        )
+
+    def strip_labels(self, label_type=None):
+        return self._client.labels.strip(
+            to_object=self,
+            label_type=label_type,
+        )
 
     @classmethod
     def fetch(cls, client, item_id: int | str | None = None, **params):
@@ -1126,6 +1166,16 @@ class Label(HuduObject):
 class LabelType(HuduObject):
     endpoint = HuduEndpoint.LABEL_TYPES
     resource_attr = "label_types"
+
+    def assign_to(self, to_object: HuduObject, user_id: int | None = None):
+        if self.id is None:
+            raise ValueError("Cannot assign label type without an id")
+        return to_object.assign_label(self, user_id=user_id)
+
+    def strip_from(self, to_object: HuduObject):
+        if self.id is None:
+            raise ValueError("Cannot strip label type without an id")
+        return to_object.strip_labels(self)
 
 
 def ordered_procedure_tasks(client: Any, procedure_id: int | str) -> list[Any]:

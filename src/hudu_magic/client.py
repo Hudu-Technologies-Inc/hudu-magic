@@ -68,6 +68,8 @@ class HuduClient:
         # aliases
         self.label = self.labels
         self.label_type = self.label_types
+        self.labeltypes = self.label_types
+        self.labeltype = self.label_types
         self.export = self.exports
         self.s3_export = self.s3_exports
         self.aws_export = self.s3_exports
