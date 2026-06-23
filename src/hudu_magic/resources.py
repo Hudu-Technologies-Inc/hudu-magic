@@ -17,6 +17,7 @@ from .models import (
     PublicPhoto,
     Upload,
     _flatten_label_results,
+    _wrap_hudu_object_results,
     ordered_procedure_tasks,
 )
 from .validation import (
@@ -232,7 +233,7 @@ class BaseResource:
 
     def add_label(
         self,
-        to_object: HuduObject,
+        to_object: HuduObject | HuduCollection,
         label_type: int | str | HuduObject,
         user_id: int | None = None,
         **kwargs,
@@ -246,7 +247,7 @@ class BaseResource:
 
     def list_labels(
         self,
-        to_object: HuduObject,
+        to_object: HuduObject | HuduCollection,
         label_type: int | str | HuduObject | None = None,
         **params,
     ) -> Any:
@@ -261,7 +262,7 @@ class BaseResource:
 
     def strip_labels(
         self,
-        to_object: HuduObject,
+        to_object: HuduObject | HuduCollection,
         label_type: int | str | HuduObject | None = None,
     ) -> list[Any]:
         return self.client.labels.strip(to_object, label_type=label_type)
@@ -700,7 +701,7 @@ class LabelsResource(BaseResource):
                 f"{e}\n\n{describe_single(HuduEndpoint.LABELS_ID)}"
             ) from None
 
-    def assign(
+    def _assign_one(
         self,
         to_object: HuduObject,
         label_type: int | str | HuduObject,
@@ -716,6 +717,29 @@ class LabelsResource(BaseResource):
         if user_id is not None:
             payload["user_id"] = user_id
         return self.create(payload, **kwargs)
+
+    def assign(
+        self,
+        to_object: HuduObject | HuduCollection,
+        label_type: int | str | HuduObject,
+        user_id: int | None = None,
+        **kwargs,
+    ) -> Any:
+        if isinstance(to_object, HuduCollection):
+            if not to_object:
+                return HuduCollection([])
+            results = [
+                self._assign_one(obj, label_type, user_id=user_id, **kwargs)
+                for obj in to_object
+            ]
+            return _wrap_hudu_object_results(results)
+
+        return self._assign_one(
+            to_object,
+            label_type,
+            user_id=user_id,
+            **kwargs,
+        )
 
     add_label = assign
 
@@ -735,15 +759,11 @@ class LabelsResource(BaseResource):
             query["label_type_id"] = label_type_id
         return self.list(**query)
 
-    def strip(
+    def _strip_one(
         self,
         to_object: HuduObject,
-        label_type: int | str | HuduObject | None = None,
+        label_type_id: int | str | None = None,
     ) -> list[Any]:
-        label_type_id = None
-        if label_type is not None:
-            label_type_id = resolve_label_type_id(label_type)
-
         removed: list[Any] = []
         for label in _flatten_label_results(
             self.list_for(to_object, label_type_id=label_type_id)
@@ -753,6 +773,26 @@ class LabelsResource(BaseResource):
                 continue
             removed.append(self.delete(label_id))
         return removed
+
+    def strip(
+        self,
+        to_object: HuduObject | HuduCollection,
+        label_type: int | str | HuduObject | None = None,
+    ) -> list[Any]:
+        label_type_id = None
+        if label_type is not None:
+            label_type_id = resolve_label_type_id(label_type)
+
+        if isinstance(to_object, HuduCollection):
+            if not to_object:
+                return []
+
+            removed: list[Any] = []
+            for obj in to_object:
+                removed.extend(self._strip_one(obj, label_type_id=label_type_id))
+            return removed
+
+        return self._strip_one(to_object, label_type_id=label_type_id)
 
     strip_labels = strip
 

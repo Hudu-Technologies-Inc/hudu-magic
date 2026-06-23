@@ -77,6 +77,69 @@ def test_labels_strip_deletes_matching_labels():
     assert client.delete.call_count == 2
 
 
+def test_labels_assign_accepts_hudu_collection():
+    client = MagicMock()
+    client.create = MagicMock(
+        side_effect=[
+            Label(client, HuduEndpoint.LABELS, {"id": 99}),
+            Label(client, HuduEndpoint.LABELS, {"id": 100}),
+        ]
+    )
+    res = LabelsResource(client)
+    articles = HuduCollection([
+        Article(client, HuduEndpoint.ARTICLES, {"id": 1}),
+        Article(client, HuduEndpoint.ARTICLES, {"id": 2}),
+    ])
+    label_type = LabelType(client, HuduEndpoint.LABEL_TYPES, {"id": 3})
+
+    applied = res.assign(articles, label_type)
+
+    assert client.create.call_count == 2
+    assert isinstance(applied, HuduCollection)
+    assert applied.ids() == [99, 100]
+
+
+def test_labels_assign_empty_collection_returns_empty_collection():
+    client = MagicMock()
+    res = LabelsResource(client)
+
+    applied = res.assign(HuduCollection([]), 3)
+
+    client.create.assert_not_called()
+    assert applied == HuduCollection([])
+
+
+def test_labels_strip_accepts_hudu_collection():
+    client = MagicMock()
+    client.delete = MagicMock(return_value=None)
+    res = LabelsResource(client)
+
+    label_a = MagicMock()
+    label_a.id = 10
+    label_b = MagicMock()
+    label_b.id = 11
+    res.list = MagicMock(side_effect=[[label_a], [label_b]])
+
+    articles = HuduCollection([
+        Article(client, HuduEndpoint.ARTICLES, {"id": 1}),
+        Article(client, HuduEndpoint.ARTICLES, {"id": 2}),
+    ])
+    removed = res.strip(articles, label_type=8)
+
+    assert len(removed) == 2
+    assert client.delete.call_count == 2
+    assert res.list.call_count == 2
+
+
+def test_labels_strip_empty_collection_returns_empty_list():
+    client = MagicMock()
+    res = LabelsResource(client)
+
+    removed = res.strip(HuduCollection([]))
+
+    assert removed == []
+
+
 def test_article_assign_label_delegates_to_resource():
     client = MagicMock()
     client.labels.assign = MagicMock(return_value={"id": 1})
