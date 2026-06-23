@@ -16,6 +16,7 @@ from .models import (
     Photo,
     PublicPhoto,
     Upload,
+    _flatten_label_results,
     ordered_procedure_tasks,
 )
 from .validation import (
@@ -687,19 +688,6 @@ class NetworksResource(BaseResource):
         return self.client.create(self.endpoint, payload, **kwargs)
 
 
-def _iter_label_results(result: Any) -> list[Any]:
-    if result is None:
-        return []
-    if isinstance(result, HuduCollection):
-        return list(result)
-    if isinstance(result, list):
-        return list(result)
-    try:
-        return list(result)
-    except TypeError:
-        return [result]
-
-
 class LabelsResource(BaseResource):
     endpoint = HuduEndpoint.LABELS
 
@@ -757,7 +745,7 @@ class LabelsResource(BaseResource):
             label_type_id = resolve_label_type_id(label_type)
 
         removed: list[Any] = []
-        for label in _iter_label_results(
+        for label in _flatten_label_results(
             self.list_for(to_object, label_type_id=label_type_id)
         ):
             label_id = label.id if hasattr(label, "id") else label.get("id")

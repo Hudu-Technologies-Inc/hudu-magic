@@ -1275,6 +1275,25 @@ MODEL_MAP = {
 }
 
 
+def _flatten_label_results(result: Any) -> list[Any]:
+    if result is None:
+        return []
+    if isinstance(result, HuduCollection):
+        return list(result)
+    if isinstance(result, list):
+        return list(result)
+    try:
+        return list(result)
+    except TypeError:
+        return [result]
+
+
+def _wrap_hudu_object_results(results: list[Any]) -> list[Any] | HuduCollection:
+    if results and all(isinstance(item, HuduObject) for item in results):
+        return HuduCollection(results)
+    return results
+
+
 class HuduCollection(list):
     def __getattr__(self, name: str):
         if not self:
@@ -1341,3 +1360,121 @@ class HuduCollection(list):
             )
 
         return HuduCollection([obj for obj in self if matches(obj)])
+
+    def _supports(self, method_name: str) -> bool:
+        return bool(self) and callable(getattr(self[0], method_name, None))
+
+    def add_label(self, label_type, user_id: int | None = None, **kwargs):
+        if not self:
+            return HuduCollection([])
+
+        if not self._supports("add_label"):
+            raise AttributeError(
+                f"{self[0].__class__.__name__} does not support add_label"
+            )
+
+        results = [
+            obj.add_label(label_type, user_id=user_id, **kwargs)
+            for obj in self
+        ]
+        return _wrap_hudu_object_results(results)
+
+    assign_label = add_label
+
+    def list_labels(
+        self,
+        label_type=None,
+        *,
+        flatten: bool = True,
+        **params,
+    ):
+        if not self:
+            return HuduCollection([])
+
+        if not self._supports("list_labels"):
+            raise AttributeError(
+                f"{self[0].__class__.__name__} does not support list_labels"
+            )
+
+        if flatten:
+            results: list[Any] = []
+            for obj in self:
+                results.extend(
+                    _flatten_label_results(obj.list_labels(label_type, **params))
+                )
+            return _wrap_hudu_object_results(results)
+
+        return [obj.list_labels(label_type, **params) for obj in self]
+
+    def strip_labels(self, label_type=None, *, flatten: bool = True):
+        if not self:
+            return [] if flatten else HuduCollection([])
+
+        if not self._supports("strip_labels"):
+            raise AttributeError(
+                f"{self[0].__class__.__name__} does not support strip_labels"
+            )
+
+        results: list[Any] = []
+        for obj in self:
+            value = obj.strip_labels(label_type)
+            if flatten:
+                if isinstance(value, list):
+                    results.extend(value)
+                else:
+                    results.append(value)
+            else:
+                results.append(value)
+
+        if flatten:
+            return results
+        return results
+
+    def assign_to(self, to_object: HuduObject, user_id: int | None = None, **kwargs):
+        if not self:
+            return HuduCollection([])
+
+        if not self._supports("assign_to"):
+            raise AttributeError(
+                f"{self[0].__class__.__name__} does not support assign_to"
+            )
+
+        results = [
+            label_type.assign_to(to_object, user_id=user_id, **kwargs)
+            for label_type in self
+        ]
+        return _wrap_hudu_object_results(results)
+
+    def strip_from(self, to_object: HuduObject):
+        if not self:
+            return []
+
+        if not self._supports("strip_from"):
+            raise AttributeError(
+                f"{self[0].__class__.__name__} does not support strip_from"
+            )
+
+        return [label_type.strip_from(to_object) for label_type in self]
+
+    def for_record_type(self, record_type: str) -> HuduCollection:
+        if not self:
+            return HuduCollection([])
+
+        return HuduCollection(
+            [
+                label_type
+                for label_type in self
+                if record_type in (getattr(label_type, "applicable_record_types", None) or [])
+            ]
+        )
+
+    def delete_all(self):
+        if not self:
+            return []
+
+        if not self._supports("delete"):
+            raise AttributeError(
+                f"{self[0].__class__.__name__} does not support delete"
+            )
+
+        return [item.delete() for item in self]

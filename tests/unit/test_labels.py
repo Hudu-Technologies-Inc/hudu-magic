@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from hudu_magic.endpoints import HuduEndpoint
-from hudu_magic.models import Article, Asset, LabelType
+from hudu_magic.models import Article, Asset, HuduCollection, Label, LabelType
 from hudu_magic.resources import LabelTypesResource, LabelsResource
 from hudu_magic.validation import HuduValidationError, validate_labelable_type
 
@@ -166,3 +166,103 @@ def test_base_resource_label_helpers_delegate_to_labels():
         article, label_type_id=3
     )
     client.labels.strip.assert_called_once_with(article, label_type=None)
+
+
+def test_hudu_collection_add_label_applies_to_each_member():
+    client = MagicMock()
+    article_a = Article(client, HuduEndpoint.ARTICLES, {"id": 1})
+    article_b = Article(client, HuduEndpoint.ARTICLES, {"id": 2})
+    article_a.add_label = MagicMock(return_value=Label(client, HuduEndpoint.LABELS, {"id": 10}))
+    article_b.add_label = MagicMock(return_value=Label(client, HuduEndpoint.LABELS, {"id": 11}))
+    label_type = LabelType(client, HuduEndpoint.LABEL_TYPES, {"id": 3})
+
+    articles = HuduCollection([article_a, article_b])
+    applied = articles.add_label(label_type)
+
+    article_a.add_label.assert_called_once_with(label_type, user_id=None)
+    article_b.add_label.assert_called_once_with(label_type, user_id=None)
+    assert isinstance(applied, HuduCollection)
+    assert applied.ids() == [10, 11]
+
+
+def test_hudu_collection_list_labels_flattens_by_default():
+    client = MagicMock()
+    article_a = Article(client, HuduEndpoint.ARTICLES, {"id": 1})
+    article_b = Article(client, HuduEndpoint.ARTICLES, {"id": 2})
+    label_a = Label(client, HuduEndpoint.LABELS, {"id": 10})
+    label_b = Label(client, HuduEndpoint.LABELS, {"id": 11})
+    article_a.list_labels = MagicMock(return_value=HuduCollection([label_a]))
+    article_b.list_labels = MagicMock(return_value=HuduCollection([label_b]))
+
+    labels = HuduCollection([article_a, article_b]).list_labels()
+
+    assert isinstance(labels, HuduCollection)
+    assert labels.ids() == [10, 11]
+
+
+def test_hudu_collection_strip_labels_calls_each_member():
+    client = MagicMock()
+    article_a = Article(client, HuduEndpoint.ARTICLES, {"id": 1})
+    article_b = Article(client, HuduEndpoint.ARTICLES, {"id": 2})
+    article_a.strip_labels = MagicMock(return_value=["a"])
+    article_b.strip_labels = MagicMock(return_value=["b"])
+    label_type = LabelType(client, HuduEndpoint.LABEL_TYPES, {"id": 3})
+
+    removed = HuduCollection([article_a, article_b]).strip_labels(label_type)
+
+    article_a.strip_labels.assert_called_once_with(label_type)
+    article_b.strip_labels.assert_called_once_with(label_type)
+    assert removed == ["a", "b"]
+
+
+def test_hudu_collection_label_type_assign_to_and_strip_from():
+    client = MagicMock()
+    article = Article(client, HuduEndpoint.ARTICLES, {"id": 2})
+    priority = LabelType(client, HuduEndpoint.LABEL_TYPES, {"id": 3})
+    status = LabelType(client, HuduEndpoint.LABEL_TYPES, {"id": 4})
+    priority.assign_to = MagicMock(return_value=Label(client, HuduEndpoint.LABELS, {"id": 10}))
+    status.assign_to = MagicMock(return_value=Label(client, HuduEndpoint.LABELS, {"id": 11}))
+    priority.strip_from = MagicMock(return_value=[])
+    status.strip_from = MagicMock(return_value=[])
+
+    types = HuduCollection([priority, status])
+    applied = types.assign_to(article, user_id=7)
+    stripped = types.strip_from(article)
+
+    priority.assign_to.assert_called_once_with(article, user_id=7)
+    status.assign_to.assert_called_once_with(article, user_id=7)
+    assert isinstance(applied, HuduCollection)
+    assert applied.ids() == [10, 11]
+    assert len(stripped) == 2
+
+
+def test_hudu_collection_for_record_type_filters_label_types():
+    client = MagicMock()
+    article_type = LabelType(
+        client,
+        HuduEndpoint.LABEL_TYPES,
+        {"id": 1, "applicable_record_types": ["Article"]},
+    )
+    asset_type = LabelType(
+        client,
+        HuduEndpoint.LABEL_TYPES,
+        {"id": 2, "applicable_record_types": ["Article", "Asset"]},
+    )
+
+    filtered = HuduCollection([article_type, asset_type]).for_record_type("Article")
+
+    assert filtered.ids() == [1, 2]
+    assert HuduCollection([article_type, asset_type]).for_record_type("Asset").ids() == [2]
+
+
+def test_hudu_collection_delete_all_removes_labels():
+    client = MagicMock()
+    label_a = Label(client, HuduEndpoint.LABELS, {"id": 10})
+    label_b = Label(client, HuduEndpoint.LABELS, {"id": 11})
+    label_a.delete = MagicMock(return_value=None)
+    label_b.delete = MagicMock(return_value=None)
+
+    HuduCollection([label_a, label_b]).delete_all()
+
+    label_a.delete.assert_called_once()
+    label_b.delete.assert_called_once()
