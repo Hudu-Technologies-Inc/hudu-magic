@@ -475,4 +475,6 @@ When Hudu publishes a new spec, regenerate and bump **`HUDUSPECVERSION`** accord
 
 - v0.5.2431 - Generated Endpoints.py from 2.43.1 definitions, Version incremented for clarity and consistency Mon, Jun 1, 2026
 
-= v0.5.2432 - Generated Endpoints.py from 2.43.2 definitions, Version incremented for clarity and consistency Mon, Jun 15, 2026
+- v0.5.2432 - Generated Endpoints.py from 2.43.2 definitions, Version incremented for clarity and consistency Mon, Jun 15, 2026
+
+- v0.6.2440 - Inclusion of labels and labeltypes, model/resource methods for easy labeling
