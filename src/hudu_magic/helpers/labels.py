@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from typing import Any, Iterable
 
 from ..validation import HuduValidationError
 
@@ -269,3 +270,85 @@ def convert_to_hudu_label_color(color: str) -> str:
 
     canonical = resolve_canonical_label_color_name(raw)
     return HUDU_LABEL_COLOR_HEX[canonical]
+
+
+def normalize_labelable_id(value: Any) -> str:
+    if value is None:
+        return ""
+    return str(value)
+
+
+def group_labelable_targets(objects: Iterable[Any]) -> dict[str, set[str]]:
+    """Group labelable objects by ``labelable_type`` with normalized id sets."""
+    groups: dict[str, set[str]] = {}
+    for obj in objects:
+        ref = obj.to_labelable_ref()
+        labelable_type = str(ref["type"])
+        groups.setdefault(labelable_type, set()).add(normalize_labelable_id(ref["id"]))
+    return groups
+
+
+def _label_field(label: Any, name: str) -> Any:
+    if hasattr(label, name):
+        return getattr(label, name)
+    if isinstance(label, dict):
+        return label.get(name)
+    return None
+
+
+def label_labelable_id(label: Any) -> str | None:
+    value = _label_field(label, "labelable_id")
+    if value is None:
+        return None
+    return normalize_labelable_id(value)
+
+
+def label_labelable_type(label: Any) -> str | None:
+    value = _label_field(label, "labelable_type")
+    if value is None:
+        return None
+    return str(value)
+
+
+def label_type_id_value(label: Any) -> str | None:
+    value = _label_field(label, "label_type_id")
+    if value is None:
+        return None
+    return normalize_labelable_id(value)
+
+
+def filter_labels_for_targets(
+    labels: Iterable[Any],
+    targets_by_type: dict[str, set[str]],
+    *,
+    label_type_id: int | str | None = None,
+) -> list[Any]:
+    """Keep labels whose record is in ``targets_by_type``."""
+    type_filter = (
+        None if label_type_id is None else normalize_labelable_id(label_type_id)
+    )
+    kept: list[Any] = []
+    for label in labels:
+        if type_filter is not None and label_type_id_value(label) != type_filter:
+            continue
+        labelable_type = label_labelable_type(label)
+        labelable_id = label_labelable_id(label)
+        if labelable_type is None or labelable_id is None:
+            continue
+        if labelable_id in targets_by_type.get(labelable_type, set()):
+            kept.append(label)
+    return kept
+
+
+def filter_labels_for_label_type_ids(
+    labels: Iterable[Any],
+    label_type_ids: set[str],
+) -> list[Any]:
+    if not label_type_ids:
+        return []
+    kept: list[Any] = []
+    for label in labels:
+        lt_id = label_type_id_value(label)
+        if lt_id is not None and lt_id in label_type_ids:
+            kept.append(label)
+    return kept

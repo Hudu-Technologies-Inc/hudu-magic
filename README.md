@@ -430,6 +430,10 @@ Non-labelable objects (for example `Company`) raise **`ValueError`** from **`to_
 
 When **`list_*`** returns a **`HuduCollection`**, you can batch label operations without a manual loop.
 
+For **list** and **strip** on collections of **2+** labelable records, the client uses a batched strategy: one paginated **`GET /labels`** per distinct **`labelable_type`** (optionally filtered by **`label_type_id`**), then filters locally to your record ids — instead of one list request per object. **`types.strip_from(article)`** on 2+ label types similarly lists once on the record, then deletes matching rows. **`assign`** / **`add_label`** still require one create per record (no bulk apply in the API).
+
+If your instance has a huge number of labels for a type but you only touch a few records, targeted per-object lists can still be cheaper; tune **`LABEL_COLLECTION_BATCH_MIN`** in `constants.py` (default **2**) if needed.
+
 **Labelable object collections** (for example `company.list_articles()`):
 
 ```python
@@ -461,8 +465,6 @@ labels.delete_all()
 ### Others
 
 there are many other handy and helpful class methods and many more that are planned. Whenever possible, I'll update this section with specific examples.
-
-
 
 ---
 

@@ -7,6 +7,13 @@ from typing import Any, ClassVar
 from hudu_magic.help import describe_single, supported_methods
 from hudu_magic.helpers.general import is_version_greater_or_equal
 from hudu_magic.helpers.labels import convert_to_hudu_label_color
+from hudu_magic.helpers.labels import (
+    filter_labels_for_label_type_ids,
+    filter_labels_for_targets,
+    group_labelable_targets,
+    normalize_labelable_id,
+)
+from hudu_magic.constants import LABEL_COLLECTION_BATCH_MIN
 
 from .endpoints import HuduEndpoint
 from .models import (
@@ -760,20 +767,90 @@ class LabelsResource(BaseResource):
             query["label_type_id"] = label_type_id
         return self.list(**query)
 
-    def _strip_one(
+    def list_for_collection(
         self,
-        to_object: HuduObject,
+        to_objects: HuduCollection,
         label_type_id: int | str | None = None,
-    ) -> list[Any]:
+        **params,
+    ) -> Any:
+        """
+        List labels for many labelable records with one API list per distinct
+        ``labelable_type`` (then filter locally by record id), instead of one
+        request per object.
+        """
+        if not to_objects:
+            return HuduCollection([])
+
+        if len(to_objects) < LABEL_COLLECTION_BATCH_MIN:
+            results: list[Any] = []
+            for obj in to_objects:
+                results.extend(
+                    _flatten_label_results(
+                        self.list_for(obj, label_type_id=label_type_id, **params)
+                    )
+                )
+            return _wrap_hudu_object_results(results)
+
+        targets = group_labelable_targets(to_objects)
+        results = []
+        for labelable_type, id_set in targets.items():
+            query = {**params, "labelable_type": labelable_type}
+            if label_type_id is not None:
+                query["label_type_id"] = label_type_id
+            batch = filter_labels_for_targets(
+                _flatten_label_results(self.list(**query)),
+                {labelable_type: id_set},
+                label_type_id=label_type_id,
+            )
+            results.extend(batch)
+        return _wrap_hudu_object_results(results)
+
+    def _strip_matched_labels(self, labels: Iterable[Any]) -> list[Any]:
         removed: list[Any] = []
-        for label in _flatten_label_results(
-            self.list_for(to_object, label_type_id=label_type_id)
-        ):
+        for label in labels:
             label_id = label.id if hasattr(label, "id") else label.get("id")
             if label_id is None:
                 continue
             removed.append(self.delete(label_id))
         return removed
+
+    def _strip_one(
+        self,
+        to_object: HuduObject,
+        label_type_id: int | str | None = None,
+    ) -> list[Any]:
+        return self._strip_matched_labels(
+            _flatten_label_results(
+                self.list_for(to_object, label_type_id=label_type_id)
+            )
+        )
+
+    def _strip_collection(
+        self,
+        to_objects: HuduCollection,
+        label_type_id: int | str | None = None,
+    ) -> list[Any]:
+        labels = self.list_for_collection(to_objects, label_type_id=label_type_id)
+        return self._strip_matched_labels(_flatten_label_results(labels))
+
+    def strip_label_types_from(
+        self,
+        to_object: HuduObject,
+        label_types: Iterable[Any],
+    ) -> list[Any]:
+        """Remove labels on ``to_object`` for many label types (one list, then delete)."""
+        type_ids = {
+            normalize_labelable_id(resolve_label_type_id(label_type))
+            for label_type in label_types
+        }
+        if not type_ids:
+            return []
+
+        matched = filter_labels_for_label_type_ids(
+            _flatten_label_results(self.list_for(to_object)),
+            type_ids,
+        )
+        return self._strip_matched_labels(matched)
 
     def strip(
         self,
@@ -787,6 +864,9 @@ class LabelsResource(BaseResource):
         if isinstance(to_object, HuduCollection):
             if not to_object:
                 return []
+
+            if len(to_object) >= LABEL_COLLECTION_BATCH_MIN:
+                return self._strip_collection(to_object, label_type_id=label_type_id)
 
             removed: list[Any] = []
             for obj in to_object:

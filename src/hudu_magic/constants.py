@@ -277,3 +277,6 @@ LABELABLE_TYPES = (
     "Network",
     "RackStorage",
 )
+
+# Use batched label list/delete for HuduCollection when len >= this value.
+LABEL_COLLECTION_BATCH_MIN = 2

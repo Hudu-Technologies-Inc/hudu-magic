@@ -20,7 +20,7 @@ from .payloads import (
     normalize_procedure_payload_for_save,
     strip_run_only_fields_from_payload,
 )
-from .constants import LABELABLE_TYPES
+from .constants import LABELABLE_TYPES, LABEL_COLLECTION_BATCH_MIN
 from .validation import (
     HuduValidationError,
     resolve_label_type_id,
@@ -1397,6 +1397,18 @@ class HuduCollection(list):
             )
 
         if flatten:
+            if len(self) >= LABEL_COLLECTION_BATCH_MIN:
+                label_type_id = (
+                    resolve_label_type_id(label_type)
+                    if label_type is not None
+                    else None
+                )
+                return self[0]._client.labels.list_for_collection(
+                    self,
+                    label_type_id=label_type_id,
+                    **params,
+                )
+
             results: list[Any] = []
             for obj in self:
                 results.extend(
@@ -1414,6 +1426,9 @@ class HuduCollection(list):
             raise AttributeError(
                 f"{self[0].__class__.__name__} does not support strip_labels"
             )
+
+        if len(self) >= LABEL_COLLECTION_BATCH_MIN:
+            return self[0]._client.labels.strip(self, label_type=label_type)
 
         results: list[Any] = []
         for obj in self:
@@ -1453,6 +1468,9 @@ class HuduCollection(list):
             raise AttributeError(
                 f"{self[0].__class__.__name__} does not support strip_from"
             )
+
+        if len(self) >= LABEL_COLLECTION_BATCH_MIN:
+            return self[0]._client.labels.strip_label_types_from(to_object, self)
 
         return [label_type.strip_from(to_object) for label_type in self]
 
