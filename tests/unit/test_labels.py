@@ -7,7 +7,6 @@ import pytest
 from hudu_magic.endpoints import HuduEndpoint
 from hudu_magic.helpers.labels import (
     convert_to_hudu_label_color,
-    normalize_label_type_hex_color,
     resolve_canonical_label_color_name,
 )
 from hudu_magic.models import Article, Asset, HuduCollection, Label, LabelType
