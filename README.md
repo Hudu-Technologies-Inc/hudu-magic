@@ -335,6 +335,20 @@ status = client.label_types.create(
 
 `applicable_record_types` is validated locally against `LABELABLE_TYPES` before the request is sent.
 
+**Color** values are normalized on create and update (parity with HuduAPI PowerShell `ConvertTo-HuduLabelColor`):
+
+- Hex: optional `#`, 3- or 6-digit; 8-digit `#rrggbbaa` has alpha stripped to `#rrggbb`
+- Names: English and multilingual aliases (`"light blue"`, `"grau"`, `"rouge"`, …) map to Hudu’s canonical palette
+
+```python
+from hudu_magic import convert_to_hudu_label_color
+
+convert_to_hudu_label_color("light green")   # -> "#90ee90"
+convert_to_hudu_label_color("#6136ff80")     # -> "#6136ff"
+
+client.label_types.create(name="Tag", color="orange", applicable_record_types=["Asset"])
+```
+
 **List / get:**
 
 ```python

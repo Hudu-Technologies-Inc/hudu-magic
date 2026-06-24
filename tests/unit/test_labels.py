@@ -5,6 +5,11 @@ from unittest.mock import MagicMock
 import pytest
 
 from hudu_magic.endpoints import HuduEndpoint
+from hudu_magic.helpers.labels import (
+    convert_to_hudu_label_color,
+    normalize_label_type_hex_color,
+    resolve_canonical_label_color_name,
+)
 from hudu_magic.models import Article, Asset, HuduCollection, Label, LabelType
 from hudu_magic.resources import LabelTypesResource, LabelsResource
 from hudu_magic.validation import HuduValidationError, validate_labelable_type
@@ -13,6 +18,33 @@ from hudu_magic.validation import HuduValidationError, validate_labelable_type
 def test_validate_labelable_type_accepts_known_types():
     assert validate_labelable_type("Article") == "Article"
     assert validate_labelable_type("Asset") == "Asset"
+
+
+def test_convert_to_hudu_label_color_hex_six_digits():
+    assert convert_to_hudu_label_color("#6136FF") == "#6136ff"
+    assert convert_to_hudu_label_color("6136ff") == "#6136ff"
+
+
+def test_convert_to_hudu_label_color_strips_alpha():
+    assert convert_to_hudu_label_color("#6136ff80") == "#6136ff"
+    assert convert_to_hudu_label_color("6136ff80") == "#6136ff"
+
+
+def test_convert_to_hudu_label_color_expands_three_digit_hex():
+    assert convert_to_hudu_label_color("#f0a") == "#ff00aa"
+    assert convert_to_hudu_label_color("abc") == "#aabbcc"
+
+
+def test_convert_to_hudu_label_color_canonical_names():
+    assert convert_to_hudu_label_color("red") == "#ff0000"
+    assert convert_to_hudu_label_color("light blue") == "#add8e6"
+    assert convert_to_hudu_label_color("grau") == "#808080"
+    assert resolve_canonical_label_color_name("bleu marine") == "Blue"
+
+
+def test_convert_to_hudu_label_color_rejects_unknown():
+    with pytest.raises(HuduValidationError, match="Invalid color"):
+        convert_to_hudu_label_color("not-a-color")
 
 
 def test_validate_labelable_type_rejects_unknown():
@@ -194,6 +226,40 @@ def test_label_types_create_validates_applicable_record_types():
     client.create.assert_called_once()
     payload = client.create.call_args[0][1]
     assert payload["applicable_record_types"] == ["Article", "Asset"]
+
+
+def test_label_types_create_normalizes_named_color():
+    client = MagicMock()
+    client.create = MagicMock(return_value={"id": 1})
+    res = LabelTypesResource(client)
+
+    res.create(
+        {
+            "name": "Status",
+            "color": "light green",
+            "applicable_record_types": ["Article"],
+        }
+    )
+
+    payload = client.create.call_args[0][1]
+    assert payload["color"] == "#90ee90"
+
+
+def test_label_types_create_normalizes_hex_with_alpha():
+    client = MagicMock()
+    client.create = MagicMock(return_value={"id": 1})
+    res = LabelTypesResource(client)
+
+    res.create(
+        {
+            "name": "Status",
+            "color": "#6136ff80",
+            "applicable_record_types": ["Article"],
+        }
+    )
+
+    payload = client.create.call_args[0][1]
+    assert payload["color"] == "#6136ff"
 
 
 def test_to_labelable_ref_rejects_non_labelable():

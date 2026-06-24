@@ -6,6 +6,7 @@ from typing import Any, ClassVar
 
 from hudu_magic.help import describe_single, supported_methods
 from hudu_magic.helpers.general import is_version_greater_or_equal
+from hudu_magic.helpers.labels import convert_to_hudu_label_color
 
 from .endpoints import HuduEndpoint
 from .models import (
@@ -800,20 +801,48 @@ class LabelsResource(BaseResource):
 class LabelTypesResource(BaseResource):
     endpoint = HuduEndpoint.LABEL_TYPES
 
-    def create(self, payload: dict[str, Any] | None = None, **kwargs) -> Any:
-        client_kw = {k: v for k, v in kwargs.items() if k in _CLIENT_HTTP_KWARGS}
-        body_kw = {k: v for k, v in kwargs.items() if k not in _CLIENT_HTTP_KWARGS}
-        merged = self._merge_payload(payload, body_kw)
+    def _prepare_payload(self, merged: dict[str, Any]) -> dict[str, Any]:
+        payload = dict(merged)
 
-        record_types = merged.get("applicable_record_types")
+        if "color" in payload and payload["color"] is not None:
+            payload["color"] = convert_to_hudu_label_color(str(payload["color"]))
+
+        record_types = payload.get("applicable_record_types")
         if record_types is not None:
-            merged["applicable_record_types"] = [
+            payload["applicable_record_types"] = [
                 validate_labelable_type(str(record_type))
                 for record_type in record_types
             ]
 
+        return payload
+
+    def create(self, payload: dict[str, Any] | None = None, **kwargs) -> Any:
+        client_kw = {k: v for k, v in kwargs.items() if k in _CLIENT_HTTP_KWARGS}
+        body_kw = {k: v for k, v in kwargs.items() if k not in _CLIENT_HTTP_KWARGS}
+        merged = self._prepare_payload(self._merge_payload(payload, body_kw))
+
         try:
             return self.client.create(self.endpoint, merged, **client_kw)
+        except HuduValidationError as e:
+            self._reraise_with_description(e)
+
+    def update(
+        self,
+        item_id: int | str,
+        payload: dict[str, Any] | None = None,
+        **kwargs,
+    ) -> Any:
+        client_kw = {k: v for k, v in kwargs.items() if k in _CLIENT_HTTP_KWARGS}
+        body_kw = {k: v for k, v in kwargs.items() if k not in _CLIENT_HTTP_KWARGS}
+        merged = self._prepare_payload(self._merge_payload(payload, body_kw))
+
+        try:
+            return self.client.update(
+                HuduEndpoint.LABEL_TYPES_ID,
+                item_id,
+                merged,
+                **client_kw,
+            )
         except HuduValidationError as e:
             self._reraise_with_description(e)
 
