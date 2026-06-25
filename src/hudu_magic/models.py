@@ -20,8 +20,10 @@ from .payloads import (
     normalize_procedure_payload_for_save,
     strip_run_only_fields_from_payload,
 )
+from .constants import LABELABLE_TYPES, LABEL_COLLECTION_BATCH_MIN
 from .validation import (
     HuduValidationError,
+    resolve_label_type_id,
     to_bool,
     validate_relatables,
 )
@@ -235,6 +237,44 @@ class HuduObject:
     def list_relations(self):
         self.to_relation_ref()
         return self._client.relations.list_relations(to_object=self)
+
+    def to_labelable_ref(self) -> dict[str, object]:
+        if self.id is None:
+            raise ValueError(f"{self.__class__.__name__} has no id")
+
+        labelable_type = getattr(self.__class__, "labelable_type", None)
+        if labelable_type is None:
+            labelable_type = getattr(self.__class__, "relation_type", None)
+
+        if not labelable_type or labelable_type not in LABELABLE_TYPES:
+            raise ValueError(f"{self.__class__.__name__} not labelable")
+
+        return {
+            "id": self.id,
+            "type": labelable_type,
+        }
+
+    def assign_label(self, label_type, user_id: int | None = None):
+        return self._client.labels.assign(
+            to_object=self,
+            label_type=label_type,
+            user_id=user_id,
+        )
+
+    add_label = assign_label
+
+    def list_labels(self, label_type=None, **params):
+        return self._client.labels.list_for(
+            to_object=self,
+            label_type_id=resolve_label_type_id(label_type) if label_type is not None else None,
+            **params,
+        )
+
+    def strip_labels(self, label_type=None):
+        return self._client.labels.strip(
+            to_object=self,
+            label_type=label_type,
+        )
 
     @classmethod
     def fetch(cls, client, item_id: int | str | None = None, **params):
@@ -1119,6 +1159,24 @@ class Cards(HuduObject):
     endpoint = HuduEndpoint.CARDS_LOOKUP
     resource_attr = "card"
 
+class Label(HuduObject):
+    endpoint = HuduEndpoint.LABELS
+    resource_attr = "labels"
+
+class LabelType(HuduObject):
+    endpoint = HuduEndpoint.LABEL_TYPES
+    resource_attr = "label_types"
+
+    def assign_to(self, to_object: HuduObject, user_id: int | None = None):
+        if self.id is None:
+            raise ValueError("Cannot assign label type without an id")
+        return to_object.assign_label(self, user_id=user_id)
+
+    def strip_from(self, to_object: HuduObject):
+        if self.id is None:
+            raise ValueError("Cannot strip label type without an id")
+        return to_object.strip_labels(self)
+
 
 def ordered_procedure_tasks(client: Any, procedure_id: int | str) -> list[Any]:
     """Return tasks for ``procedure_id``, ordered by ``position`` then ``id``."""
@@ -1180,6 +1238,10 @@ MODEL_MAP = {
     HuduEndpoint.FOLDERS_ID: Folder,
     HuduEndpoint.GROUPS: Groups,
     HuduEndpoint.GROUPS_ID: Groups,
+    HuduEndpoint.LABELS: Label,
+    HuduEndpoint.LABELS_ID: Label,
+    HuduEndpoint.LABEL_TYPES: LabelType,
+    HuduEndpoint.LABEL_TYPES_ID: LabelType,
     HuduEndpoint.MAGIC_DASH: MagicDashes,
     HuduEndpoint.MAGIC_DASH_ID: MagicDashes,
     HuduEndpoint.NETWORKS: Network,
@@ -1211,6 +1273,25 @@ MODEL_MAP = {
     HuduEndpoint.WEBSITES: Website,
     HuduEndpoint.WEBSITES_ID: Website,
 }
+
+
+def _flatten_label_results(result: Any) -> list[Any]:
+    if result is None:
+        return []
+    if isinstance(result, HuduCollection):
+        return list(result)
+    if isinstance(result, list):
+        return list(result)
+    try:
+        return list(result)
+    except TypeError:
+        return [result]
+
+
+def _wrap_hudu_object_results(results: list[Any]) -> list[Any] | HuduCollection:
+    if results and all(isinstance(item, HuduObject) for item in results):
+        return HuduCollection(results)
+    return results
 
 
 class HuduCollection(list):
@@ -1279,3 +1360,139 @@ class HuduCollection(list):
             )
 
         return HuduCollection([obj for obj in self if matches(obj)])
+
+    def _supports(self, method_name: str) -> bool:
+        return bool(self) and callable(getattr(self[0], method_name, None))
+
+    def add_label(self, label_type, user_id: int | None = None, **kwargs):
+        if not self:
+            return HuduCollection([])
+
+        if not self._supports("add_label"):
+            raise AttributeError(
+                f"{self[0].__class__.__name__} does not support add_label"
+            )
+
+        results = [
+            obj.add_label(label_type, user_id=user_id, **kwargs)
+            for obj in self
+        ]
+        return _wrap_hudu_object_results(results)
+
+    assign_label = add_label
+
+    def list_labels(
+        self,
+        label_type=None,
+        *,
+        flatten: bool = True,
+        **params,
+    ):
+        if not self:
+            return HuduCollection([])
+
+        if not self._supports("list_labels"):
+            raise AttributeError(
+                f"{self[0].__class__.__name__} does not support list_labels"
+            )
+
+        if flatten:
+            if len(self) >= LABEL_COLLECTION_BATCH_MIN:
+                label_type_id = (
+                    resolve_label_type_id(label_type)
+                    if label_type is not None
+                    else None
+                )
+                return self[0]._client.labels.list_for_collection(
+                    self,
+                    label_type_id=label_type_id,
+                    **params,
+                )
+
+            results: list[Any] = []
+            for obj in self:
+                results.extend(
+                    _flatten_label_results(obj.list_labels(label_type, **params))
+                )
+            return _wrap_hudu_object_results(results)
+
+        return [obj.list_labels(label_type, **params) for obj in self]
+
+    def strip_labels(self, label_type=None, *, flatten: bool = True):
+        if not self:
+            return [] if flatten else HuduCollection([])
+
+        if not self._supports("strip_labels"):
+            raise AttributeError(
+                f"{self[0].__class__.__name__} does not support strip_labels"
+            )
+
+        if len(self) >= LABEL_COLLECTION_BATCH_MIN:
+            return self[0]._client.labels.strip(self, label_type=label_type)
+
+        results: list[Any] = []
+        for obj in self:
+            value = obj.strip_labels(label_type)
+            if flatten:
+                if isinstance(value, list):
+                    results.extend(value)
+                else:
+                    results.append(value)
+            else:
+                results.append(value)
+
+        if flatten:
+            return results
+        return results
+
+    def assign_to(self, to_object: HuduObject, user_id: int | None = None, **kwargs):
+        if not self:
+            return HuduCollection([])
+
+        if not self._supports("assign_to"):
+            raise AttributeError(
+                f"{self[0].__class__.__name__} does not support assign_to"
+            )
+
+        results = [
+            label_type.assign_to(to_object, user_id=user_id, **kwargs)
+            for label_type in self
+        ]
+        return _wrap_hudu_object_results(results)
+
+    def strip_from(self, to_object: HuduObject):
+        if not self:
+            return []
+
+        if not self._supports("strip_from"):
+            raise AttributeError(
+                f"{self[0].__class__.__name__} does not support strip_from"
+            )
+
+        if len(self) >= LABEL_COLLECTION_BATCH_MIN:
+            return self[0]._client.labels.strip_label_types_from(to_object, self)
+
+        return [label_type.strip_from(to_object) for label_type in self]
+
+    def for_record_type(self, record_type: str) -> HuduCollection:
+        if not self:
+            return HuduCollection([])
+
+        return HuduCollection(
+            [
+                label_type
+                for label_type in self
+                if record_type in (getattr(label_type, "applicable_record_types", None) or [])
+            ]
+        )
+
+    def delete_all(self):
+        if not self:
+            return []
+
+        if not self._supports("delete"):
+            raise AttributeError(
+                f"{self[0].__class__.__name__} does not support delete"
+            )
+
+        return [item.delete() for item in self]

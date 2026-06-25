@@ -14,7 +14,6 @@ from .factories import (
     website_payload,
     website_update_payload,
     asset_layout_payload,
-    asset_layout_update_payload,
 )
 
 
