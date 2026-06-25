@@ -21,7 +21,7 @@ priority_type = client.label_types.create({
 })
 status_type = client.label_types.create({
     "name": f"SDK Status {run_id}",
-    "color": "#00aa00",
+    "color": "light green",
     "applicable_record_types": ["Article","Asset","AssetPassword"],
 })
 print(f"label types: priority={priority_type.id}, status={status_type.id}")
