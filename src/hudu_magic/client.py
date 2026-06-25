@@ -14,8 +14,8 @@ from .resources import (ActivityLogsResource, ArticlesResource,
                         AssetsResource, CardsResource, CompaniesResource,
                         ExpirationsResource, FlagsResource, FlagTypesResource,
                         FoldersResource, GroupsResource, IPAddressesResource,
-                        ListResourceListResource, MagicDashesResource,
-                        NetworksResource, PasswordFoldersResource,
+                        ListResourceListResource, LabelsResource, LabelTypesResource,
+                        MagicDashesResource, NetworksResource, PasswordFoldersResource,
                         PhotosResource, ProceduresResource,
                         ProcedureTasksResource, PublicPhotosResource,
                         RackStorageItemResource, RackStorageResource,
@@ -32,6 +32,8 @@ class HuduClient:
         self.session = requests.Session()
         self.session.headers.update(self.instance.get_request_headers)
         self.version = None
+        self.labels = LabelsResource(self)
+        self.label_types = LabelTypesResource(self)
         self.companies = CompaniesResource(self)
         self.articles = ArticlesResource(self)
         self.folders = FoldersResource(self)
@@ -64,6 +66,10 @@ class HuduClient:
         self.exports = ExportsResource(self)
         self.s3_exports = S3ExportsResource(self)
         # aliases
+        self.label = self.labels
+        self.label_type = self.label_types
+        self.labeltypes = self.label_types
+        self.labeltype = self.label_types
         self.export = self.exports
         self.s3_export = self.s3_exports
         self.aws_export = self.s3_exports
