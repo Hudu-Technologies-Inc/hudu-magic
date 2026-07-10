@@ -38,7 +38,7 @@ class HuduClient:
         *,
         max_retries: int = 1,
         retry_on_rate_limit: bool = True,
-        retry_on_error: bool = True,
+        retry_on_error: bool = False,
         error_retry_delay: float = HUDU_ERROR_RETRY_DELAY_SECONDS,
         rate_limit_window_seconds: int = HUDU_RATE_LIMIT_WINDOW_SECONDS,
     ):

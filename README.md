@@ -589,10 +589,10 @@ if an object type or resource doesnt support a method call or payload param, you
 All API traffic goes through `HuduClient._send_request` with retry behavior aligned to HuduAPI PowerShell **`Invoke-HuduRequest`**:
 
 - **429** / **"Retry later"** / **"Too Many Requests"** → sleep until the next **5-minute** window (plus 1–4s jitter), then retry
-- **Other errors** (except **404**) → sleep **5s**, then retry once
+- **Other errors** (except **404**) → sleep **5s**, then retry once (**only when `retry_on_error=True`**)
 - **404** → no retry (fail immediately)
 
-Defaults: **`max_retries=1`** (two attempts total). Disable or tune on construct:
+Defaults: **`max_retries=1`**, **`retry_on_rate_limit=True`**, **`retry_on_error=False`** (rate-limit retries only). Enable generic error retry for PowerShell-style behavior:
 
 ```python
 client = HuduClient(
@@ -605,8 +605,6 @@ client = HuduClient(
     rate_limit_window_seconds=300,
 )
 ```
-
-Set **`retry_on_error=False`** for rate-limit-only retries (similar to PowerShell **`$script:SKIP_HAPI_ERROR_RETRY`**).
 
 
 ## Advanced Use Possibilities

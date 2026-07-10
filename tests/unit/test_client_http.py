@@ -124,7 +124,12 @@ def test_send_request_retries_on_rate_limit(monkeypatch):
 
 
 def test_send_request_retries_generic_error_once(monkeypatch):
-    client = HuduClient(api_key="k", instance_url="https://ex.hudu.app", max_retries=1)
+    client = HuduClient(
+        api_key="k",
+        instance_url="https://ex.hudu.app",
+        max_retries=1,
+        retry_on_error=True,
+    )
     failed = _response(status_code=500, text='{"message": "boom"}', method="GET")
     ok = _response(text='{"ok": true}', method="GET")
     client.session.request = MagicMock(side_effect=[failed, ok])
@@ -135,6 +140,17 @@ def test_send_request_retries_generic_error_once(monkeypatch):
 
     assert response.ok
     assert slept == [5.0]
+
+
+def test_send_request_skips_generic_error_retry_by_default():
+    client = HuduClient(api_key="k", instance_url="https://ex.hudu.app", max_retries=1)
+    failed = _response(status_code=500, text='{"message": "boom"}', method="GET")
+    client.session.request = MagicMock(return_value=failed)
+
+    response = client._send_request("GET", "https://ex.hudu.app/api/v1/x")
+
+    assert response.status_code == 500
+    assert client.session.request.call_count == 1
 
 
 def test_send_request_does_not_retry_404():
