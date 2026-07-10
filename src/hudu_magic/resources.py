@@ -344,7 +344,7 @@ class BaseFileResource(BaseResource):
 
         url = self.client.build_url(
             download_path_template.format(id=object_id))
-        response = self.client.session.get(url, timeout=self.client.timeout)
+        response = self.client.get_url(url, timeout=self.client.timeout)
         response.raise_for_status()
 
         destination.write_bytes(response.content)
@@ -1250,7 +1250,7 @@ class ExportsResource(BaseFileResource):
         else:
             url = self.client.build_url(f"exports/{object_id}?download=true")
 
-        response = self.client.session.get(
+        response = self.client.get_url(
             url,
             timeout=self.client.timeout,
             allow_redirects=True,

@@ -102,3 +102,47 @@ def test_get_forces_nonpaginated_when_paginate_false():
     client.get(HuduEndpoint.ARTICLES, paginate=False)
     client._get_nonpaginated.assert_called_once()
     client._get_all_pages.assert_not_called()
+
+
+def test_send_request_retries_on_rate_limit(monkeypatch):
+    client = HuduClient(api_key="k", instance_url="https://ex.hudu.app", max_retries=1)
+    rate_limited = _response(
+        status_code=429,
+        text='{"message": "Retry later"}',
+        method="GET",
+    )
+    ok = _response(text='{"ok": true}', method="GET")
+    client.session.request = MagicMock(side_effect=[rate_limited, ok])
+    slept: list[float] = []
+    monkeypatch.setattr("hudu_magic.client.time.sleep", lambda s: slept.append(s))
+
+    response = client._send_request("GET", "https://ex.hudu.app/api/v1/x")
+
+    assert response.ok
+    assert client.session.request.call_count == 2
+    assert len(slept) == 1
+
+
+def test_send_request_retries_generic_error_once(monkeypatch):
+    client = HuduClient(api_key="k", instance_url="https://ex.hudu.app", max_retries=1)
+    failed = _response(status_code=500, text='{"message": "boom"}', method="GET")
+    ok = _response(text='{"ok": true}', method="GET")
+    client.session.request = MagicMock(side_effect=[failed, ok])
+    slept: list[float] = []
+    monkeypatch.setattr("hudu_magic.client.time.sleep", lambda s: slept.append(s))
+
+    response = client._send_request("GET", "https://ex.hudu.app/api/v1/x")
+
+    assert response.ok
+    assert slept == [5.0]
+
+
+def test_send_request_does_not_retry_404():
+    client = HuduClient(api_key="k", instance_url="https://ex.hudu.app", max_retries=1)
+    missing = _response(status_code=404, text='{"message": "Not Found"}', method="GET")
+    client.session.request = MagicMock(return_value=missing)
+
+    response = client._send_request("GET", "https://ex.hudu.app/api/v1/x")
+
+    assert response.status_code == 404
+    assert client.session.request.call_count == 1

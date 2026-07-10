@@ -584,6 +584,30 @@ or for more verbose info:
 
 if an object type or resource doesnt support a method call or payload param, you'll be notified of which one(s), if any, are invalid.
 
+### Rate limiting (Rack::Attack)
+
+All API traffic goes through `HuduClient._send_request` with retry behavior aligned to HuduAPI PowerShell **`Invoke-HuduRequest`**:
+
+- **429** / **"Retry later"** / **"Too Many Requests"** → sleep until the next **5-minute** window (plus 1–4s jitter), then retry
+- **Other errors** (except **404**) → sleep **5s**, then retry once
+- **404** → no retry (fail immediately)
+
+Defaults: **`max_retries=1`** (two attempts total). Disable or tune on construct:
+
+```python
+client = HuduClient(
+    api_key="...",
+    instance_url="https://yourinstance.hudu.app",
+    max_retries=1,
+    retry_on_rate_limit=True,
+    retry_on_error=True,
+    error_retry_delay=5.0,
+    rate_limit_window_seconds=300,
+)
+```
+
+Set **`retry_on_error=False`** for rate-limit-only retries (similar to PowerShell **`$script:SKIP_HAPI_ERROR_RETRY`**).
+
 
 ## Advanced Use Possibilities
 
