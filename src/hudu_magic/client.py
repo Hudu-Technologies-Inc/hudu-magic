@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import time
 from typing import Any
 
 import requests
 
 from hudu_magic.endpoints import HuduEndpoint
 from hudu_magic.instance import Instance
+
+from .constants import HUDU_ERROR_RETRY_DELAY_SECONDS, HUDU_RATE_LIMIT_WINDOW_SECONDS
+from .helpers.http import error_message_from_response, retry_delay_seconds
 
 from .models import MODEL_MAP, HuduCollection
 from .payloads import maybe_wrap_payload
@@ -26,9 +30,25 @@ from .validation import HuduAPIError, validate_payload
 
 
 class HuduClient:
-    def __init__(self, api_key: str, instance_url: str, timeout: int = 30):
+    def __init__(
+        self,
+        api_key: str,
+        instance_url: str,
+        timeout: int = 30,
+        *,
+        max_retries: int = 1,
+        retry_on_rate_limit: bool = True,
+        retry_on_error: bool = False,
+        error_retry_delay: float = HUDU_ERROR_RETRY_DELAY_SECONDS,
+        rate_limit_window_seconds: int = HUDU_RATE_LIMIT_WINDOW_SECONDS,
+    ):
         self.instance = Instance(api_key=api_key, instance_url=instance_url)
         self.timeout = timeout
+        self.max_retries = max_retries
+        self.retry_on_rate_limit = retry_on_rate_limit
+        self.retry_on_error = retry_on_error
+        self.error_retry_delay = error_retry_delay
+        self.rate_limit_window_seconds = rate_limit_window_seconds
         self.session = requests.Session()
         self.session.headers.update(self.instance.get_request_headers)
         self.version = None
@@ -132,6 +152,45 @@ class HuduClient:
         endpoint_path = endpoint.endpoint if isinstance(
             endpoint, HuduEndpoint) else str(endpoint).lstrip("/")
         return f"{self.instance.instance_url}/{endpoint_path}"
+
+    def _send_request(self, method: str, url: str, **kwargs: Any) -> requests.Response:
+        """
+        Issue an HTTP request with optional retry on rate limits and transient errors.
+
+        Matches HuduAPI PowerShell ``Invoke-HuduRequest`` (429 / "Retry later" window
+        sleep, then one generic 5s retry for other failures).
+        """
+        kwargs.setdefault("timeout", self.timeout)
+        response: requests.Response | None = None
+
+        for attempt in range(self.max_retries + 1):
+            response = self.session.request(method, url, **kwargs)
+            if response.ok:
+                return response
+
+            if attempt >= self.max_retries:
+                break
+
+            message = error_message_from_response(response)
+            delay = retry_delay_seconds(
+                response.status_code,
+                message,
+                retry_on_rate_limit=self.retry_on_rate_limit,
+                retry_on_error=self.retry_on_error,
+                rate_limit_window_seconds=self.rate_limit_window_seconds,
+                error_retry_delay=self.error_retry_delay,
+            )
+            if delay is None:
+                break
+
+            time.sleep(delay)
+
+        assert response is not None
+        return response
+
+    def get_url(self, url: str, **kwargs: Any) -> requests.Response:
+        """GET a full URL (API path or external ``download_url``) with retry policy."""
+        return self._send_request("GET", url, **kwargs)
 
     def _handle_response(self, response: requests.Response) -> Any:
         if not response.ok:
@@ -238,12 +297,12 @@ class HuduClient:
         files: dict | None = None,
         data: dict | None = None,
     ) -> Any:
-        response = self.session.post(
+        response = self._send_request(
+            "POST",
             self.build_url(endpoint),
             json=json if files is None else None,
             data=data,
             files=files,
-            timeout=self.timeout,
         )
         return self._handle_response(response)
 
@@ -255,20 +314,17 @@ class HuduClient:
         files: dict | None = None,
         data: dict | None = None,
     ) -> Any:
-        response = self.session.put(
+        response = self._send_request(
+            "PUT",
             self.build_url(endpoint),
             json=json if files is None else None,
             data=data if files is not None else None,
             files=files,
-            timeout=self.timeout,
         )
         return self._handle_response(response)
 
     def delete(self, endpoint: HuduEndpoint | str) -> Any:
-        response = self.session.delete(
-            self.build_url(endpoint),
-            timeout=self.timeout,
-        )
+        response = self._send_request("DELETE", self.build_url(endpoint))
         return self._handle_response(response)
 
     def get(
@@ -291,10 +347,10 @@ class HuduClient:
         return self._wrap_result(endpoint, result)
 
     def _get_nonpaginated(self, endpoint: HuduEndpoint | str, params: dict | None = None) -> Any:
-        response = self.session.get(
+        response = self._send_request(
+            "GET",
             self.build_url(endpoint),
             params=params,
-            timeout=self.timeout,
         )
         return self._handle_response(response)
 

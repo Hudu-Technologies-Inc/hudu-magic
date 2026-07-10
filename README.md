@@ -584,6 +584,28 @@ or for more verbose info:
 
 if an object type or resource doesnt support a method call or payload param, you'll be notified of which one(s), if any, are invalid.
 
+### Rate limiting (Rack::Attack)
+
+All API traffic goes through `HuduClient._send_request` with retry behavior aligned to HuduAPI PowerShell **`Invoke-HuduRequest`**:
+
+- **429** / **"Retry later"** / **"Too Many Requests"** → sleep until the next **5-minute** window (plus 1–4s jitter), then retry
+- **Other errors** (except **404**) → sleep **5s**, then retry once (**only when `retry_on_error=True`**)
+- **404** → no retry (fail immediately)
+
+Defaults: **`max_retries=1`**, **`retry_on_rate_limit=True`**, **`retry_on_error=False`** (rate-limit retries only). Enable generic error retry for PowerShell-style behavior:
+
+```python
+client = HuduClient(
+    api_key="...",
+    instance_url="https://yourinstance.hudu.app",
+    max_retries=1,
+    retry_on_rate_limit=True,
+    retry_on_error=True,
+    error_retry_delay=5.0,
+    rate_limit_window_seconds=300,
+)
+```
+
 
 ## Advanced Use Possibilities
 
@@ -657,4 +679,6 @@ When Hudu publishes a new spec, regenerate and bump **`HUDUSPECVERSION`** accord
 
 - v0.5.2432 - Generated Endpoints.py from 2.43.2 definitions, Version incremented for clarity and consistency Mon, Jun 15, 2026
 
-- v0.6.2440 - Generated Endpoints from Hudu OpenAPI **2.44.0**; **`LabelsResource`** / **`LabelTypesResource`**; label helpers on **`HuduObject`**, **`BaseResource`**, and **`HuduCollection`** (`add_label`, `list_labels`, `strip_labels`, `assign_to`, `strip_from`, `for_record_type`, `delete_all`); client aliases `label`, `label_type`, `labeltypes`; see **Labels and label types** above and **`examples/using_labels.py`**.
+- v0.6.2440(b) - Generated Endpoints from Hudu OpenAPI **2.44.0**; **`LabelsResource`** / **`LabelTypesResource`**; label helpers on **`HuduObject`**, **`BaseResource`**, and **`HuduCollection`** (`add_label`, `list_labels`, `strip_labels`, `assign_to`, `strip_from`, `for_record_type`, `delete_all`); client aliases `label`, `label_type`, `labeltypes`; see **Labels and label types** above and **`examples/using_labels.py`**. This has not been released (beta-spec) to maintain version-parity with Mainline Hudu.
+
+- v0.7.2440 - Ensuring Rack-Attack-Standard ratelimiting procedure, introduced with http helper that waits until next 5m window if exceeded.

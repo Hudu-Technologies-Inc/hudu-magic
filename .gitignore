@@ -13,3 +13,4 @@ testenv
 uv.lock
 dev/*
 hudu-openapiv1.json
+me.Default
