@@ -681,4 +681,6 @@ When Hudu publishes a new spec, regenerate and bump **`HUDUSPECVERSION`** accord
 
 - v0.5.2432 - Generated Endpoints.py from 2.43.2 definitions, Version incremented for clarity and consistency Mon, Jun 15, 2026
 
-- v0.6.2440 - Generated Endpoints from Hudu OpenAPI **2.44.0**; **`LabelsResource`** / **`LabelTypesResource`**; label helpers on **`HuduObject`**, **`BaseResource`**, and **`HuduCollection`** (`add_label`, `list_labels`, `strip_labels`, `assign_to`, `strip_from`, `for_record_type`, `delete_all`); client aliases `label`, `label_type`, `labeltypes`; see **Labels and label types** above and **`examples/using_labels.py`**.
+- v0.6.2440(b) - Generated Endpoints from Hudu OpenAPI **2.44.0**; **`LabelsResource`** / **`LabelTypesResource`**; label helpers on **`HuduObject`**, **`BaseResource`**, and **`HuduCollection`** (`add_label`, `list_labels`, `strip_labels`, `assign_to`, `strip_from`, `for_record_type`, `delete_all`); client aliases `label`, `label_type`, `labeltypes`; see **Labels and label types** above and **`examples/using_labels.py`**. This has not been released (beta-spec) to maintain version-parity with Mainline Hudu.
+
+- v0.7.2440 - Ensuring Rack-Attack-Standard ratelimiting procedure, introduced with http helper that waits until next 5m window if exceeded.
