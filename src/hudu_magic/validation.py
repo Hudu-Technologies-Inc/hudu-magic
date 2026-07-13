@@ -11,7 +11,8 @@ from .constants import (ALLOWED_PHOTOABLE_TYPES,
                         FROMABLE_TOABLE_TYPES,
                         ALLOWED_UPLOADABLE_TYPES,
                         ALLOWED_PHOTO_EXTS,
-                        ALLOWED_PUBPHOTO_EXTS
+                        ALLOWED_PUBPHOTO_EXTS,
+                        LABELABLE_TYPES,
                         )
 
 
@@ -282,3 +283,23 @@ def validate_photoable_type(value: str) -> bool:
 def validate_pubphotoable_type(value: str) -> bool:
     pubphotoable = value in ALLOWED_PUBLIC_PHOTOABLE_TYPES
     return pubphotoable
+
+
+def validate_labelable_type(value: str) -> str:
+    validate_required_string(value, "labelable_type")
+    if value not in LABELABLE_TYPES:
+        raise HuduValidationError(
+            f"Invalid labelable_type {value!r}. "
+            f"Allowed: {', '.join(LABELABLE_TYPES)}"
+        )
+    return value
+
+
+def resolve_label_type_id(label_type: int | str | Any) -> int | str:
+    if isinstance(label_type, (int, str)):
+        return label_type
+
+    label_type_id = getattr(label_type, "id", None)
+    if label_type_id is None:
+        raise ValueError("label_type must be an int, str, or object with an id")
+    return label_type_id

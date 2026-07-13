@@ -2,7 +2,6 @@ import uuid
 
 import pytest
 
-from hudu_magic import HuduClient
 from hudu_magic.endpoints import HuduEndpoint
 
 from .random_layout import random_asset_layout_payload

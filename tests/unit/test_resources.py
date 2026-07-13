@@ -121,10 +121,10 @@ def test_s3_exports_start_delegates_to_create():
 def test_exports_download_uses_download_url_when_present(tmp_path: Path):
     client = MagicMock()
     client.timeout = 30
-    client.session = MagicMock()
-    client.session.get = MagicMock()
-    client.session.get.return_value.content = b"pdf-bytes"
-    client.session.get.return_value.raise_for_status = MagicMock()
+    download_response = MagicMock()
+    download_response.content = b"pdf-bytes"
+    download_response.raise_for_status = MagicMock()
+    client.get_url = MagicMock(return_value=download_response)
 
     export = MagicMock()
     export.id = 5
@@ -140,8 +140,8 @@ def test_exports_download_uses_download_url_when_present(tmp_path: Path):
     out = res.download(export, tmp_path)
 
     assert out.read_bytes() == b"pdf-bytes"
-    client.session.get.assert_called_once()
-    args, kwargs = client.session.get.call_args
+    client.get_url.assert_called_once()
+    args, kwargs = client.get_url.call_args
     assert args[0] == "https://cdn.example/x"
     assert kwargs["timeout"] == 30
     assert kwargs["allow_redirects"] is True
@@ -197,10 +197,10 @@ def test_exports_download_without_download_url_builds_api_path(tmp_path: Path):
     client = MagicMock()
     client.timeout = 15
     client.build_url = MagicMock(return_value="https://hudu/api/v1/exports/3?download=true")
-    client.session = MagicMock()
-    client.session.get = MagicMock()
-    client.session.get.return_value.content = b"csv-data"
-    client.session.get.return_value.raise_for_status = MagicMock()
+    download_response = MagicMock()
+    download_response.content = b"csv-data"
+    download_response.raise_for_status = MagicMock()
+    client.get_url = MagicMock(return_value=download_response)
 
     export = MagicMock()
     export.id = 3
@@ -219,7 +219,7 @@ def test_exports_download_without_download_url_builds_api_path(tmp_path: Path):
     assert out.name == "export-3.csv"
     assert out.read_bytes() == b"csv-data"
     client.build_url.assert_called_once_with("exports/3?download=true")
-    client.session.get.assert_called_once_with(
+    client.get_url.assert_called_once_with(
         "https://hudu/api/v1/exports/3?download=true",
         timeout=15,
         allow_redirects=True,

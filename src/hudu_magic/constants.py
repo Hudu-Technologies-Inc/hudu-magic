@@ -264,3 +264,25 @@ PROCEDURE_TASK_RUN_ONLY_FIELDS = frozenset({
     "AssignedUsers",
     "DueDate",
 })
+
+LABELABLE_TYPES = (
+    "Article",
+    "Asset",
+    "AssetPassword",
+    "Website",
+    "IpAddress",
+    "Vlan",
+    "VlanZone",
+    "Procedure",
+    "Network",
+    "RackStorage",
+)
+
+# Use batched label list/delete for HuduCollection when len >= this value.
+LABEL_COLLECTION_BATCH_MIN = 2
+
+# HTTP retry defaults (Rack::Attack / Invoke-HuduRequest parity).
+HUDU_RATE_LIMIT_WINDOW_SECONDS = 300
+HUDU_ERROR_RETRY_DELAY_SECONDS = 5
+HUDU_RATE_LIMIT_JITTER_MIN = 1
+HUDU_RATE_LIMIT_JITTER_MAX = 4
