@@ -4,18 +4,18 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from hudu_magic.endpoints import HuduEndpoint
+
 from .factories import (
-    company_payload,
-    company_update_payload,
     article_payload,
     article_update_payload,
+    asset_layout_payload,
+    company_payload,
+    company_update_payload,
     folder_payload,
     folder_update_payload,
     website_payload,
     website_update_payload,
-    asset_layout_payload,
 )
-
 
 CreateFactory = Callable[[dict[str, Any]], dict[str, Any]]
 UpdateFactory = Callable[[dict[str, Any]], dict[str, Any]]
