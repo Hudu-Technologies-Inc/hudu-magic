@@ -1,5 +1,6 @@
 from hudu_magic.helpers.general import strip_string
 
+
 class Instance:
     def __init__(self, api_key: str, instance_url: str):
         while instance_url is None:

@@ -1,6 +1,6 @@
 """HTTP retry helper tests."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from hudu_magic.helpers.http import (
     is_rate_limit_response,
@@ -17,7 +17,7 @@ def test_is_rate_limit_response_status_and_message():
 
 
 def test_seconds_until_next_rate_limit_window_at_window_start():
-    now = datetime(2026, 7, 10, 10, 0, 30)
+    now = datetime(2026, 7, 10, 10, 0, 30, tzinfo=timezone.utc)
     delay = seconds_until_next_rate_limit_window(
         window_seconds=300,
         now=now,

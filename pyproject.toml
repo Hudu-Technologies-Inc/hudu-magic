@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hudu-magic"
-version = "v0.7.2440"
+version = "v0.7.2441"
 description = "Python client library for the Hudu API"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -57,4 +57,11 @@ markers = [
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "DTZ"]
+
+[tool.ruff.lint.per-file-ignores]
+# Emitted by generate_endpoints.py; a fix here is reverted on the next regeneration.
+"src/hudu_magic/endpoints.py" = ["I001"]
 

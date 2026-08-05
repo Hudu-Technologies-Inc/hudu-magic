@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import random
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ..constants import (
     HUDU_RATE_LIMIT_JITTER_MAX,
@@ -31,7 +31,8 @@ def seconds_until_next_rate_limit_window(
 
     Mirrors PowerShell ``Invoke-HuduRequest`` rate-limit handling.
     """
-    now = now or datetime.now()
+    # Rack::Attack windows are epoch-aligned, so UTC is the correct reference clock.
+    now = now or datetime.now(tz=timezone.utc)
     window_minutes = max(1, window_seconds // 60)
     seconds_into_window = (now.minute % window_minutes) * 60 + now.second
     seconds_until = max(0, window_seconds - seconds_into_window)

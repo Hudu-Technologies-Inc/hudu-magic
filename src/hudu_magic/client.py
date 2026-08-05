@@ -10,22 +10,43 @@ from hudu_magic.instance import Instance
 
 from .constants import HUDU_ERROR_RETRY_DELAY_SECONDS, HUDU_RATE_LIMIT_WINDOW_SECONDS
 from .helpers.http import error_message_from_response, retry_delay_seconds
-
 from .models import MODEL_MAP, HuduCollection
 from .payloads import maybe_wrap_payload
-from .resources import (ActivityLogsResource, ArticlesResource,
-                        Asset_LayoutsResource, AssetPasswordsResource,
-                        AssetsResource, CardsResource, CompaniesResource,
-                        ExpirationsResource, FlagsResource, FlagTypesResource,
-                        FoldersResource, GroupsResource, IPAddressesResource,
-                        ListResourceListResource, LabelsResource, LabelTypesResource,
-                        MagicDashesResource, NetworksResource, PasswordFoldersResource,
-                        PhotosResource, ProceduresResource,
-                        ProcedureTasksResource, PublicPhotosResource,
-                        RackStorageItemResource, RackStorageResource,
-                        RelationsResource, UploadsResource, UsersResource,
-                        ExportsResource, S3ExportsResource,
-                        VlansResource, VLANZonesResource, WebsitesResource)
+from .resources import (
+    ActivityLogsResource,
+    ArticlesResource,
+    Asset_LayoutsResource,
+    AssetPasswordsResource,
+    AssetsResource,
+    CardsResource,
+    CompaniesResource,
+    ExpirationsResource,
+    ExportsResource,
+    FlagsResource,
+    FlagTypesResource,
+    FoldersResource,
+    GroupsResource,
+    IPAddressesResource,
+    LabelsResource,
+    LabelTypesResource,
+    ListResourceListResource,
+    MagicDashesResource,
+    NetworksResource,
+    PasswordFoldersResource,
+    PhotosResource,
+    ProceduresResource,
+    ProcedureTasksResource,
+    PublicPhotosResource,
+    RackStorageItemResource,
+    RackStorageResource,
+    RelationsResource,
+    S3ExportsResource,
+    UploadsResource,
+    UsersResource,
+    VlansResource,
+    VLANZonesResource,
+    WebsitesResource,
+)
 from .validation import HuduAPIError, validate_payload
 
 

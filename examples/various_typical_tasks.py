@@ -1,6 +1,8 @@
 import uuid
 from pathlib import Path
+
 from hudu_magic import HuduClient
+
 client = HuduClient(
     api_key="yourkeyfromenv",
     instance_url="yourinstanceurlfromenv",

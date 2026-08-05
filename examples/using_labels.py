@@ -1,7 +1,8 @@
-import uuid
 import random
-from hudu_magic import HuduClient
 import uuid
+
+from hudu_magic import HuduClient
+
 COMPANY_ID = 5  # or 1 — pick a sandbox company
 
 client = HuduClient(

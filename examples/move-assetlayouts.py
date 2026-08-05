@@ -10,10 +10,10 @@ from typing import Any, Iterable
 from hudu_magic import HuduClient
 from hudu_magic.helpers.asset_layouts import (
     collect_list_ids_from_layouts,
-    normalize_layout_for_create,
     layout_linkable_asset_layout_ref_ids,
     layout_linkable_asset_layout_ref_ids_in_batch,
     layout_to_dict,
+    normalize_layout_for_create,
 )
 from hudu_magic.validation import HuduAPIError
 
