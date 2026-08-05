@@ -685,7 +685,7 @@ When Hudu publishes a new spec, regenerate and bump **`HUDUSPECVERSION`** accord
 
 - v0.7.2440 - Ensuring Rack-Attack-Standard ratelimiting procedure, introduced with http helper that waits until next 5m window if exceeded.
 
-- v0.7.2441 - Regenerated Endpoints from Hudu OpenAPI **2.44.1**. Spec delta is **Relations-only** (not labels):
+- v0.8.2441 - Regenerated Endpoints from Hudu OpenAPI **2.44.1**. Spec delta is **Relations-only** (not labels):
   - **`GET /relations`** query filters: `fromable_type`, `fromable_id`, `toable_type`, `toable_id`, `is_inverse`, `description`, `created_at`, `updated_at` (plus pagination).
   - **`POST /relations`** create body now documents required fields (`fromable_type`, `fromable_id`, `toable_type`, `toable_id`) and enums that include IPAM/network types (`Network`, `IpAddress`, `Vlan`, `VlanZone`, `RackStorage`) alongside Asset/Company/Article/etc.
   - Operation IDs renamed (`create_relation`, `delete_relation`) — cosmetic for this client.
