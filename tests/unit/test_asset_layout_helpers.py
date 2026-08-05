@@ -8,9 +8,9 @@ from hudu_magic.constants import LIST_SELECT_FIELD_TYPE
 from hudu_magic.endpoints import HuduEndpoint
 from hudu_magic.helpers.asset_layouts import (
     collect_list_ids_from_layouts,
-    normalize_layout_for_create,
-    layout_fields_for_create,
     layout_field_linkable_is_asset_layout_scope,
+    layout_fields_for_create,
+    normalize_layout_for_create,
 )
 from hudu_magic.models import AssetLayout
 

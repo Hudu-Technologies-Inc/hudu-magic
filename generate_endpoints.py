@@ -6,7 +6,6 @@ import re
 from pathlib import Path
 from typing import Any
 
-
 HTTP_METHODS = ("get", "post", "put", "patch", "delete")
 
 

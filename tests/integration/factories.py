@@ -1,10 +1,11 @@
 # tests/integration/factories.py
 from __future__ import annotations
+
 import random
 import uuid
-from hudu_magic.helpers.general import ensure_https
 
 from hudu_magic.constants import FIELD_TYPES
+from hudu_magic.helpers.general import ensure_https
 
 ASSET_LAYOUT_FIELD_TYPES = [
     t for t in FIELD_TYPES

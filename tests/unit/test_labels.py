@@ -10,7 +10,7 @@ from hudu_magic.helpers.labels import (
     resolve_canonical_label_color_name,
 )
 from hudu_magic.models import Article, Asset, HuduCollection, Label, LabelType
-from hudu_magic.resources import LabelTypesResource, LabelsResource
+from hudu_magic.resources import LabelsResource, LabelTypesResource
 from hudu_magic.validation import HuduValidationError, validate_labelable_type
 
 

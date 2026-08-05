@@ -1,11 +1,13 @@
 import math
 
-from hudu_magic.constants import (COMPANY_PROPERTIES_TO_POP_ON_SAVE,
-                                  FOLDER_PROPERTIES_TO_POP_ON_SAVE,
-                                  IPAM_PROPERTIES_TO_POP_ON_SAVE,
-                                  PASSWORD_PROPERTIES_TO_POP_ON_SAVE,
-                                  PROPERTIES_TO_POP_ON_SAVE,
-                                  WEBSITE_PROPERTIES_TO_POP_ON_SAVE)
+from hudu_magic.constants import (
+    COMPANY_PROPERTIES_TO_POP_ON_SAVE,
+    FOLDER_PROPERTIES_TO_POP_ON_SAVE,
+    IPAM_PROPERTIES_TO_POP_ON_SAVE,
+    PASSWORD_PROPERTIES_TO_POP_ON_SAVE,
+    PROPERTIES_TO_POP_ON_SAVE,
+    WEBSITE_PROPERTIES_TO_POP_ON_SAVE,
+)
 from hudu_magic.endpoints import HuduEndpoint
 
 RESOURCE_WRAPPERS = {

@@ -4,16 +4,16 @@ import time
 from pathlib import Path
 from typing import Any, ClassVar, Iterable
 
+from hudu_magic.constants import LABEL_COLLECTION_BATCH_MIN
 from hudu_magic.help import describe_single, supported_methods
 from hudu_magic.helpers.general import is_version_greater_or_equal
-from hudu_magic.helpers.labels import convert_to_hudu_label_color
 from hudu_magic.helpers.labels import (
+    convert_to_hudu_label_color,
     filter_labels_for_label_type_ids,
     filter_labels_for_targets,
     group_labelable_targets,
     normalize_labelable_id,
 )
-from hudu_magic.constants import LABEL_COLLECTION_BATCH_MIN
 
 from .endpoints import HuduEndpoint
 from .models import (

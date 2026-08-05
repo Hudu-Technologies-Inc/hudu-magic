@@ -1,5 +1,6 @@
 from hudu_magic.endpoints import HuduEndpoint
 
+
 def test_articles_endpoint_exists():
     assert HuduEndpoint.ARTICLES.endpoint == "articles"
 
