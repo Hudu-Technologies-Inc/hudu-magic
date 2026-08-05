@@ -210,23 +210,8 @@ class BaseResource:
             **params,
         )
 
-    def list_relations(self, to_object: HuduObject):
-        relation_ref = to_object.to_relation_ref()
-        relation_type = str(relation_ref["type"]).strip().lower()
-        object_id = str(relation_ref["id"])
-
-        return [
-            r
-            for r in self.client.relations.list()
-            if (
-                str(r.fromable_type).strip().lower() == relation_type
-                and str(r.fromable_id) == object_id
-            )
-            or (
-                str(r.toable_type).strip().lower() == relation_type
-                and str(r.toable_id) == object_id
-            )
-        ]
+    def list_relations(self, to_object: HuduObject, **params):
+        return self.client.relations.list_relations(to_object, **params)
 
     def list_uploads(self, to_object: HuduObject):
         uploadable_type = to_object.to_upload_ref()
@@ -987,6 +972,75 @@ class RelationsResource(BaseResource):
             payload["description"] = description
 
         return self.client.create(self.endpoint, payload, **kwargs)
+
+    def list_relations(self, to_object: HuduObject, **params) -> list[Any]:
+        """
+        List relations involving ``to_object`` using server-side filters.
+
+        Issues two ``GET /relations`` queries (as FROM and as TO), then dedupes by
+        relation id. Falls back to a local filter pass so unexpected rows are still
+        excluded if the API ignores unknown params on older instances.
+        """
+        relation_ref = to_object.to_relation_ref()
+        relation_type = str(relation_ref["type"])
+        object_id = relation_ref["id"]
+        object_id_str = str(object_id)
+
+        as_from = self.list(
+            fromable_type=relation_type,
+            fromable_id=object_id,
+            **params,
+        )
+        as_to = self.list(
+            toable_type=relation_type,
+            toable_id=object_id,
+            **params,
+        )
+
+        seen: set[str] = set()
+        results: list[Any] = []
+
+        for relation in list(as_from or []) + list(as_to or []):
+            relation_id = getattr(relation, "id", None)
+            if relation_id is None and isinstance(relation, dict):
+                relation_id = relation.get("id")
+            key = str(relation_id) if relation_id is not None else repr(relation)
+            if key in seen:
+                continue
+
+            from_type = str(
+                getattr(relation, "fromable_type", None)
+                or (relation.get("fromable_type") if isinstance(relation, dict) else "")
+                or ""
+            ).strip().lower()
+            from_id = str(
+                getattr(relation, "fromable_id", None)
+                or (relation.get("fromable_id") if isinstance(relation, dict) else "")
+                or ""
+            )
+            to_type = str(
+                getattr(relation, "toable_type", None)
+                or (relation.get("toable_type") if isinstance(relation, dict) else "")
+                or ""
+            ).strip().lower()
+            to_id = str(
+                getattr(relation, "toable_id", None)
+                or (relation.get("toable_id") if isinstance(relation, dict) else "")
+                or ""
+            )
+
+            matches = (
+                from_type == relation_type.lower() and from_id == object_id_str
+            ) or (
+                to_type == relation_type.lower() and to_id == object_id_str
+            )
+            if not matches:
+                continue
+
+            seen.add(key)
+            results.append(relation)
+
+        return results
 
 
 class RackStorageResource(BaseResource):

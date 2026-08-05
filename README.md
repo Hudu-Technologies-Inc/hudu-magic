@@ -1,5 +1,7 @@
 # hudu-magic
 
+Official Python Client for Hudu!
+
 A **tiny, enum-driven, class-based Python API client** for Hudu.
 
 - Minimal dependencies (requests)
@@ -648,7 +650,7 @@ PyPI releases use a **library** SemVer prefix and a numeric suffix derived from 
 
 When Hudu publishes a new spec, regenerate and bump **`HUDUSPECVERSION`** accordingly. For **Python-only** fixes (same spec, no regeneration), prefer a **PEP 440** suffix such as `0.1.2410.post1` so the encoded spec stays honest.
 
-**Spec used for the current release:** Hudu OpenAPI **2.41.0** (as of 2026-04-06). The canonical package version is in `pyproject.toml`.
+**Spec used for the current release:** Hudu OpenAPI **2.44.1**. The canonical package version is in `pyproject.toml`.
 
 # History
 
@@ -682,3 +684,22 @@ When Hudu publishes a new spec, regenerate and bump **`HUDUSPECVERSION`** accord
 - v0.6.2440 - Generated Endpoints from Hudu OpenAPI **2.44.0**; **`LabelsResource`** / **`LabelTypesResource`**; label helpers on **`HuduObject`**, **`BaseResource`**, and **`HuduCollection`** (`add_label`, `list_labels`, `strip_labels`, `assign_to`, `strip_from`, `for_record_type`, `delete_all`); client aliases `label`, `label_type`, `labeltypes`; see **Labels and label types** above and **`examples/using_labels.py`**. This has not been released (beta-spec) to maintain version-parity with Mainline Hudu.
 
 - v0.7.2440 - Ensuring Rack-Attack-Standard ratelimiting procedure, introduced with http helper that waits until next 5m window if exceeded.
+
+- v0.7.2441 - Regenerated Endpoints from Hudu OpenAPI **2.44.1**. Spec delta is **Relations-only** (not labels):
+  - **`GET /relations`** query filters: `fromable_type`, `fromable_id`, `toable_type`, `toable_id`, `is_inverse`, `description`, `created_at`, `updated_at` (plus pagination).
+  - **`POST /relations`** create body now documents required fields (`fromable_type`, `fromable_id`, `toable_type`, `toable_id`) and enums that include IPAM/network types (`Network`, `IpAddress`, `Vlan`, `VlanZone`, `RackStorage`) alongside Asset/Company/Article/etc.
+  - Operation IDs renamed (`create_relation`, `delete_relation`) — cosmetic for this client.
+  - `FROMABLE_TOABLE_TYPES` / `RelationsResource.create` / `relate_to` already matched. **`list_relations`** now uses the new server-side `fromable_*` / `toable_*` filters (two targeted GETs + dedupe) instead of listing all relations then filtering client-side.
+
+---
+
+## Community & Socials
+
+[![Hudu Community](https://img.shields.io/badge/Community-Forum-blue?logo=discourse)](https://community.hudu.com/)
+[![Reddit](https://img.shields.io/badge/Reddit-r%2Fhudu-FF4500?logo=reddit)](https://www.reddit.com/r/hudu)
+[![YouTube](https://img.shields.io/badge/YouTube-Hudu-red?logo=youtube)](https://www.youtube.com/@hudu1715)
+[![X (Twitter)](https://img.shields.io/badge/X-@HuduHQ-black?logo=x)](https://x.com/HuduHQ)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Hudu_Technologies-0A66C2?logo=linkedin)](https://www.linkedin.com/company/hudu-technologies/)
+[![Facebook](https://img.shields.io/badge/Facebook-HuduHQ-1877F2?logo=facebook)](https://www.facebook.com/HuduHQ/)
+[![Instagram](https://img.shields.io/badge/Instagram-@huduhq-E4405F?logo=instagram)](https://www.instagram.com/huduhq/)
+[![Feature Requests](https://img.shields.io/badge/Feedback-Feature_Requests-brightgreen?logo=github)](https://hudu.canny.io/)

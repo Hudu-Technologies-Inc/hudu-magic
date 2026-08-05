@@ -6,9 +6,12 @@ from unittest.mock import MagicMock
 import pytest
 
 from hudu_magic.endpoints import HuduEndpoint
+from hudu_magic.models import Article, Asset
 from hudu_magic.resources import (
+    ArticlesResource,
     ExportsResource,
     ProcedureTasksResource,
+    RelationsResource,
     S3ExportsResource,
 )
 
@@ -224,3 +227,60 @@ def test_exports_download_without_download_url_builds_api_path(tmp_path: Path):
         timeout=15,
         allow_redirects=True,
     )
+
+
+def test_relations_list_relations_uses_from_and_to_filters():
+    client = MagicMock()
+    as_from = MagicMock()
+    as_from.id = 1
+    as_from.fromable_type = "Asset"
+    as_from.fromable_id = 10
+    as_from.toable_type = "Website"
+    as_from.toable_id = 20
+
+    as_to = MagicMock()
+    as_to.id = 2
+    as_to.fromable_type = "Article"
+    as_to.fromable_id = 5
+    as_to.toable_type = "Asset"
+    as_to.toable_id = 10
+
+    duplicate = MagicMock()
+    duplicate.id = 1
+    duplicate.fromable_type = "Asset"
+    duplicate.fromable_id = 10
+    duplicate.toable_type = "Website"
+    duplicate.toable_id = 20
+
+    res = RelationsResource(client)
+    res.list = MagicMock(side_effect=[[as_from], [as_to, duplicate]])
+
+    asset = Asset(client, HuduEndpoint.ASSETS, {"id": 10})
+    results = res.list_relations(asset)
+
+    assert [r.id for r in results] == [1, 2]
+    assert res.list.call_count == 2
+    first_kwargs = res.list.call_args_list[0].kwargs
+    second_kwargs = res.list.call_args_list[1].kwargs
+    assert first_kwargs == {"fromable_type": "Asset", "fromable_id": 10}
+    assert second_kwargs == {"toable_type": "Asset", "toable_id": 10}
+
+
+def test_base_resource_list_relations_delegates_to_relations_resource():
+    client = MagicMock()
+    client.relations.list_relations = MagicMock(return_value=[])
+    article = Article(client, HuduEndpoint.ARTICLES, {"id": 3})
+    res = ArticlesResource(client)
+
+    res.list_relations(article, page_size=50)
+
+    client.relations.list_relations.assert_called_once_with(article, page_size=50)
+
+
+def test_huduobject_list_relations_delegates_to_relations_resource():
+    client = MagicMock()
+    client.relations.list_relations = MagicMock(return_value=["ok"])
+    article = Article(client, HuduEndpoint.ARTICLES, {"id": 3})
+
+    assert article.list_relations() == ["ok"]
+    client.relations.list_relations.assert_called_once_with(to_object=article)
