@@ -1,8 +1,6 @@
 # hudu-magic
 
-Official Python Client for Hudu!
-
-A **tiny, enum-driven, class-based Python API client** for Hudu.
+The *Official* **tiny, enum-driven, class-based Python API client** for **Hudu**.
 
 - Minimal dependencies (requests)
 - Generated from OpenAPI  
@@ -690,6 +688,9 @@ When Hudu publishes a new spec, regenerate and bump **`HUDUSPECVERSION`** accord
   - **`POST /relations`** create body now documents required fields (`fromable_type`, `fromable_id`, `toable_type`, `toable_id`) and enums that include IPAM/network types (`Network`, `IpAddress`, `Vlan`, `VlanZone`, `RackStorage`) alongside Asset/Company/Article/etc.
   - Operation IDs renamed (`create_relation`, `delete_relation`) — cosmetic for this client.
   - `FROMABLE_TOABLE_TYPES` / `RelationsResource.create` / `relate_to` already matched. **`list_relations`** now uses the new server-side `fromable_*` / `toable_*` filters (two targeted GETs + dedupe) instead of listing all relations then filtering client-side.
+
+- v0.8.2442 - Regenerated Endpoints from Hudu OpenAPI **2.44.2**. 
+
 
 ---
 
