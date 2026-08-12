@@ -689,8 +689,9 @@ When Hudu publishes a new spec, regenerate and bump **`HUDUSPECVERSION`** accord
   - Operation IDs renamed (`create_relation`, `delete_relation`) — cosmetic for this client.
   - `FROMABLE_TOABLE_TYPES` / `RelationsResource.create` / `relate_to` already matched. **`list_relations`** now uses the new server-side `fromable_*` / `toable_*` filters (two targeted GETs + dedupe) instead of listing all relations then filtering client-side.
 
-- v0.8.2442 - Regenerated Endpoints from Hudu OpenAPI **2.44.2**. 
+- v0.8.2442 - Regenerated Endpoints from Hudu OpenAPI **2.44.2** [no change to api spec].
 
+- v0.8.2442 - Regenerated Endpoints from Hudu OpenAPI **2.44.3** [no change to api spec].
 
 ---
 
