@@ -693,7 +693,7 @@ When Hudu publishes a new spec, regenerate and bump **`HUDUSPECVERSION`** accord
 
 - v0.8.2443 - Regenerated Endpoints from Hudu OpenAPI **2.44.3** [no change to api spec].
 
-- v0.8.2450 - Generated Endpoints from Hudu OpenAPI **2.45.0**
+- v0.8.2450 - Generated Endpoints from Hudu OpenAPI **2.45.0** - No functional changes, though some changes to verbiage / description and therefore, generated tooltips for logs, specifically.
 
 ---
 
