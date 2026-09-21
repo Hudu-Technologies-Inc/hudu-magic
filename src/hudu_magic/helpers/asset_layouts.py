@@ -113,6 +113,27 @@ def layout_field_linkable_is_asset_layout_scope(field: dict[str, Any]) -> bool:
     return False
 
 
+def layout_has_self_referential_linkables(layout: Any) -> bool:
+    """
+    True when a layout-scope Asset Link field's ``linkable_id`` points at this
+    same layout (common for fields like "Hypervisor" / "Parent server").
+    """
+    data = _layout_as_dict(layout)
+    self_id = data.get("id")
+    if self_id is None:
+        return False
+    sid = int(self_id)
+    for f in _sorted_layout_fields(data.get("fields") or []):
+        if not layout_field_linkable_is_asset_layout_scope(_field_as_dict(f)):
+            continue
+        try:
+            if int(f.get("linkable_id")) == sid:
+                return True
+        except (TypeError, ValueError):
+            continue
+    return False
+
+
 def layout_linkable_asset_layout_ref_ids(layout: Any) -> set[int]:
     """Source asset_layout ids referenced by layout-scope ``linkable_id`` fields."""
     refs: set[int] = set()
@@ -224,11 +245,19 @@ def apply_asset_layout_linkable_id_map(
     batch_source_layout_ids: set[int],
     *,
     layout_name: str = "(unnamed)",
-) -> None:
+    current_source_layout_id: int | None = None,
+) -> list[str]:
     """
     Rewrite ``linkable_id`` using ``source_layout_id -> target_layout_id``.
     Unmapped ids outside ``batch_source_layout_ids`` are dropped silently.
+
+    Self-referential links (``linkable_id`` equals ``current_source_layout_id``)
+    cannot be remapped until the target row exists. Those ``linkable_id`` /
+    ``linkable_type`` pairs are omitted from the create body and their field
+    labels are returned so the caller can ``PUT`` after create once the new id
+    is in ``layout_id_map``.
     """
+    deferred_self_labels: list[str] = []
     for row in fields:
         lid = row.get("linkable_id")
         if lid is None:
@@ -242,6 +271,14 @@ def apply_asset_layout_linkable_id_map(
         if old in layout_id_map:
             row["linkable_id"] = layout_id_map[old]
             continue
+        if (
+            current_source_layout_id is not None
+            and old == int(current_source_layout_id)
+        ):
+            deferred_self_labels.append(str(row.get("label") or ""))
+            row.pop("linkable_id", None)
+            row.pop("linkable_type", None)
+            continue
         if old in batch_source_layout_ids:
             raise RuntimeError(
                 f"layout {layout_name!r} field {row.get('label')!r} linkable_id={old} "
@@ -249,6 +286,7 @@ def apply_asset_layout_linkable_id_map(
             )
         row.pop("linkable_id", None)
         row.pop("linkable_type", None)
+    return deferred_self_labels
 
 
 def normalize_layout_for_create(
@@ -257,6 +295,7 @@ def normalize_layout_for_create(
     list_id_map: dict[int, int] | None = None,
     layout_id_map: dict[int, int] | None = None,
     batch_source_layout_ids: set[int] | None = None,
+    defer_self_linkables: bool = True,
 ) -> dict[str, Any]:
     """
     Build a JSON body suitable for ``POST /asset_layouts`` (wrapped as
@@ -268,6 +307,12 @@ def normalize_layout_for_create(
     ``layout_id_map``, also pass ``batch_source_layout_ids`` (all source layout
     ids considered in scope for link resolution).
 
+    Self-referential Asset Links (``linkable_id`` equals this layout's source
+    ``id``) are omitted when ``defer_self_linkables`` is True and that id is not
+    yet in ``layout_id_map``. After create, put the new id into the map and call
+    again with ``defer_self_linkables=False`` (or with the id mapped) for a
+    follow-up ``PUT``.
+
     Cosmetic / include flags default from :data:`~hudu_magic.constants.ASSET_LAYOUT_CREATE_DEFAULTS`
     when the source omits a key or sets it to ``None``.
     """
@@ -278,11 +323,19 @@ def normalize_layout_for_create(
     if list_id_map:
         apply_asset_layout_list_id_map(fields, list_id_map)
     if layout_id_map is not None and batch_source_layout_ids is not None:
+        source_id = data.get("id")
+        current_id: int | None = None
+        if defer_self_linkables and source_id is not None:
+            try:
+                current_id = int(source_id)
+            except (TypeError, ValueError):
+                current_id = None
         apply_asset_layout_linkable_id_map(
             fields,
             layout_id_map,
             batch_source_layout_ids,
             layout_name=str(data.get("name") or "(unnamed)"),
+            current_source_layout_id=current_id,
         )
 
     payload: dict[str, Any] = {"fields": fields}
