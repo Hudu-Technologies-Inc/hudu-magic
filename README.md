@@ -73,11 +73,14 @@ Collection-level operations:
 - delete()
 - archive()
 - unarchive()
+- pin() / unpin() on a collection of articles
 
 ```python
 assetsforcompany.save()
 assetsforcompany.delete()
 assetsforcompany.archive()
+articles.pin()
+articles.unpin()
 ```
 
 ## Models (HuduObject)
@@ -93,11 +96,14 @@ Instance-level operations:
 - add_label() / assign_label()
 - list_labels()
 - strip_labels()
+- pin() / unpin() on articles
 
 ```python
 asset.save()
 asset.delete()
 asset.add_label(priority_type)
+article.pin()
+article.unpin()
 ```
 
 ## Special Model Methods
@@ -131,6 +137,22 @@ mycompany.create_asset()
 ```
 
 objects that require or can be attributed to a company often can be listed or created directly from a company object
+
+### Articles
+
+Pin and unpin call `PUT /articles/{id}/pin` and `PUT /articles/{id}/unpin`.
+
+```python
+article.pin()
+article.unpin()
+
+client.articles.pin(article.id)
+client.articles.unpin(article.id)
+
+articles = company.list_articles()
+articles.pin()
+articles.unpin()
+```
 
 ### Exports
 
@@ -648,7 +670,7 @@ PyPI releases use a **library** SemVer prefix and a numeric suffix derived from 
 
 When Hudu publishes a new spec, regenerate and bump **`HUDUSPECVERSION`** accordingly. For **Python-only** fixes (same spec, no regeneration), prefer a **PEP 440** suffix such as `0.1.2410.post1` so the encoded spec stays honest.
 
-**Spec used for the current release:** Hudu OpenAPI **2.44.1**. The canonical package version is in `pyproject.toml`.
+**Spec used for the current release:** Hudu OpenAPI **2.46.0**. The canonical package version is in `pyproject.toml`.
 
 # History
 
@@ -696,6 +718,12 @@ When Hudu publishes a new spec, regenerate and bump **`HUDUSPECVERSION`** accord
 - v0.8.2450 - Generated Endpoints from Hudu OpenAPI **2.45.0** - No functional changes, though some changes to verbiage / description and therefore, generated tooltips for logs, specifically.
 
 - v0.8.2451 - Regenerated Endpoints from Hudu OpenAPI **2.45.1** [no change to api spec].
+
+- v0.8.2460 - Regenerated Endpoints from Hudu OpenAPI **2.46.0**. Spec delta is **Articles-only**
+  - **`PUT /articles/{id}/pin`** and **`PUT /articles/{id}/unpin`**. Available as **`Article.pin`** / **`Article.unpin`**, **`ArticlesResource.pin`** / **`unpin`**, and **`HuduCollection.pin`** / **`unpin`** (article collections only).
+  - Asset layout `POST` / `PUT` field schemas are unchanged. `POST /asset_layouts` field objects still document `label`, `field_type`, `required`, `show_in_list`, and `position`. `PUT /asset_layouts/{id}` still documents `linkable_id` as the asset layout to pull values from.
+  - Layout copy (`examples/move-assetlayouts.py`) handles self-referential Asset Links and **cyclic** `linkable_id` graphs the same way: omit unresolved layout links on create, then `PUT` them after every layout in the batch has a target id. Cycle detection no longer aborts the run.
+  - **`Asset_LayoutsResource.update`** / **`AssetLayout.update`** use **`PUT /asset_layouts/{id}`** (`ASSET_LAYOUTS_ID`); the collection endpoint is create/list only.
 
 ---
 
