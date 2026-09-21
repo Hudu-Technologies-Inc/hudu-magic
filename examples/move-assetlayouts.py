@@ -8,6 +8,7 @@ import sys
 from typing import Any, Iterable
 
 from hudu_magic import HuduClient
+from hudu_magic.constants import LIST_SELECT_FIELD_TYPE
 from hudu_magic.helpers.asset_layouts import (
     collect_list_ids_from_layouts,
     layout_linkable_asset_layout_ref_ids,
@@ -176,6 +177,114 @@ def clone_referenced_lists(
         )
 
     return mapping
+
+
+def _hydrate_layouts_for_fields(
+    source: HuduClient,
+    layouts: list[Any],
+) -> list[Any]:
+    """
+    Prefer GET /asset_layouts/{id} so field ``list_id`` / ``linkable_id`` are
+    present; list responses sometimes omit them.
+    """
+    out: list[Any] = []
+    for layout in layouts:
+        sid = _source_layout_id(layout)
+        raw = source.asset_layouts.get(sid)
+        if raw is None:
+            print(
+                f"warning: could not re-fetch source layout id={sid}; "
+                "using list payload (list_id may be incomplete)",
+                file=sys.stderr,
+            )
+            out.append(layout)
+        else:
+            out.append(raw)
+    return out
+
+
+def _list_items_from_options(options: Any) -> list[dict[str, str]]:
+    if not isinstance(options, str) or not options.strip():
+        return []
+    items: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for line in options.splitlines():
+        name = line.strip()
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        items.append({"name": name})
+    return items
+
+
+def _ensure_list_select_list_ids(
+    target: HuduClient,
+    payload: dict[str, Any],
+    *,
+    dry_run: bool,
+) -> None:
+    """
+    ListSelect fields require ``list_id``. Source layouts sometimes have none
+    (orphaned field); create or reuse a target list so POST does not 422.
+    """
+    layout_name = str(payload.get("name") or "(unnamed)")
+    fields = payload.get("fields") or []
+    for field in fields:
+        if field.get("field_type") != LIST_SELECT_FIELD_TYPE:
+            continue
+        if field.get("list_id") is not None:
+            continue
+
+        label = str(field.get("label") or "ListSelect")
+        list_name = f"{layout_name} — {label}"
+        item_attrs = _list_items_from_options(field.get("options"))
+
+        if dry_run:
+            print(
+                f"dry-run: ListSelect {label!r} on {layout_name!r} has no list_id; "
+                f"would create list {list_name!r} ({len(item_attrs)} items)",
+                file=sys.stderr,
+            )
+            continue
+
+        create_body: dict[str, Any] = {"name": list_name}
+        if item_attrs:
+            create_body["list_items_attributes"] = item_attrs
+
+        try:
+            created = target.lists.create(create_body)
+        except HuduAPIError as exc:
+            if exc.status_code != 422:
+                raise
+            match = _first_target_list_by_name(target, list_name)
+            if match is None or match.get("id") is None:
+                alt_name = f"{list_name} (hudu-magic import)"
+                created = target.lists.create({**create_body, "name": alt_name})
+                list_name = alt_name
+            else:
+                field["list_id"] = int(match["id"])
+                print(
+                    f"warning: ListSelect {label!r} on {layout_name!r} had no "
+                    f"list_id; reusing existing list {list_name!r} id={match['id']}",
+                    file=sys.stderr,
+                )
+                continue
+
+        created_d = layout_to_dict(created)
+        new_id = created_d.get("id")
+        if new_id is None:
+            print(
+                f"error: created list for {label!r} on {layout_name!r} but "
+                f"could not read id: {created_d!r}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        field["list_id"] = int(new_id)
+        print(
+            f"warning: ListSelect {label!r} on {layout_name!r} had no list_id; "
+            f"created list {list_name!r} id={new_id} ({len(item_attrs)} items)",
+            file=sys.stderr,
+        )
 
 
 def _source_layout_id(layout: Any) -> int:
@@ -605,6 +714,7 @@ Examples:
         )
         return
 
+    ordered_layouts = _hydrate_layouts_for_fields(source, ordered_layouts)
     list_ids = collect_list_ids_from_layouts(ordered_layouts)
     list_id_map = clone_referenced_lists(
         source,
@@ -639,6 +749,7 @@ Examples:
             print(f"error: {exc}", file=sys.stderr)
             sys.exit(1)
         name = payload.get("name", "(unnamed)")
+        _ensure_list_select_list_ids(target, payload, dry_run=args.dry_run)
 
         if args.dry_run:
             print(

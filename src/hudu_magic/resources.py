@@ -506,6 +506,28 @@ class WebsitesResource(BaseResource):
 class Asset_LayoutsResource(BaseResource):
     endpoint = HuduEndpoint.ASSET_LAYOUTS
 
+    def update(self, item_id: int | str, payload: dict[str, Any] | None = None, **kwargs) -> Any:
+        """
+        ``PUT /asset_layouts/{id}``.
+
+        Collection ``ASSET_LAYOUTS`` is create/list only; update fields and
+        ``supports_update`` live on ``ASSET_LAYOUTS_ID``.
+        """
+        try:
+            client_kw = {k: v for k, v in kwargs.items() if k in _CLIENT_HTTP_KWARGS}
+            body_kw = {k: v for k, v in kwargs.items() if k not in _CLIENT_HTTP_KWARGS}
+            merged = self._merge_payload(payload, body_kw)
+            return self.client.update(
+                HuduEndpoint.ASSET_LAYOUTS_ID,
+                item_id,
+                merged,
+                **client_kw,
+            )
+        except HuduValidationError as e:
+            raise HuduValidationError(
+                f"{e}\n\n{describe_single(HuduEndpoint.ASSET_LAYOUTS_ID)}"
+            ) from None
+
 
 class PasswordFoldersResource(BaseResource):
     endpoint = HuduEndpoint.PASSWORD_FOLDERS

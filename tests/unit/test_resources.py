@@ -286,6 +286,39 @@ def test_huduobject_list_relations_delegates_to_relations_resource():
     client.relations.list_relations.assert_called_once_with(to_object=article)
 
 
+def test_asset_layouts_resource_update_uses_id_endpoint():
+    from hudu_magic.resources import Asset_LayoutsResource
+
+    client = MagicMock()
+    client.update = MagicMock(return_value={"id": 9, "name": "L"})
+    res = Asset_LayoutsResource(client)
+
+    res.update(9, {"name": "L", "fields": []}, allow_unknown_fields=True)
+
+    client.update.assert_called_once_with(
+        HuduEndpoint.ASSET_LAYOUTS_ID,
+        9,
+        {"name": "L", "fields": []},
+        allow_unknown_fields=True,
+    )
+
+
+def test_asset_layout_model_update_delegates_to_resource():
+    from hudu_magic.models import AssetLayout
+
+    client = MagicMock()
+    layout = AssetLayout(client, HuduEndpoint.ASSET_LAYOUTS, {"id": 9, "name": "Old"})
+    client.asset_layouts.update.return_value = AssetLayout(
+        client, HuduEndpoint.ASSET_LAYOUTS_ID, {"id": 9, "name": "New"}
+    )
+
+    assert layout.update({"name": "New"}, allow_unknown_fields=True) is layout
+    assert layout.name == "New"
+    client.asset_layouts.update.assert_called_once_with(
+        9, {"name": "New"}, allow_unknown_fields=True
+    )
+
+
 def test_articles_resource_pin_and_unpin():
     client = MagicMock()
     client.resolve_path.side_effect = lambda endpoint, item_id=None: f"articles/{item_id}"
