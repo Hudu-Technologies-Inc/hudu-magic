@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from hudu_magic.endpoints import HuduEndpoint
-from hudu_magic.models import Article, Asset
+from hudu_magic.models import Article, Asset, HuduCollection
 from hudu_magic.resources import (
     ArticlesResource,
     ExportsResource,
@@ -284,3 +284,74 @@ def test_huduobject_list_relations_delegates_to_relations_resource():
 
     assert article.list_relations() == ["ok"]
     client.relations.list_relations.assert_called_once_with(to_object=article)
+
+
+def test_articles_resource_pin_and_unpin():
+    client = MagicMock()
+    client.resolve_path.side_effect = lambda endpoint, item_id=None: f"articles/{item_id}"
+    pinned = {"id": 3, "name": "KB", "pinned": True}
+    client.put.return_value = {"article": pinned}
+    client._wrap_result.side_effect = lambda endpoint, result: result
+    res = ArticlesResource(client)
+
+    assert res.pin(3) == {"article": pinned}
+    client.put.assert_called_with("articles/3/pin")
+    client._wrap_result.assert_called_with(HuduEndpoint.ARTICLES_ID, {"article": pinned})
+
+    res.unpin(3)
+    client.put.assert_called_with("articles/3/unpin")
+
+
+def test_article_pin_updates_instance():
+    client = MagicMock()
+    article = Article(client, HuduEndpoint.ARTICLES, {"id": 7, "name": "KB"})
+    client.articles.pin.return_value = Article(
+        client, HuduEndpoint.ARTICLES_ID, {"id": 7, "name": "KB", "pinned": True}
+    )
+
+    assert article.pin() is article
+    assert article.pinned is True
+    client.articles.pin.assert_called_once_with(7)
+
+    client.articles.unpin.return_value = Article(
+        client, HuduEndpoint.ARTICLES_ID, {"id": 7, "name": "KB", "pinned": False}
+    )
+    article.unpin()
+    assert article.pinned is False
+    client.articles.unpin.assert_called_once_with(7)
+
+
+def test_article_pin_requires_id():
+    article = Article(MagicMock(), HuduEndpoint.ARTICLES, {"name": "draft"})
+    with pytest.raises(ValueError, match="without an id"):
+        article.pin()
+
+
+def test_hudu_collection_pin_and_unpin():
+    client = MagicMock()
+    first = Article(client, HuduEndpoint.ARTICLES, {"id": 1, "name": "A"})
+    second = Article(client, HuduEndpoint.ARTICLES, {"id": 2, "name": "B"})
+
+    def _pin(item_id):
+        return Article(client, HuduEndpoint.ARTICLES_ID, {"id": item_id, "pinned": True})
+
+    def _unpin(item_id):
+        return Article(client, HuduEndpoint.ARTICLES_ID, {"id": item_id, "pinned": False})
+
+    client.articles.pin.side_effect = _pin
+    client.articles.unpin.side_effect = _unpin
+
+    articles = HuduCollection([first, second])
+    pinned = articles.pin()
+    assert isinstance(pinned, HuduCollection)
+    assert [item.pinned for item in pinned] == [True, True]
+    assert [item.id for item in pinned] == [1, 2]
+
+    unpinned = articles.unpin()
+    assert [item.pinned for item in unpinned] == [False, False]
+
+
+def test_hudu_collection_pin_rejects_non_articles():
+    asset = Asset(MagicMock(), HuduEndpoint.ASSETS, {"id": 1, "name": "srv"})
+    with pytest.raises(AttributeError, match="does not support pin"):
+        HuduCollection([asset]).pin()

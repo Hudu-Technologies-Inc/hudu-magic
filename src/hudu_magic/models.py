@@ -430,6 +430,25 @@ class Article(HuduObject):
         self._data["folder_id"] = folder_id
         return self.save()
 
+    def _apply_article_result(self, updated: Any) -> Self:
+        if isinstance(updated, HuduObject):
+            self._data = dict(updated._data)
+        elif isinstance(updated, dict):
+            primary = updated if "id" in updated else self._client._extract_primary_object(updated)
+            if isinstance(primary, dict):
+                self._data = dict(primary)
+        return self
+
+    def pin(self) -> Self:
+        if self.id is None:
+            raise ValueError("Cannot pin article without an id")
+        return self._apply_article_result(self._client.articles.pin(self.id))
+
+    def unpin(self) -> Self:
+        if self.id is None:
+            raise ValueError("Cannot unpin article without an id")
+        return self._apply_article_result(self._client.articles.unpin(self.id))
+
     def save(self, **kwargs) -> Self:
         if self.id is None:
             raise ValueError("Cannot save object without an id")
@@ -1496,3 +1515,25 @@ class HuduCollection(list):
             )
 
         return [item.delete() for item in self]
+
+    def pin(self) -> HuduCollection:
+        if not self:
+            return HuduCollection([])
+
+        if not self._supports("pin"):
+            raise AttributeError(
+                f"{self[0].__class__.__name__} does not support pin"
+            )
+
+        return _wrap_hudu_object_results([obj.pin() for obj in self])
+
+    def unpin(self) -> HuduCollection:
+        if not self:
+            return HuduCollection([])
+
+        if not self._supports("unpin"):
+            raise AttributeError(
+                f"{self[0].__class__.__name__} does not support unpin"
+            )
+
+        return _wrap_hudu_object_results([obj.unpin() for obj in self])
