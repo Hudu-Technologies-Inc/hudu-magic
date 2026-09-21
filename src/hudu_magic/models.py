@@ -430,6 +430,25 @@ class Article(HuduObject):
         self._data["folder_id"] = folder_id
         return self.save()
 
+    def _apply_article_result(self, updated: Any) -> Self:
+        if isinstance(updated, HuduObject):
+            self._data = dict(updated._data)
+        elif isinstance(updated, dict):
+            primary = updated if "id" in updated else self._client._extract_primary_object(updated)
+            if isinstance(primary, dict):
+                self._data = dict(primary)
+        return self
+
+    def pin(self) -> Self:
+        if self.id is None:
+            raise ValueError("Cannot pin article without an id")
+        return self._apply_article_result(self._client.articles.pin(self.id))
+
+    def unpin(self) -> Self:
+        if self.id is None:
+            raise ValueError("Cannot unpin article without an id")
+        return self._apply_article_result(self._client.articles.unpin(self.id))
+
     def save(self, **kwargs) -> Self:
         if self.id is None:
             raise ValueError("Cannot save object without an id")
@@ -857,6 +876,8 @@ class Website(HuduObject):
 
 class AssetLayout(HuduObject):
     endpoint = HuduEndpoint.ASSET_LAYOUTS
+    # List/create use ASSET_LAYOUTS; PUT must validate against ASSET_LAYOUTS_ID.
+    update_endpoint = HuduEndpoint.ASSET_LAYOUTS_ID
     resource_attr = "asset_layouts"
 
     def to_create_payload(
@@ -881,6 +902,24 @@ class AssetLayout(HuduObject):
             layout_id_map=layout_id_map,
             batch_source_layout_ids=batch_source_layout_ids,
         )
+
+    def update(self, payload: dict[str, Any] | None = None, **kwargs) -> Self:
+        if self.id is None:
+            raise ValueError("Cannot update object without an id")
+
+        updated = self._client.asset_layouts.update(self.id, payload, **kwargs)
+
+        if isinstance(updated, HuduObject):
+            self._data = dict(updated._data)
+        elif isinstance(updated, dict):
+            primary = (
+                updated
+                if "id" in updated
+                else self._client._extract_primary_object(updated)
+            )
+            if isinstance(primary, dict):
+                self._data = dict(primary)
+        return self
 
 
 class PasswordFolder(HuduObject):
@@ -1496,3 +1535,25 @@ class HuduCollection(list):
             )
 
         return [item.delete() for item in self]
+
+    def pin(self) -> HuduCollection:
+        if not self:
+            return HuduCollection([])
+
+        if not self._supports("pin"):
+            raise AttributeError(
+                f"{self[0].__class__.__name__} does not support pin"
+            )
+
+        return _wrap_hudu_object_results([obj.pin() for obj in self])
+
+    def unpin(self) -> HuduCollection:
+        if not self:
+            return HuduCollection([])
+
+        if not self._supports("unpin"):
+            raise AttributeError(
+                f"{self[0].__class__.__name__} does not support unpin"
+            )
+
+        return _wrap_hudu_object_results([obj.unpin() for obj in self])

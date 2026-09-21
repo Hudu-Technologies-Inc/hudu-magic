@@ -8,10 +8,13 @@ import sys
 from typing import Any, Iterable
 
 from hudu_magic import HuduClient
+from hudu_magic.constants import LIST_SELECT_FIELD_TYPE
 from hudu_magic.helpers.asset_layouts import (
+    build_deferred_linkable_update_payload,
     collect_list_ids_from_layouts,
     layout_linkable_asset_layout_ref_ids,
     layout_linkable_asset_layout_ref_ids_in_batch,
+    layout_needs_linkable_patch,
     layout_to_dict,
     normalize_layout_for_create,
 )
@@ -175,6 +178,114 @@ def clone_referenced_lists(
         )
 
     return mapping
+
+
+def _hydrate_layouts_for_fields(
+    source: HuduClient,
+    layouts: list[Any],
+) -> list[Any]:
+    """
+    Prefer GET /asset_layouts/{id} so field ``list_id`` / ``linkable_id`` are
+    present; list responses sometimes omit them.
+    """
+    out: list[Any] = []
+    for layout in layouts:
+        sid = _source_layout_id(layout)
+        raw = source.asset_layouts.get(sid)
+        if raw is None:
+            print(
+                f"warning: could not re-fetch source layout id={sid}; "
+                "using list payload (list_id may be incomplete)",
+                file=sys.stderr,
+            )
+            out.append(layout)
+        else:
+            out.append(raw)
+    return out
+
+
+def _list_items_from_options(options: Any) -> list[dict[str, str]]:
+    if not isinstance(options, str) or not options.strip():
+        return []
+    items: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for line in options.splitlines():
+        name = line.strip()
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        items.append({"name": name})
+    return items
+
+
+def _ensure_list_select_list_ids(
+    target: HuduClient,
+    payload: dict[str, Any],
+    *,
+    dry_run: bool,
+) -> None:
+    """
+    ListSelect fields require ``list_id``. Source layouts sometimes have none
+    (orphaned field); create or reuse a target list so POST does not 422.
+    """
+    layout_name = str(payload.get("name") or "(unnamed)")
+    fields = payload.get("fields") or []
+    for field in fields:
+        if field.get("field_type") != LIST_SELECT_FIELD_TYPE:
+            continue
+        if field.get("list_id") is not None:
+            continue
+
+        label = str(field.get("label") or "ListSelect")
+        list_name = f"{layout_name} — {label}"
+        item_attrs = _list_items_from_options(field.get("options"))
+
+        if dry_run:
+            print(
+                f"dry-run: ListSelect {label!r} on {layout_name!r} has no list_id; "
+                f"would create list {list_name!r} ({len(item_attrs)} items)",
+                file=sys.stderr,
+            )
+            continue
+
+        create_body: dict[str, Any] = {"name": list_name}
+        if item_attrs:
+            create_body["list_items_attributes"] = item_attrs
+
+        try:
+            created = target.lists.create(create_body)
+        except HuduAPIError as exc:
+            if exc.status_code != 422:
+                raise
+            match = _first_target_list_by_name(target, list_name)
+            if match is None or match.get("id") is None:
+                alt_name = f"{list_name} (hudu-magic import)"
+                created = target.lists.create({**create_body, "name": alt_name})
+                list_name = alt_name
+            else:
+                field["list_id"] = int(match["id"])
+                print(
+                    f"warning: ListSelect {label!r} on {layout_name!r} had no "
+                    f"list_id; reusing existing list {list_name!r} id={match['id']}",
+                    file=sys.stderr,
+                )
+                continue
+
+        created_d = layout_to_dict(created)
+        new_id = created_d.get("id")
+        if new_id is None:
+            print(
+                f"error: created list for {label!r} on {layout_name!r} but "
+                f"could not read id: {created_d!r}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        field["list_id"] = int(new_id)
+        print(
+            f"warning: ListSelect {label!r} on {layout_name!r} had no list_id; "
+            f"created list {list_name!r} id={new_id} ({len(item_attrs)} items)",
+            file=sys.stderr,
+        )
 
 
 def _source_layout_id(layout: Any) -> int:
@@ -350,7 +461,11 @@ def _expand_to_create_with_linkables(
 def topo_ordered_layouts(layouts: list[Any]) -> list[Any]:
     """
     Creation order so every linkable_id pointing at another layout in ``layouts``
-    is satisfied (source asset_layout ids).
+    is satisfied when possible (source asset_layout ids).
+
+    If ``linkable_id`` references form a cycle, remaining layouts are appended in
+    id order after the acyclic prefix. Deferred Asset Links are restored with a
+    post-create ``PUT`` once every batch id is mapped.
     """
     batch_ids = {_source_layout_id(L) for L in layouts}
     id_to_layout = {_source_layout_id(L): L for L in layouts}
@@ -376,12 +491,15 @@ def topo_ordered_layouts(layouts: list[Any]) -> list[Any]:
         queue.sort()
 
     if len(order_ids) != len(batch_ids):
+        remaining = sorted(batch_ids - set(order_ids))
         print(
-            "error: linkable_id references among these layouts form a cycle "
-            "(or could not be ordered); fix source layouts or split the batch",
+            "note: linkable_id references among these layouts form a cycle; "
+            f"creating {len(remaining)} remaining layout(s) after the acyclic "
+            "prefix. Deferred Asset Links (including cycle edges and self-refs) "
+            "are PUT after every layout id is known.",
             file=sys.stderr,
         )
-        sys.exit(1)
+        order_ids.extend(remaining)
 
     return [id_to_layout[i] for i in order_ids]
 
@@ -450,7 +568,11 @@ Other field types may still carry list_id from GET; those are stripped so the
 server does not set an invalid FK.
 
 Layouts that reference each other via linkable_id are created in dependency
-order; linkable_id is rewritten to the new target layout ids.
+order when the graph is acyclic; linkable_id is rewritten to the new target
+layout ids. Cycles and self-referential Asset Links (a field that pulls from
+the same layout, e.g. Hyperviseur on Serveurs) omit those linkable_id values
+on create, then restore them with a PUT after every layout in the batch has a
+target id.
 
 By default, layout fields whose linkable_type looks like another asset layout
 (including blank type) pull that layout into this run when needed. Integration
@@ -593,6 +715,7 @@ Examples:
         )
         return
 
+    ordered_layouts = _hydrate_layouts_for_fields(source, ordered_layouts)
     list_ids = collect_list_ids_from_layouts(ordered_layouts)
     list_id_map = clone_referenced_lists(
         source,
@@ -609,6 +732,7 @@ Examples:
         )
 
     layout_id_map: dict[int, int] = dict(prefetch_layout_map)
+    pending_linkable_patches: list[tuple[Any, int, str]] = []
 
     for layout in ordered_layouts:
         try:
@@ -617,6 +741,7 @@ Examples:
                 list_id_map=list_id_map if not args.dry_run else None,
                 layout_id_map=layout_id_map if not args.dry_run else None,
                 batch_source_layout_ids=batch_source_ids if not args.dry_run else None,
+                defer_unmapped_batch_linkables=True,
             )
         except KeyError as exc:
             print(f"error: {exc}", file=sys.stderr)
@@ -625,21 +750,72 @@ Examples:
             print(f"error: {exc}", file=sys.stderr)
             sys.exit(1)
         name = payload.get("name", "(unnamed)")
+        _ensure_list_select_list_ids(target, payload, dry_run=args.dry_run)
 
         if args.dry_run:
             print(
                 f"dry-run: would create layout {name!r} with "
                 f"{len(payload.get('fields', []))} fields",
             )
+            if layout_needs_linkable_patch(layout, batch_source_ids):
+                print(
+                    f"dry-run: would PUT deferred Asset Links on {name!r} after create",
+                )
             continue
 
+        source_layout_id = _source_layout_id(layout)
         created = target.asset_layouts.create(
             payload,
             allow_unknown_fields=True,
         )
-        layout_id_map[_source_layout_id(layout)] = _created_asset_layout_id(created)
+        new_id = _created_asset_layout_id(created)
+        layout_id_map[source_layout_id] = new_id
         print(f"created: {name!r}")
         existing_target.add(name)
+
+        if layout_needs_linkable_patch(layout, batch_source_ids):
+            pending_linkable_patches.append((layout, new_id, name))
+
+    # Self-refs and cycle edges were omitted on create; restore once the full
+    # source->target layout map is known. PUT must include target field ids or
+    # Hudu treats rows as new fields ("label has already been taken").
+    for layout, new_id, name in pending_linkable_patches:
+        try:
+            target_layout = target.asset_layouts.get(new_id)
+            if target_layout is None:
+                print(
+                    f"warning: created {name!r} but could not re-fetch target "
+                    f"id={new_id} to patch Asset Links",
+                    file=sys.stderr,
+                )
+                continue
+            patch = build_deferred_linkable_update_payload(
+                layout,
+                target_layout,
+                layout_id_map,
+            )
+            if not patch:
+                print(
+                    f"note: no remappable Asset Link fields to patch on {name!r}",
+                    file=sys.stderr,
+                )
+                continue
+            target.asset_layouts.update(
+                new_id,
+                patch,
+                allow_unknown_fields=True,
+            )
+            print(
+                f"note: patched deferred linkable_id on {name!r} "
+                f"(target id={new_id}, {len(patch['fields'])} field(s))",
+                file=sys.stderr,
+            )
+        except (KeyError, RuntimeError, HuduAPIError) as exc:
+            print(
+                f"warning: created {name!r} but failed to patch deferred "
+                f"Asset Link fields: {exc}",
+                file=sys.stderr,
+            )
 
 
 if __name__ == "__main__":
