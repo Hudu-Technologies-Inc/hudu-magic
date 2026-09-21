@@ -19,6 +19,9 @@ from hudu_magic.constants import (
     LIST_SELECT_FIELD_TYPE,
 )
 
+# Hudu "Asset Link" layout fields (pull-from layout). Also accept legacy alias.
+_ASSET_LINK_FIELD_TYPES = frozenset({"AssetTag", "AssetLink"})
+
 
 def _layout_as_dict(layout: Any) -> dict[str, Any]:
     if hasattr(layout, "to_dict"):
@@ -97,10 +100,13 @@ def layout_linkable_type_excludes_asset_layout_link(linkable_type: str) -> bool:
 def layout_field_linkable_is_asset_layout_scope(field: dict[str, Any]) -> bool:
     """
     Whether this field's ``linkable_id`` should participate in layout-to-layout
-    transfer (POST remap). Other polymorphic targets are omitted from the create
-    payload.
+    transfer (POST remap). Only Asset Link fields (``AssetTag`` / ``AssetLink``)
+    qualify; other types often carry a stale ``linkable_id`` on GET.
     """
     if field.get("linkable_id") is None:
+        return False
+    ft = str(field.get("field_type") or "").strip()
+    if ft not in _ASSET_LINK_FIELD_TYPES:
         return False
     lt = str(field.get("linkable_type") or "")
     if layout_linkable_type_excludes_asset_layout_link(lt):
@@ -111,6 +117,82 @@ def layout_field_linkable_is_asset_layout_scope(field: dict[str, Any]) -> bool:
     if not lt.strip():
         return True
     return False
+
+
+def _match_target_field(
+    source_field: dict[str, Any],
+    target_fields: list[dict[str, Any]],
+    *,
+    used_ids: set[int],
+) -> dict[str, Any] | None:
+    """Match a source field to a target field by label+position, then label."""
+    label = source_field.get("label")
+    position = source_field.get("position")
+    for tf in target_fields:
+        tid = tf.get("id")
+        if tid is None or int(tid) in used_ids:
+            continue
+        if tf.get("label") == label and tf.get("position") == position:
+            return tf
+    matches = [
+        tf
+        for tf in target_fields
+        if tf.get("id") is not None
+        and int(tf["id"]) not in used_ids
+        and tf.get("label") == label
+    ]
+    if len(matches) == 1:
+        return matches[0]
+    return None
+
+
+def build_deferred_linkable_update_payload(
+    source_layout: Any,
+    target_layout: Any,
+    layout_id_map: dict[int, int],
+) -> dict[str, Any] | None:
+    """
+    Build a ``PUT /asset_layouts/{id}`` body that only updates Asset Link fields
+    whose ``linkable_id`` can be remapped, including each target field ``id``
+    (required by the API so labels are not treated as new fields).
+    """
+    source = _layout_as_dict(source_layout)
+    target = _layout_as_dict(target_layout)
+    target_fields = _sorted_layout_fields(target.get("fields") or [])
+    used_ids: set[int] = set()
+    patch_fields: list[dict[str, Any]] = []
+
+    for src in _sorted_layout_fields(source.get("fields") or []):
+        if not layout_field_linkable_is_asset_layout_scope(src):
+            continue
+        try:
+            old = int(src["linkable_id"])
+        except (TypeError, ValueError, KeyError):
+            continue
+        if old not in layout_id_map:
+            continue
+        matched = _match_target_field(src, target_fields, used_ids=used_ids)
+        if matched is None or matched.get("id") is None:
+            continue
+        field_id = int(matched["id"])
+        used_ids.add(field_id)
+        row: dict[str, Any] = {
+            "id": field_id,
+            "label": matched.get("label") or src.get("label"),
+            "field_type": matched.get("field_type") or src.get("field_type"),
+            "linkable_id": layout_id_map[old],
+        }
+        pos = matched.get("position")
+        if pos is not None:
+            row["position"] = pos
+        lt = src.get("linkable_type")
+        if lt is not None:
+            row["linkable_type"] = lt
+        patch_fields.append(row)
+
+    if not patch_fields:
+        return None
+    return {"fields": patch_fields}
 
 
 def layout_has_self_referential_linkables(layout: Any) -> bool:

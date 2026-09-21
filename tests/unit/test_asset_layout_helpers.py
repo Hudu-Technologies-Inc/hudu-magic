@@ -7,6 +7,7 @@ import pytest
 from hudu_magic.constants import LIST_SELECT_FIELD_TYPE
 from hudu_magic.endpoints import HuduEndpoint
 from hudu_magic.helpers.asset_layouts import (
+    build_deferred_linkable_update_payload,
     collect_list_ids_from_layouts,
     layout_field_linkable_is_asset_layout_scope,
     layout_fields_for_create,
@@ -60,7 +61,11 @@ def test_layout_fields_for_create_omits_integration_linkable():
 
 def test_layout_field_linkable_is_asset_layout_scope_blank_type_with_id():
     assert layout_field_linkable_is_asset_layout_scope(
-        {"linkable_id": 5, "linkable_type": None}
+        {"field_type": "AssetTag", "linkable_id": 5, "linkable_type": None}
+    )
+    # Stale linkable_id on non-AssetTag fields must not participate.
+    assert not layout_field_linkable_is_asset_layout_scope(
+        {"field_type": "Text", "linkable_id": 5, "linkable_type": None}
     )
 
 
@@ -281,3 +286,77 @@ def test_layout_needs_linkable_patch_for_batch_and_self():
     assert layout_needs_linkable_patch(other, {5, 6}) is True
     assert layout_needs_linkable_patch(none, {5, 6}) is False
     assert layout_needs_linkable_patch(other, {5}) is False
+
+
+def test_build_deferred_linkable_update_payload_includes_target_field_ids():
+    source = {
+        "id": 10,
+        "name": "Servers",
+        "fields": [
+            {
+                "label": "Hypervisor",
+                "field_type": "AssetTag",
+                "position": 1,
+                "linkable_id": 10,
+            },
+            {
+                "label": "Notes",
+                "field_type": "Text",
+                "position": 2,
+                "linkable_id": 10,  # stale; ignored
+            },
+        ],
+    }
+    target = {
+        "id": 100,
+        "name": "Servers",
+        "fields": [
+            {
+                "id": 501,
+                "label": "Hypervisor",
+                "field_type": "AssetTag",
+                "position": 1,
+            },
+            {
+                "id": 502,
+                "label": "Notes",
+                "field_type": "Text",
+                "position": 2,
+            },
+        ],
+    }
+    patch = build_deferred_linkable_update_payload(
+        source, target, layout_id_map={10: 100}
+    )
+    assert patch == {
+        "fields": [
+            {
+                "id": 501,
+                "label": "Hypervisor",
+                "field_type": "AssetTag",
+                "linkable_id": 100,
+                "position": 1,
+            }
+        ]
+    }
+
+
+def test_layout_fields_for_create_ignores_linkable_on_text():
+    out = layout_fields_for_create(
+        [
+            {
+                "label": "t",
+                "field_type": "Text",
+                "position": 1,
+                "linkable_id": 99,
+            },
+            {
+                "label": "a",
+                "field_type": "AssetTag",
+                "position": 2,
+                "linkable_id": 7,
+            },
+        ]
+    )
+    assert "linkable_id" not in out[0]
+    assert out[1]["linkable_id"] == 7

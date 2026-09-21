@@ -1,6 +1,7 @@
 from .asset_layouts import (
     apply_asset_layout_linkable_id_map,
     apply_asset_layout_list_id_map,
+    build_deferred_linkable_update_payload,
     collect_list_ids_from_layouts,
     layout_field_linkable_is_asset_layout_scope,
     layout_fields_for_create,
@@ -28,6 +29,7 @@ __all__ = [
     "resolve_canonical_label_color_name",
     "collect_list_ids_from_layouts",
     "normalize_layout_for_create",
+    "build_deferred_linkable_update_payload",
     "layout_field_linkable_is_asset_layout_scope",
     "layout_fields_for_create",
     "layout_has_self_referential_linkables",

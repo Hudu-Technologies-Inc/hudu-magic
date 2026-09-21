@@ -10,6 +10,7 @@ from typing import Any, Iterable
 from hudu_magic import HuduClient
 from hudu_magic.constants import LIST_SELECT_FIELD_TYPE
 from hudu_magic.helpers.asset_layouts import (
+    build_deferred_linkable_update_payload,
     collect_list_ids_from_layouts,
     layout_linkable_asset_layout_ref_ids,
     layout_linkable_asset_layout_ref_ids_in_batch,
@@ -776,15 +777,29 @@ Examples:
             pending_linkable_patches.append((layout, new_id, name))
 
     # Self-refs and cycle edges were omitted on create; restore once the full
-    # source->target layout map is known.
+    # source->target layout map is known. PUT must include target field ids or
+    # Hudu treats rows as new fields ("label has already been taken").
     for layout, new_id, name in pending_linkable_patches:
         try:
-            patch = normalize_layout_for_create(
+            target_layout = target.asset_layouts.get(new_id)
+            if target_layout is None:
+                print(
+                    f"warning: created {name!r} but could not re-fetch target "
+                    f"id={new_id} to patch Asset Links",
+                    file=sys.stderr,
+                )
+                continue
+            patch = build_deferred_linkable_update_payload(
                 layout,
-                list_id_map=list_id_map,
-                layout_id_map=layout_id_map,
-                batch_source_layout_ids=batch_source_ids,
+                target_layout,
+                layout_id_map,
             )
+            if not patch:
+                print(
+                    f"note: no remappable Asset Link fields to patch on {name!r}",
+                    file=sys.stderr,
+                )
+                continue
             target.asset_layouts.update(
                 new_id,
                 patch,
@@ -792,7 +807,7 @@ Examples:
             )
             print(
                 f"note: patched deferred linkable_id on {name!r} "
-                f"(target id={new_id})",
+                f"(target id={new_id}, {len(patch['fields'])} field(s))",
                 file=sys.stderr,
             )
         except (KeyError, RuntimeError, HuduAPIError) as exc:
