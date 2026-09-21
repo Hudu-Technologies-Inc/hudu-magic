@@ -722,7 +722,7 @@ When Hudu publishes a new spec, regenerate and bump **`HUDUSPECVERSION`** accord
 - v0.8.2460 - Regenerated Endpoints from Hudu OpenAPI **2.46.0**. Spec delta is **Articles-only** (not asset layouts):
   - **`PUT /articles/{id}/pin`** and **`PUT /articles/{id}/unpin`**. Available as **`Article.pin`** / **`Article.unpin`**, **`ArticlesResource.pin`** / **`unpin`**, and **`HuduCollection.pin`** / **`unpin`** (article collections only).
   - Asset layout `POST` / `PUT` field schemas are unchanged. `POST /asset_layouts` field objects still document `label`, `field_type`, `required`, `show_in_list`, and `position`. `PUT /asset_layouts/{id}` still documents `linkable_id` as the asset layout to pull values from.
-  - Layout copy (`examples/move-assetlayouts.py`) now handles self-referential Asset Links (a field whose `linkable_id` is the layout itself, such as `Serveurs` / `Hyperviseur`). Those links are omitted on create, then written with `PUT` once the new target layout id exists.
+  - Layout copy (`examples/move-assetlayouts.py`) handles self-referential Asset Links and **cyclic** `linkable_id` graphs the same way: omit unresolved layout links on create, then `PUT` them after every layout in the batch has a target id. Cycle detection no longer aborts the run.
 
 ---
 

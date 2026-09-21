@@ -11,6 +11,7 @@ from hudu_magic.helpers.asset_layouts import (
     layout_field_linkable_is_asset_layout_scope,
     layout_fields_for_create,
     layout_has_self_referential_linkables,
+    layout_needs_linkable_patch,
     normalize_layout_for_create,
 )
 from hudu_magic.models import AssetLayout
@@ -229,3 +230,54 @@ def test_normalize_self_ref_raises_when_defer_disabled_and_unmapped():
             batch_source_layout_ids={72},
             defer_self_linkables=False,
         )
+
+
+def test_normalize_defers_unmapped_batch_linkables_for_cycles():
+    layout_a = {
+        "id": 1,
+        "name": "A",
+        "fields": [
+            {
+                "label": "ToB",
+                "field_type": "AssetLink",
+                "position": 1,
+                "linkable_id": 2,
+                "linkable_type": "AssetLayout",
+            },
+        ],
+    }
+    batch = {1, 2}
+    # Simulate creating A before B exists on target.
+    create_a = normalize_layout_for_create(
+        layout_a,
+        layout_id_map={},
+        batch_source_layout_ids=batch,
+        defer_unmapped_batch_linkables=True,
+    )
+    assert "linkable_id" not in create_a["fields"][0]
+
+    patch_a = normalize_layout_for_create(
+        layout_a,
+        layout_id_map={1: 100, 2: 200},
+        batch_source_layout_ids=batch,
+    )
+    assert patch_a["fields"][0]["linkable_id"] == 200
+
+
+def test_layout_needs_linkable_patch_for_batch_and_self():
+    self_layout = {
+        "id": 5,
+        "fields": [{"label": "self", "linkable_id": 5, "field_type": "AssetLink"}],
+    }
+    other = {
+        "id": 5,
+        "fields": [{"label": "to6", "linkable_id": 6, "field_type": "AssetLink"}],
+    }
+    none = {
+        "id": 5,
+        "fields": [{"label": "text", "field_type": "Text"}],
+    }
+    assert layout_needs_linkable_patch(self_layout, {5, 6}) is True
+    assert layout_needs_linkable_patch(other, {5, 6}) is True
+    assert layout_needs_linkable_patch(none, {5, 6}) is False
+    assert layout_needs_linkable_patch(other, {5}) is False

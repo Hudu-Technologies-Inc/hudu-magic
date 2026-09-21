@@ -10,9 +10,9 @@ from typing import Any, Iterable
 from hudu_magic import HuduClient
 from hudu_magic.helpers.asset_layouts import (
     collect_list_ids_from_layouts,
-    layout_has_self_referential_linkables,
     layout_linkable_asset_layout_ref_ids,
     layout_linkable_asset_layout_ref_ids_in_batch,
+    layout_needs_linkable_patch,
     layout_to_dict,
     normalize_layout_for_create,
 )
@@ -351,7 +351,11 @@ def _expand_to_create_with_linkables(
 def topo_ordered_layouts(layouts: list[Any]) -> list[Any]:
     """
     Creation order so every linkable_id pointing at another layout in ``layouts``
-    is satisfied (source asset_layout ids).
+    is satisfied when possible (source asset_layout ids).
+
+    If ``linkable_id`` references form a cycle, remaining layouts are appended in
+    id order after the acyclic prefix. Deferred Asset Links are restored with a
+    post-create ``PUT`` once every batch id is mapped.
     """
     batch_ids = {_source_layout_id(L) for L in layouts}
     id_to_layout = {_source_layout_id(L): L for L in layouts}
@@ -377,12 +381,15 @@ def topo_ordered_layouts(layouts: list[Any]) -> list[Any]:
         queue.sort()
 
     if len(order_ids) != len(batch_ids):
+        remaining = sorted(batch_ids - set(order_ids))
         print(
-            "error: linkable_id references among these layouts form a cycle "
-            "(or could not be ordered); fix source layouts or split the batch",
+            "note: linkable_id references among these layouts form a cycle; "
+            f"creating {len(remaining)} remaining layout(s) after the acyclic "
+            "prefix. Deferred Asset Links (including cycle edges and self-refs) "
+            "are PUT after every layout id is known.",
             file=sys.stderr,
         )
-        sys.exit(1)
+        order_ids.extend(remaining)
 
     return [id_to_layout[i] for i in order_ids]
 
@@ -451,10 +458,11 @@ Other field types may still carry list_id from GET; those are stripped so the
 server does not set an invalid FK.
 
 Layouts that reference each other via linkable_id are created in dependency
-order; linkable_id is rewritten to the new target layout ids. Self-referential
-Asset Links (a field that pulls from the same layout, e.g. Hyperviseur on
-Serveurs) are created without linkable_id, then patched with a PUT after the
-new layout id is known.
+order when the graph is acyclic; linkable_id is rewritten to the new target
+layout ids. Cycles and self-referential Asset Links (a field that pulls from
+the same layout, e.g. Hyperviseur on Serveurs) omit those linkable_id values
+on create, then restore them with a PUT after every layout in the batch has a
+target id.
 
 By default, layout fields whose linkable_type looks like another asset layout
 (including blank type) pull that layout into this run when needed. Integration
@@ -613,6 +621,7 @@ Examples:
         )
 
     layout_id_map: dict[int, int] = dict(prefetch_layout_map)
+    pending_linkable_patches: list[tuple[Any, int, str]] = []
 
     for layout in ordered_layouts:
         try:
@@ -621,6 +630,7 @@ Examples:
                 list_id_map=list_id_map if not args.dry_run else None,
                 layout_id_map=layout_id_map if not args.dry_run else None,
                 batch_source_layout_ids=batch_source_ids if not args.dry_run else None,
+                defer_unmapped_batch_linkables=True,
             )
         except KeyError as exc:
             print(f"error: {exc}", file=sys.stderr)
@@ -635,6 +645,10 @@ Examples:
                 f"dry-run: would create layout {name!r} with "
                 f"{len(payload.get('fields', []))} fields",
             )
+            if layout_needs_linkable_patch(layout, batch_source_ids):
+                print(
+                    f"dry-run: would PUT deferred Asset Links on {name!r} after create",
+                )
             continue
 
         source_layout_id = _source_layout_id(layout)
@@ -647,32 +661,35 @@ Examples:
         print(f"created: {name!r}")
         existing_target.add(name)
 
-        # Asset Links that point at this same layout cannot be remapped until
-        # the target row exists; create omitted them, so PUT them now.
-        if layout_has_self_referential_linkables(layout):
-            try:
-                patch = normalize_layout_for_create(
-                    layout,
-                    list_id_map=list_id_map,
-                    layout_id_map=layout_id_map,
-                    batch_source_layout_ids=batch_source_ids,
-                )
-                target.asset_layouts.update(
-                    new_id,
-                    patch,
-                    allow_unknown_fields=True,
-                )
-                print(
-                    f"note: patched self-referential linkable_id on {name!r} "
-                    f"(target id={new_id})",
-                    file=sys.stderr,
-                )
-            except (KeyError, RuntimeError, HuduAPIError) as exc:
-                print(
-                    f"warning: created {name!r} but failed to patch self-referential "
-                    f"Asset Link fields: {exc}",
-                    file=sys.stderr,
-                )
+        if layout_needs_linkable_patch(layout, batch_source_ids):
+            pending_linkable_patches.append((layout, new_id, name))
+
+    # Self-refs and cycle edges were omitted on create; restore once the full
+    # source->target layout map is known.
+    for layout, new_id, name in pending_linkable_patches:
+        try:
+            patch = normalize_layout_for_create(
+                layout,
+                list_id_map=list_id_map,
+                layout_id_map=layout_id_map,
+                batch_source_layout_ids=batch_source_ids,
+            )
+            target.asset_layouts.update(
+                new_id,
+                patch,
+                allow_unknown_fields=True,
+            )
+            print(
+                f"note: patched deferred linkable_id on {name!r} "
+                f"(target id={new_id})",
+                file=sys.stderr,
+            )
+        except (KeyError, RuntimeError, HuduAPIError) as exc:
+            print(
+                f"warning: created {name!r} but failed to patch deferred "
+                f"Asset Link fields: {exc}",
+                file=sys.stderr,
+            )
 
 
 if __name__ == "__main__":

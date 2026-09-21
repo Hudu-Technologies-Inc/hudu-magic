@@ -246,18 +246,19 @@ def apply_asset_layout_linkable_id_map(
     *,
     layout_name: str = "(unnamed)",
     current_source_layout_id: int | None = None,
+    defer_unmapped_batch_linkables: bool = False,
 ) -> list[str]:
     """
     Rewrite ``linkable_id`` using ``source_layout_id -> target_layout_id``.
     Unmapped ids outside ``batch_source_layout_ids`` are dropped silently.
 
     Self-referential links (``linkable_id`` equals ``current_source_layout_id``)
-    cannot be remapped until the target row exists. Those ``linkable_id`` /
-    ``linkable_type`` pairs are omitted from the create body and their field
-    labels are returned so the caller can ``PUT`` after create once the new id
-    is in ``layout_id_map``.
+    and, when ``defer_unmapped_batch_linkables`` is True, other in-batch ids not
+    yet present in ``layout_id_map`` (cycles / not-yet-created deps) are omitted
+    from the create body. Their field labels are returned so the caller can
+    ``PUT`` after those target ids exist.
     """
-    deferred_self_labels: list[str] = []
+    deferred_labels: list[str] = []
     for row in fields:
         lid = row.get("linkable_id")
         if lid is None:
@@ -274,8 +275,8 @@ def apply_asset_layout_linkable_id_map(
         if (
             current_source_layout_id is not None
             and old == int(current_source_layout_id)
-        ):
-            deferred_self_labels.append(str(row.get("label") or ""))
+        ) or (defer_unmapped_batch_linkables and old in batch_source_layout_ids):
+            deferred_labels.append(str(row.get("label") or ""))
             row.pop("linkable_id", None)
             row.pop("linkable_type", None)
             continue
@@ -286,7 +287,22 @@ def apply_asset_layout_linkable_id_map(
             )
         row.pop("linkable_id", None)
         row.pop("linkable_type", None)
-    return deferred_self_labels
+    return deferred_labels
+
+
+def layout_needs_linkable_patch(
+    layout: Any,
+    batch_source_layout_ids: set[int],
+) -> bool:
+    """
+    True when this layout has layout-scope Asset Links that point at itself or
+    at another id in ``batch_source_layout_ids`` (may need a post-create PUT).
+    """
+    if layout_has_self_referential_linkables(layout):
+        return True
+    return bool(
+        layout_linkable_asset_layout_ref_ids(layout) & batch_source_layout_ids
+    )
 
 
 def normalize_layout_for_create(
@@ -296,6 +312,7 @@ def normalize_layout_for_create(
     layout_id_map: dict[int, int] | None = None,
     batch_source_layout_ids: set[int] | None = None,
     defer_self_linkables: bool = True,
+    defer_unmapped_batch_linkables: bool = False,
 ) -> dict[str, Any]:
     """
     Build a JSON body suitable for ``POST /asset_layouts`` (wrapped as
@@ -309,9 +326,10 @@ def normalize_layout_for_create(
 
     Self-referential Asset Links (``linkable_id`` equals this layout's source
     ``id``) are omitted when ``defer_self_linkables`` is True and that id is not
-    yet in ``layout_id_map``. After create, put the new id into the map and call
-    again with ``defer_self_linkables=False`` (or with the id mapped) for a
-    follow-up ``PUT``.
+    yet in ``layout_id_map``. With ``defer_unmapped_batch_linkables=True``,
+    in-batch targets missing from the map (cycles / not-yet-created deps) are
+    omitted the same way. After every batch id is mapped, call again and
+    ``PUT`` to restore deferred links.
 
     Cosmetic / include flags default from :data:`~hudu_magic.constants.ASSET_LAYOUT_CREATE_DEFAULTS`
     when the source omits a key or sets it to ``None``.
@@ -336,6 +354,7 @@ def normalize_layout_for_create(
             batch_source_layout_ids,
             layout_name=str(data.get("name") or "(unnamed)"),
             current_source_layout_id=current_id,
+            defer_unmapped_batch_linkables=defer_unmapped_batch_linkables,
         )
 
     payload: dict[str, Any] = {"fields": fields}
