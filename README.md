@@ -725,6 +725,8 @@ When Hudu publishes a new spec, regenerate and bump **`HUDUSPECVERSION`** accord
   - Layout copy (`examples/move-assetlayouts.py`) handles self-referential Asset Links and **cyclic** `linkable_id` graphs the same way: omit unresolved layout links on create, then `PUT` them after every layout in the batch has a target id. Cycle detection no longer aborts the run.
   - **`Asset_LayoutsResource.update`** / **`AssetLayout.update`** use **`PUT /asset_layouts/{id}`** (`ASSET_LAYOUTS_ID`); the collection endpoint is create/list only.
 
+- v0.9.2461 - Regenerated Endpoints from Hudu OpenAPI **2.46.1**. Spec delta is 
+
 ---
 
 ## Community & Socials
