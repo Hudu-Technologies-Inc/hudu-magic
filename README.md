@@ -727,6 +727,8 @@ When Hudu publishes a new spec, regenerate and bump **`HUDUSPECVERSION`** accord
 
 - v0.9.2461 - Regenerated Endpoints from Hudu OpenAPI **2.46.1**. No change to endpoints.py from openapi spec.
 
+- v0.9.2470 - Regenerated Endpoints from Hudu OpenAPI **2.47.0**. No change to endpoints.py from openapi spec.
+
 ---
 
 ## Community & Socials
