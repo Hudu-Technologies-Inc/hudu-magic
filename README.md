@@ -154,6 +154,38 @@ articles.pin()
 articles.unpin()
 ```
 
+### Password sharing links
+
+Hudu **2.48** can create a time-limited public link for a password. `expire_in` is required and is a number of seconds greater than 0 (links that never expire are rejected). Optional body fields:
+
+- `notes` — message shown on the sharing page
+- `one_time_expire` — link expires after the first view
+- `include_username`, `include_otp`, `include_url`, `include_notes` — which password fields the page shows
+
+The created link’s `url` is the public address to send. Listing walks every page (`shares` is paged, 25 per page by default). Deleting a link revokes it immediately. If external sharing is turned off for the account, create returns **403**.
+
+```python
+link = password.new_sharing_link(
+    expire_in=60 * 60,
+    notes="VPN credentials",
+    include_username=True,
+    one_time_expire=True,
+)
+print(link.url)
+
+password.list_sharing_links()
+password.get_sharing_link(link.id)
+password.remove_sharing_link(link)
+
+# Same calls from the client. Pass a password id or an AssetPassword.
+client.shares.new_sharing_link(password, expire_in=1800)
+client.shares.list(password.id)
+client.shares.get_sharing_link(link.id, asset_password_id=password.id)
+link.remove_sharing_link()
+```
+
+`client.share`, `client.sharing_link`, and `client.sharing_links` are the same resource. `new` and `new_sharing_link` both create; `get_sharing_link` / `list_sharing_links` / `remove_sharing_link` match `get` / `list` / `delete`.
+
 ### Exports
 
 #### starting a CSV or PDF export
@@ -728,6 +760,8 @@ When Hudu publishes a new spec, regenerate and bump **`HUDUSPECVERSION`** accord
 - v0.9.2461 - Regenerated Endpoints from Hudu OpenAPI **2.46.1**. No change to endpoints.py from openapi spec.
 
 - v0.9.2470 - Regenerated Endpoints from Hudu OpenAPI **2.47.0**. No change to endpoints.py from openapi spec.
+
+- v1.0.2480 - Generated Endpoints from Hudu OpenAPI **2.48.0**. Password sharing links: **`SharesResource`** (`client.shares`) and **`AssetPassword`** helpers `new_sharing_link`, `list_sharing_links`, `get_sharing_link`, and `remove_sharing_link`. Create sends `{"share": {...}}` with required `expire_in`. See **Password sharing links** above.
 
 ---
 

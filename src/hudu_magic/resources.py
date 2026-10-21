@@ -23,6 +23,7 @@ from .models import (
     HuduObject,
     Photo,
     PublicPhoto,
+    Share,
     Upload,
     _flatten_label_results,
     _wrap_hudu_object_results,
@@ -497,6 +498,212 @@ class RackStoragesResource(BaseResource):
 
 class AssetPasswordsResource(BaseResource):
     endpoint = HuduEndpoint.ASSET_PASSWORDS
+
+
+class SharesResource(BaseResource):
+    """Sharing links for a password (``/asset_passwords/{asset_password_id}/shares``)."""
+
+    endpoint = HuduEndpoint.ASSET_PASSWORDS_ASSET_PASSWORD_ID_SHARES
+    item_endpoint = HuduEndpoint.ASSET_PASSWORDS_ASSET_PASSWORD_ID_SHARES_ID
+
+    def _password_id_from(self, value: Any) -> int | str:
+        if isinstance(value, Share):
+            password_id = value.get("shareable_id")
+            if password_id is None:
+                raise ValueError("Share is missing shareable_id")
+            return password_id
+        if isinstance(value, HuduObject):
+            if value.id is None:
+                raise ValueError("Cannot use a password without an id")
+            return value.id
+        if value is None:
+            raise ValueError("asset_password_id is required")
+        return value
+
+    def _share_target(
+        self,
+        share: Any,
+        asset_password_id: Any = None,
+    ) -> tuple[int | str, int | str]:
+        if isinstance(share, Share):
+            if share.id is None:
+                raise ValueError("Cannot use a sharing link without an id")
+            password_id = (
+                share.get("shareable_id") if asset_password_id is None else asset_password_id
+            )
+            return share.id, self._password_id_from(password_id)
+        if share is None:
+            raise ValueError("sharing link id is required")
+        return share, self._password_id_from(asset_password_id)
+
+    @staticmethod
+    def _path(asset_password_id: int | str, share_id: int | str | None = None) -> str:
+        path = f"asset_passwords/{asset_password_id}/shares"
+        if share_id is not None:
+            return f"{path}/{share_id}"
+        return path
+
+    @staticmethod
+    def _require_positive_expire_in(payload: dict[str, Any]) -> None:
+        if "expire_in" not in payload or payload.get("expire_in") in (None, ""):
+            return
+        value = payload["expire_in"]
+        if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+            raise HuduValidationError(
+                "expire_in must be an integer greater than 0 "
+                "(seconds until the sharing link expires)"
+            )
+
+    def list(self, asset_password_id: Any = None, **params) -> HuduCollection:
+        """Every sharing link for a password.
+
+        The API pages results (25 per page by default). This walks every page.
+        """
+        if asset_password_id is None:
+            asset_password_id = params.pop("asset_password_id", None)
+        else:
+            params.pop("asset_password_id", None)
+
+        password_id = self._password_id_from(asset_password_id)
+        path = self._path(password_id)
+        page = 1
+        all_items: list[dict] = []
+        seen_signatures: set[tuple] = set()
+        query = dict(params)
+
+        while True:
+            page_params = {**query, "page": page}
+            result = self.client._get_nonpaginated(path, page_params)
+            if isinstance(result, dict):
+                items = []
+                for key in ("shares", "asset_passwords_shares", "items", "data"):
+                    if key in result and isinstance(result[key], list):
+                        items = result[key]
+                        break
+            elif isinstance(result, list):
+                items = result
+            else:
+                items = []
+
+            if not items:
+                break
+
+            signature = tuple(
+                item.get("id") for item in items if isinstance(item, dict)
+            )
+            if signature in seen_signatures:
+                break
+            seen_signatures.add(signature)
+            all_items.extend(item for item in items if isinstance(item, dict))
+            page += 1
+
+        wrapped = self.client._wrap_result(self.endpoint, all_items)
+        if isinstance(wrapped, HuduCollection):
+            return wrapped
+        if isinstance(wrapped, list):
+            return HuduCollection(wrapped)
+        return HuduCollection([])
+
+    def list_sharing_links(self, asset_password_id: Any = None, **params) -> HuduCollection:
+        """Same as :meth:`list`."""
+        return self.list(asset_password_id, **params)
+
+    def get(self, share_id: Any = None, asset_password_id: Any = None, **params) -> Any:
+        """One sharing link (``GET /asset_passwords/{asset_password_id}/shares/{id}``)."""
+        if share_id is None and "id" in params:
+            share_id = params.pop("id")
+        else:
+            params.pop("id", None)
+
+        if asset_password_id is None:
+            asset_password_id = params.pop("asset_password_id", None)
+        else:
+            params.pop("asset_password_id", None)
+
+        share_id, password_id = self._share_target(share_id, asset_password_id)
+        raw = self.client._get_nonpaginated(self._path(password_id, share_id), params or None)
+        result = self.client._wrap_result(self.item_endpoint, raw)
+        if isinstance(result, HuduCollection):
+            return result.first()
+        if isinstance(result, list):
+            return result[0] if result else None
+        return result
+
+    def get_sharing_link(self, share_id: Any = None, asset_password_id: Any = None, **params) -> Any:
+        """Same as :meth:`get`."""
+        return self.get(share_id, asset_password_id, **params)
+
+    def create(
+        self,
+        asset_password_id: Any = None,
+        payload: dict[str, Any] | None = None,
+        **kwargs,
+    ) -> Any:
+        """Create a sharing link (``POST /asset_passwords/{asset_password_id}/shares``).
+
+        ``expire_in`` is required and must be a positive number of seconds.
+        """
+        client_kw = {k: v for k, v in kwargs.items() if k in _CLIENT_HTTP_KWARGS}
+        body_kw = {k: v for k, v in kwargs.items() if k not in _CLIENT_HTTP_KWARGS}
+
+        if isinstance(asset_password_id, dict) and payload is None:
+            payload = asset_password_id
+            asset_password_id = None
+
+        if asset_password_id is None:
+            asset_password_id = body_kw.pop("asset_password_id", None)
+        else:
+            body_kw.pop("asset_password_id", None)
+
+        merged = self._merge_payload(payload, body_kw)
+        nested_password_id = merged.pop("asset_password_id", None)
+        if asset_password_id is None:
+            asset_password_id = nested_password_id
+
+        password_id = self._password_id_from(asset_password_id)
+
+        try:
+            if client_kw.get("validate", True):
+                self._require_positive_expire_in(merged)
+            prepared = self.client._prepare_payload(
+                self.endpoint,
+                merged,
+                operation="create",
+                validate=client_kw.get("validate", True),
+                allow_unknown_fields=client_kw.get("allow_unknown_fields", False),
+            )
+        except HuduValidationError as exc:
+            self._reraise_with_description(exc)
+
+        result = self.client.post(self._path(password_id), json=prepared)
+        return self.client._wrap_result(self.endpoint, result)
+
+    def new(
+        self,
+        asset_password_id: Any = None,
+        payload: dict[str, Any] | None = None,
+        **kwargs,
+    ) -> Any:
+        """Same as :meth:`create`."""
+        return self.create(asset_password_id, payload, **kwargs)
+
+    def new_sharing_link(
+        self,
+        asset_password_id: Any = None,
+        payload: dict[str, Any] | None = None,
+        **kwargs,
+    ) -> Any:
+        """Same as :meth:`create`."""
+        return self.create(asset_password_id, payload, **kwargs)
+
+    def delete(self, share_id: Any = None, asset_password_id: Any = None) -> Any:
+        """Revoke a sharing link (``DELETE .../shares/{id}``, 204)."""
+        share_id, password_id = self._share_target(share_id, asset_password_id)
+        return self.client.delete(self._path(password_id, share_id))
+
+    def remove_sharing_link(self, share_id: Any = None, asset_password_id: Any = None) -> Any:
+        """Same as :meth:`delete`."""
+        return self.delete(share_id, asset_password_id)
 
 
 class WebsitesResource(BaseResource):
