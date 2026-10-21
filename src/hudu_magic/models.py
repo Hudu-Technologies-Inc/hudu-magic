@@ -1036,6 +1036,54 @@ class VLanZone(HuduObject):
         return updated
 
 
+class Share(HuduObject):
+    """A time-limited public link to a password."""
+
+    endpoint = HuduEndpoint.ASSET_PASSWORDS_ASSET_PASSWORD_ID_SHARES
+    resource_attr = "shares"
+
+    def _password_id(self) -> int | str:
+        password_id = self.get("shareable_id")
+        if password_id is None:
+            raise ValueError("Cannot use a sharing link without shareable_id")
+        return password_id
+
+    def refresh(self):
+        refreshed = self._client.shares.get_sharing_link(
+            self._require_id(),
+            asset_password_id=self._password_id(),
+        )
+        if isinstance(refreshed, HuduObject):
+            self._data = dict(refreshed._data)
+            return self
+        if isinstance(refreshed, dict):
+            self._data = dict(refreshed)
+            return self
+        raise ValueError(f"Unexpected refresh result: {type(refreshed)}")
+
+    def delete(self):
+        return self._client.shares.delete(
+            self._require_id(),
+            asset_password_id=self._password_id(),
+        )
+
+    def remove_sharing_link(self):
+        """Revoke this link. Same as :meth:`delete`."""
+        return self.delete()
+
+    def save(self, **kwargs):
+        raise HuduValidationError("Sharing links cannot be updated")
+
+    def update(self, payload: dict[str, Any], **kwargs):
+        raise HuduValidationError("Sharing links cannot be updated")
+
+    @classmethod
+    def fetch(cls, client, item_id: int | str | None = None, **params):
+        if item_id is None:
+            return client.shares.list(**params)
+        return client.shares.get(item_id, **params)
+
+
 class AssetPassword(HuduObject):
     relation_type = "AssetPassword"
     resource_upl_type = "AssetPassword"
@@ -1090,6 +1138,34 @@ class AssetPassword(HuduObject):
             self._data = dict(updated)
             return self
         return updated
+
+    def new_sharing_link(self, payload: dict[str, Any] | None = None, **kwargs) -> Share:
+        """Create a time-limited public link for this password.
+
+        ``expire_in`` is required (seconds, greater than 0). Optional: ``notes``,
+        ``one_time_expire``, ``include_username``, ``include_otp``, ``include_url``,
+        ``include_notes``. The returned :class:`Share` includes ``url``.
+        """
+        return self._client.shares.new_sharing_link(self._require_id(), payload, **kwargs)
+
+    def list_sharing_links(self, **params) -> HuduCollection:
+        """Every sharing link created for this password."""
+        return self._client.shares.list_sharing_links(self._require_id(), **params)
+
+    def get_sharing_link(self, share_id: int | str | Share, **params) -> Share:
+        """Fetch one sharing link that belongs to this password."""
+        return self._client.shares.get_sharing_link(
+            share_id,
+            asset_password_id=self._require_id(),
+            **params,
+        )
+
+    def remove_sharing_link(self, share: int | str | Share):
+        """Revoke a sharing link for this password."""
+        return self._client.shares.remove_sharing_link(
+            share,
+            asset_password_id=self._require_id(),
+        )
 
 
 class Exports(HuduObject):
@@ -1252,6 +1328,8 @@ MODEL_MAP = {
     HuduEndpoint.ASSET_LAYOUTS_ID: AssetLayout,
     HuduEndpoint.ASSET_PASSWORDS: AssetPassword,
     HuduEndpoint.ASSET_PASSWORDS_ID: AssetPassword,
+    HuduEndpoint.ASSET_PASSWORDS_ASSET_PASSWORD_ID_SHARES: Share,
+    HuduEndpoint.ASSET_PASSWORDS_ASSET_PASSWORD_ID_SHARES_ID: Share,
     HuduEndpoint.ARTICLES: Article,
     HuduEndpoint.ARTICLES_ID: Article,
     HuduEndpoint.ASSETS: Asset,

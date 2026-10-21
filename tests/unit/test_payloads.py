@@ -38,6 +38,14 @@ def test_maybe_wrap_exports_create_nested():
     assert maybe_wrap_payload(HuduEndpoint.EXPORTS, payload) == {"export": payload}
 
 
+def test_maybe_wrap_share_create_nested():
+    payload = {"expire_in": 3600, "notes": "hi", "include_username": True}
+    assert maybe_wrap_payload(
+        HuduEndpoint.ASSET_PASSWORDS_ASSET_PASSWORD_ID_SHARES,
+        payload,
+    ) == {"share": payload}
+
+
 def test_maybe_wrap_exports_idempotent_when_already_wrapped():
     payload = {"export": {"format": "csv", "company_id": 2}}
     assert maybe_wrap_payload(HuduEndpoint.EXPORTS, payload) == payload

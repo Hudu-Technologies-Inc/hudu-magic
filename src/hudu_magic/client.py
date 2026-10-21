@@ -41,6 +41,7 @@ from .resources import (
     RackStorageResource,
     RelationsResource,
     S3ExportsResource,
+    SharesResource,
     UploadsResource,
     UsersResource,
     VlansResource,
@@ -82,6 +83,7 @@ class HuduClient:
         self.asset_layouts = Asset_LayoutsResource(self)
         self.assets = AssetsResource(self)
         self.asset_passwords = AssetPasswordsResource(self)
+        self.shares = SharesResource(self)
         self.password_folders = PasswordFoldersResource(self)
         self.uploads = UploadsResource(self)
         self.photos = PhotosResource(self)
@@ -155,6 +157,9 @@ class HuduClient:
         self.asset_password = self.asset_passwords
         self.passwords = self.asset_passwords
         self.password = self.asset_passwords
+        self.share = self.shares
+        self.sharing_link = self.shares
+        self.sharing_links = self.shares
         self.asset = self.assets
         self.company = self.companies
         self.article = self.articles
@@ -281,6 +286,8 @@ class HuduClient:
             keys_to_try = [collection_key]
             if collection_key == "procedures":
                 keys_to_try.append("processes")
+            elif collection_key == "asset_passwords_shares":
+                keys_to_try.append("shares")
             for key in keys_to_try:
                 if key in result and isinstance(result[key], list):
                     return wrap_many(result[key])
@@ -399,6 +406,11 @@ class HuduClient:
                     or (
                         result.get("processes")
                         if endpoint.resource_name == "procedures"
+                        else None
+                    )
+                    or (
+                        result.get("shares")
+                        if endpoint.resource_name == "asset_passwords_shares"
                         else None
                     )
                     or result.get("items")
