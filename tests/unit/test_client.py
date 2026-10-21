@@ -2,7 +2,7 @@ from unittest.mock import MagicMock
 
 from hudu_magic.client import HuduClient
 from hudu_magic.endpoints import HuduEndpoint
-from hudu_magic.models import Article, HuduCollection, Procedure
+from hudu_magic.models import Article, HuduCollection, Procedure, Share
 
 
 def test_get_dispatches_paginated_single_item_wraps_to_model():
@@ -49,6 +49,33 @@ def test_wrap_result_procedures_accepts_processes_collection_key():
     assert len(result) == 1
     assert isinstance(result[0], Procedure)
     assert result[0].id == 1
+
+
+def test_wrap_result_shares_accepts_shares_collection_key():
+    client = HuduClient(api_key="x", instance_url="example.hudu.app")
+
+    listed = client._wrap_result(
+        HuduEndpoint.ASSET_PASSWORDS_ASSET_PASSWORD_ID_SHARES,
+        {"shares": [{"id": 4, "shareable_id": 9, "url": "https://example/s/a"}]},
+    )
+    assert isinstance(listed, HuduCollection)
+    assert len(listed) == 1
+    assert isinstance(listed[0], Share)
+    assert listed[0].id == 4
+
+    one = client._wrap_result(
+        HuduEndpoint.ASSET_PASSWORDS_ASSET_PASSWORD_ID_SHARES_ID,
+        {"share": {"id": 4, "shareable_id": 9, "url": "https://example/s/a"}},
+    )
+    assert isinstance(one, Share)
+    assert one.url == "https://example/s/a"
+
+
+def test_client_share_aliases():
+    client = HuduClient(api_key="x", instance_url="example.hudu.app")
+    assert client.share is client.shares
+    assert client.sharing_link is client.shares
+    assert client.sharing_links is client.shares
 
 
 def test_get_dispatches_nonpaginated():

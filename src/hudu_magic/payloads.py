@@ -18,6 +18,7 @@ RESOURCE_WRAPPERS = {
     "folders": "folder",
     "websites": "website",
     "asset_passwords": "asset_password",
+    "asset_passwords/{asset_password_id}/shares": "share",
     "password_folders": "password_folder",
     "networks": "network",
     "vlans": "vlan",

@@ -5,8 +5,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from hudu_magic.client import HuduClient
 from hudu_magic.endpoints import HuduEndpoint
-from hudu_magic.models import Article, Asset, HuduCollection
+from hudu_magic.models import Article, Asset, AssetPassword, HuduCollection, Share
 from hudu_magic.resources import (
     ArticlesResource,
     ExportsResource,
@@ -14,6 +15,7 @@ from hudu_magic.resources import (
     RelationsResource,
     S3ExportsResource,
 )
+from hudu_magic.validation import HuduValidationError
 
 
 def test_procedure_tasks_create_accepts_kwargs_only():
@@ -382,6 +384,109 @@ def test_hudu_collection_pin_and_unpin():
 
     unpinned = articles.unpin()
     assert [item.pinned for item in unpinned] == [False, False]
+
+
+def _share_payload(share_id: int, password_id: int = 3) -> dict:
+    return {
+        "id": share_id,
+        "shareable_id": password_id,
+        "shareable_type": "AssetPassword",
+        "url": f"https://example/s/{share_id}",
+    }
+
+
+def test_shares_new_sharing_link_posts_wrapped_body():
+    client = HuduClient(api_key="x", instance_url="https://example.hudu.app")
+    client.post = MagicMock(return_value={"share": _share_payload(7)})
+
+    link = client.shares.new_sharing_link(
+        3,
+        expire_in=3600,
+        notes="VPN",
+        include_username=True,
+        one_time_expire=True,
+    )
+
+    client.post.assert_called_once_with(
+        "asset_passwords/3/shares",
+        json={
+            "share": {
+                "expire_in": 3600,
+                "notes": "VPN",
+                "include_username": True,
+                "one_time_expire": True,
+            }
+        },
+    )
+    assert isinstance(link, Share)
+    assert link.id == 7
+    assert link.url == "https://example/s/7"
+
+
+def test_shares_new_sharing_link_accepts_password_object_and_payload_dict():
+    client = HuduClient(api_key="x", instance_url="https://example.hudu.app")
+    client.post = MagicMock(return_value={"share": _share_payload(8, 11)})
+    password = AssetPassword(client, HuduEndpoint.ASSET_PASSWORDS, {"id": 11, "name": "vpn"})
+
+    link = password.new_sharing_link({"expire_in": 1800, "include_otp": True})
+
+    client.post.assert_called_once_with(
+        "asset_passwords/11/shares",
+        json={"share": {"expire_in": 1800, "include_otp": True}},
+    )
+    assert link.shareable_id == 11
+
+
+def test_shares_create_rejects_missing_or_non_positive_expire_in():
+    client = HuduClient(api_key="x", instance_url="https://example.hudu.app")
+    client.post = MagicMock()
+
+    with pytest.raises(HuduValidationError, match="expire_in"):
+        client.shares.new_sharing_link(3, notes="no expiry")
+
+    with pytest.raises(HuduValidationError, match="greater than 0"):
+        client.shares.new(3, expire_in=0)
+
+    client.post.assert_not_called()
+
+
+def test_shares_list_walks_pages_and_stops_on_repeat():
+    client = HuduClient(api_key="x", instance_url="https://example.hudu.app")
+    first = {"shares": [_share_payload(1), _share_payload(2)]}
+    repeated = {"shares": [_share_payload(1), _share_payload(2)]}
+    client._get_nonpaginated = MagicMock(side_effect=[first, repeated])
+
+    links = client.shares.list_sharing_links(asset_password_id=3, page_size=2)
+
+    assert [link.id for link in links] == [1, 2]
+    assert client._get_nonpaginated.call_count == 2
+    assert client._get_nonpaginated.call_args_list[0].args[0] == "asset_passwords/3/shares"
+    assert client._get_nonpaginated.call_args_list[0].args[1] == {"page_size": 2, "page": 1}
+    assert client._get_nonpaginated.call_args_list[1].args[1]["page"] == 2
+
+
+def test_shares_get_and_remove():
+    client = HuduClient(api_key="x", instance_url="https://example.hudu.app")
+    client._get_nonpaginated = MagicMock(return_value={"share": _share_payload(9)})
+    client.delete = MagicMock(return_value=None)
+    password = AssetPassword(client, HuduEndpoint.ASSET_PASSWORDS, {"id": 3, "name": "vpn"})
+
+    link = password.get_sharing_link(9)
+    assert isinstance(link, Share)
+    assert link.id == 9
+    client._get_nonpaginated.assert_called_once_with("asset_passwords/3/shares/9", None)
+
+    password.remove_sharing_link(link)
+    link.remove_sharing_link()
+    assert client.delete.call_args_list[0].args == ("asset_passwords/3/shares/9",)
+    assert client.delete.call_args_list[1].args == ("asset_passwords/3/shares/9",)
+
+
+def test_share_delete_requires_shareable_id():
+    client = HuduClient(api_key="x", instance_url="https://example.hudu.app")
+    link = Share(client, HuduEndpoint.ASSET_PASSWORDS_ASSET_PASSWORD_ID_SHARES, {"id": 4})
+    with pytest.raises(ValueError, match="shareable_id"):
+        link.remove_sharing_link()
 
 
 def test_hudu_collection_pin_rejects_non_articles():
