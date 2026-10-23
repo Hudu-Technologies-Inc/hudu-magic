@@ -763,6 +763,8 @@ When Hudu publishes a new spec, regenerate and bump **`HUDUSPECVERSION`** accord
 
 - v1.0.2480 - Generated Endpoints from Hudu OpenAPI **2.48.0**. Password sharing links: **`SharesResource`** (`client.shares`) and **`AssetPassword`** helpers `new_sharing_link`, `list_sharing_links`, `get_sharing_link`, and `remove_sharing_link`. Create sends `{"share": {...}}` with required `expire_in`. See **Password sharing links** above.
 
+- v1.0.2481 - Regenerated Endpoints from Hudu OpenAPI **2.48.1**. No change to endpoints.py from openapi spec.
+
 ---
 
 ## Community & Socials
