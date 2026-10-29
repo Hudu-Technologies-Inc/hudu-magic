@@ -61,7 +61,23 @@ _EXPORT_START_DEFAULT_TRUE_INCLUDES = (
 
 class BaseResource:
     endpoint: HuduEndpoint
-    
+
+    def _item_endpoint(self) -> HuduEndpoint:
+        """``/resource/{id}`` sibling when present (PUT/DELETE live there for most APIs)."""
+        return getattr(HuduEndpoint, f"{self.endpoint.name}_ID", self.endpoint)
+
+    def _endpoint_for_update(self) -> HuduEndpoint:
+        item = self._item_endpoint()
+        if item is not self.endpoint and item.meta.supports_update:
+            return item
+        return self.endpoint
+
+    def _endpoint_for_delete(self) -> HuduEndpoint:
+        item = self._item_endpoint()
+        if item is not self.endpoint and item.meta.supports_delete:
+            return item
+        return self.endpoint
+
     def _resolve_action_path(
         self,
         item_id: int | str | None = None,
@@ -77,7 +93,7 @@ class BaseResource:
         if action:
             path = f"{path}/{action}"
 
-        return path    
+        return path
 
     def __init__(self, client):
         self.client = client
@@ -89,11 +105,12 @@ class BaseResource:
             return payload
         return kwargs
 
-    def _require_support(self, operation: str) -> None:
+    def _require_support(self, operation: str, endpoint: HuduEndpoint | None = None) -> None:
+        ep = endpoint or self.endpoint
         attr_name = f"supports_{operation}"
-        if not getattr(self.endpoint.meta, attr_name, False):
+        if not getattr(ep.meta, attr_name, False):
             raise HuduNotImplementedError(
-                f"{self.endpoint.name} does not support {operation}"
+                f"{ep.name} does not support {operation}"
                 f"supported methods are: {supported_methods}"
             )
 
@@ -141,22 +158,26 @@ class BaseResource:
             self._reraise_with_description(e)
 
     def update(self, item_id: int | str, payload: dict[str, Any] | None = None, **kwargs) -> Any:
+        endpoint = self._endpoint_for_update()
         try:
             client_kw = {k: v for k, v in kwargs.items() if k in _CLIENT_HTTP_KWARGS}
             body_kw = {k: v for k, v in kwargs.items() if k not in _CLIENT_HTTP_KWARGS}
             merged = self._merge_payload(payload, body_kw)
-            return self.client.update(self.endpoint, item_id, merged, **client_kw)
+            return self.client.update(endpoint, item_id, merged, **client_kw)
         except HuduValidationError as e:
-            self._reraise_with_description(e)
+            raise HuduValidationError(
+                f"{e}\n\n{describe_single(endpoint)}"
+            ) from None
 
     def delete(self, item_id: int | str) -> Any:
+        endpoint = self._endpoint_for_delete()
         try:
-            self._require_support("delete")
-            path = self.client.resolve_path(self.endpoint, item_id)
+            self._require_support("delete", endpoint)
+            path = self.client.resolve_path(endpoint, item_id)
             return self.client.delete(path)
         except HuduValidationError as e:
             raise HuduValidationError(
-                f"{e}\n\n{describe_single(self.endpoint)}"
+                f"{e}\n\n{describe_single(endpoint)}"
             ) from None
 
     def archive(self, item_id: int | str) -> Any:

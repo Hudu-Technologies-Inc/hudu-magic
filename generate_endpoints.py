@@ -299,7 +299,8 @@ def build_endpoint_meta(
     supports_archive = path.endswith("/archive") and "put" in path_item
     supports_unarchive = path.endswith("/unarchive") and "put" in path_item
 
-    # Small heuristic for Hudu
+    # Prefer the OpenAPI: only auto-page when GET documents a ``page`` query param.
+    # Several Hudu collections (rack_*, IPAM, lists, procedure_tasks, …) reject ``?page=``.
     special_non_paginated = {
         "api_info",
         "cards_lookup",
@@ -310,7 +311,16 @@ def build_endpoint_meta(
     }
 
     resource_name = resource_name_from_path(path)
-    is_paginated = is_collection_get and resource_name not in special_non_paginated
+    get_operation = path_item.get("get") or {}
+    get_has_page_param = any(
+        isinstance(param, dict) and param.get("name") == "page"
+        for param in (get_operation.get("parameters") or [])
+    )
+    is_paginated = (
+        is_collection_get
+        and get_has_page_param
+        and resource_name not in special_non_paginated
+    )
 
     return {
         "path": path.strip("/"),

@@ -191,7 +191,8 @@ class HuduObject:
         if self.id is None:
             raise ValueError("Cannot update object without an id")
 
-        updated = self._client.update(self._endpoint, self.id, payload, **kwargs)
+        update_endpoint = getattr(self.__class__, "update_endpoint", self._endpoint)
+        updated = self._client.update(update_endpoint, self.id, payload, **kwargs)
 
         if isinstance(updated, HuduObject):
             self._data = updated._data
@@ -206,7 +207,8 @@ class HuduObject:
     def delete(self):
         if self.id is None:
             raise ValueError("Cannot delete object without an id")
-        return self._client.delete(self._client.resolve_path(self._endpoint, self.id))
+        delete_endpoint = getattr(self.__class__, "update_endpoint", self._endpoint)
+        return self._client.delete(self._client.resolve_path(delete_endpoint, self.id))
 
     def upload_to(self, file_path: str | Path):
         if not hasattr(self, "resource_upl_type"):
@@ -1267,6 +1269,8 @@ class RackStorage(HuduObject):
 
 class RackstorageItems(HuduObject):
     endpoint = HuduEndpoint.RACK_STORAGE_ITEMS
+    # List/create use RACK_STORAGE_ITEMS; PUT/DELETE validate against *_ID.
+    update_endpoint = HuduEndpoint.RACK_STORAGE_ITEMS_ID
     resource_attr = "rack_storage_items"
 
 

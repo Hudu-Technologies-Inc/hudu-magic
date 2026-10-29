@@ -16,6 +16,12 @@ def test_api_info_not_paginated():
     assert HuduEndpoint.API_INFO.is_paginated is False
 
 
+def test_rack_storage_items_not_paginated():
+    """Live Hudu rejects ``?page=`` on rack storage item lists."""
+    assert HuduEndpoint.RACK_STORAGE_ITEMS.is_paginated is False
+    assert HuduEndpoint.RACK_STORAGES.is_paginated is False
+
+
 def test_photos_has_form_params():
     assert HuduEndpoint.PHOTOS.meta.form_params
 
