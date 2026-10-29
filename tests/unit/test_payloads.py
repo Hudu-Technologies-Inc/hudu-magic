@@ -51,6 +51,67 @@ def test_maybe_wrap_exports_idempotent_when_already_wrapped():
     assert maybe_wrap_payload(HuduEndpoint.EXPORTS, payload) == payload
 
 
+def test_maybe_wrap_rack_storage_items_create_nested():
+    """Hudu expects ``{"rack_storage_item": {...}}`` for create and update."""
+    payload = {
+        "rack_storage_id": 1,
+        "start_unit": 1,
+        "end_unit": 4,
+        "status": 1,
+    }
+    assert maybe_wrap_payload(HuduEndpoint.RACK_STORAGE_ITEMS, payload) == {
+        "rack_storage_item": payload,
+    }
+
+
+def test_maybe_wrap_rack_storage_items_id_update_nested():
+    payload = {"start_unit": 2, "end_unit": 5, "reserved_message": "held"}
+    assert maybe_wrap_payload(HuduEndpoint.RACK_STORAGE_ITEMS_ID, payload) == {
+        "rack_storage_item": payload,
+    }
+
+
+def test_maybe_wrap_ip_addresses_create_nested():
+    payload = {"address": "10.0.0.5", "network_id": 1, "status": "unassigned"}
+    assert maybe_wrap_payload(HuduEndpoint.IP_ADDRESSES, payload) == {
+        "ip_address": payload,
+    }
+
+
+def test_maybe_wrap_ip_addresses_id_update_nested():
+    payload = {"status": "assigned", "notes": "printer"}
+    assert maybe_wrap_payload(HuduEndpoint.IP_ADDRESSES_ID, payload) == {
+        "ip_address": payload,
+    }
+
+
+def test_maybe_wrap_labels_create_nested():
+    payload = {
+        "label_type_id": 1,
+        "labelable_type": "Asset",
+        "labelable_id": 123,
+    }
+    assert maybe_wrap_payload(HuduEndpoint.LABELS, payload) == {"label": payload}
+
+
+def test_maybe_wrap_label_types_create_nested():
+    payload = {
+        "name": "Critical",
+        "color": "#ff0000",
+        "applicable_record_types": ["Asset"],
+    }
+    assert maybe_wrap_payload(HuduEndpoint.LABEL_TYPES, payload) == {
+        "label_type": payload,
+    }
+
+
+def test_maybe_wrap_expirations_id_update_nested():
+    payload = {"archived": True}
+    assert maybe_wrap_payload(HuduEndpoint.EXPIRATIONS_ID, payload) == {
+        "expiration": payload,
+    }
+
+
 def test_normalize_asset_website_field_value():
     assert normalize_asset_website_field_value(None) is None
     assert normalize_asset_website_field_value(1) == 1

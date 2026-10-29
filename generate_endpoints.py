@@ -95,7 +95,29 @@ def schema_to_fieldmeta_dict(
     }
 
 
-def unwrap_wrapped_body_schema(schema: dict[str, Any]) -> tuple[dict[str, Any], tuple[str, ...]]:
+def resolve_schema_ref(
+    schema: dict[str, Any],
+    definitions: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Resolve a local ``#/definitions/...`` (or ``#/components/schemas/...``) $ref once."""
+    if not schema or not definitions:
+        return schema or {}
+
+    ref = schema.get("$ref")
+    if not isinstance(ref, str):
+        return schema
+
+    name = ref.rsplit("/", 1)[-1]
+    resolved = definitions.get(name)
+    if isinstance(resolved, dict):
+        return resolved
+    return schema
+
+
+def unwrap_wrapped_body_schema(
+    schema: dict[str, Any],
+    definitions: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any], tuple[str, ...]]:
     """
     Handles patterns like:
     {
@@ -107,20 +129,26 @@ def unwrap_wrapped_body_schema(schema: dict[str, Any]) -> tuple[dict[str, Any], 
         }
       }
     }
+
+    Also unwraps a single-property wrapper whose value is a ``$ref`` to a
+    definitions object (e.g. PUT /rack_storage_items/{id}).
     """
     if not schema:
         return {}, ()
 
+    schema = resolve_schema_ref(schema, definitions)
     props = schema.get("properties", {}) or {}
     required = tuple(schema.get("required", []) or [])
 
     if len(props) == 1:
         _, only_val = next(iter(props.items()))
-        if isinstance(only_val, dict) and only_val.get("type") == "object":
-            inner_props = only_val.get("properties", {}) or {}
-            inner_required = tuple(only_val.get("required", []) or [])
-            if inner_props:
-                return inner_props, inner_required
+        if isinstance(only_val, dict):
+            only_val = resolve_schema_ref(only_val, definitions)
+            if only_val.get("type") == "object":
+                inner_props = only_val.get("properties", {}) or {}
+                inner_required = tuple(only_val.get("required", []) or [])
+                if inner_props:
+                    return inner_props, inner_required
 
     return props, required
 
@@ -145,7 +173,10 @@ def extract_response_ref(schema: dict[str, Any]) -> str | None:
     return None
 
 
-def parse_operation(operation: dict[str, Any]) -> dict[str, Any]:
+def parse_operation(
+    operation: dict[str, Any],
+    definitions: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     path_params: dict[str, Any] = {}
     query_params: dict[str, Any] = {}
     form_params: dict[str, Any] = {}
@@ -173,7 +204,7 @@ def parse_operation(operation: dict[str, Any]) -> dict[str, Any]:
 
         elif pin == "body":
             schema = param.get("schema", {}) or {}
-            props, req = unwrap_wrapped_body_schema(schema)
+            props, req = unwrap_wrapped_body_schema(schema, definitions)
             body_required = req
             for field_name, field_schema in props.items():
                 body_fields[field_name] = schema_to_fieldmeta_dict(
@@ -202,7 +233,11 @@ def parse_operation(operation: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def build_endpoint_meta(path: str, path_item: dict[str, Any]) -> dict[str, Any]:
+def build_endpoint_meta(
+    path: str,
+    path_item: dict[str, Any],
+    definitions: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     methods_present = tuple(m.upper() for m in path_item if m in HTTP_METHODS)
 
     tag = None
@@ -228,7 +263,7 @@ def build_endpoint_meta(path: str, path_item: dict[str, Any]) -> dict[str, Any]:
         if not operation:
             continue
 
-        parsed = parse_operation(operation)
+        parsed = parse_operation(operation, definitions)
 
         path_params.update(parsed["path_params"])
         query_params.update(parsed["query_params"])
@@ -365,10 +400,18 @@ def render_endpoint_meta_expr(meta: dict[str, Any], indent: int = 0) -> str:
 def generate_enum_module(spec_path: str, out_path: str) -> None:
     spec = json.loads(Path(spec_path).read_text(encoding="utf-8"))
     paths = spec.get("paths", {}) or {}
+    definitions = spec.get("definitions") or {}
+    if not definitions:
+        definitions = (spec.get("components") or {}).get("schemas") or {}
 
     entries: list[tuple[str, dict[str, Any]]] = []
     for path, path_item in sorted(paths.items()):
-        entries.append((enum_name_from_path(path), build_endpoint_meta(path, path_item)))
+        entries.append(
+            (
+                enum_name_from_path(path),
+                build_endpoint_meta(path, path_item, definitions),
+            )
+        )
 
     lines = [
         "from __future__ import annotations",
