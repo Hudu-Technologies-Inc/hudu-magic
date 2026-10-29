@@ -702,7 +702,7 @@ PyPI releases use a **library** SemVer prefix and a numeric suffix derived from 
 
 When Hudu publishes a new spec, regenerate and bump **`HUDUSPECVERSION`** accordingly. For **Python-only** fixes (same spec, no regeneration), prefer a **PEP 440** suffix such as `0.1.2410.post1` so the encoded spec stays honest.
 
-**Spec used for the current release:** Hudu OpenAPI **2.46.0**. The canonical package version is in `pyproject.toml`.
+**Spec used for the current release:** Hudu OpenAPI **2.49.0**. The canonical package version is in `pyproject.toml`.
 
 # History
 
@@ -764,6 +764,8 @@ When Hudu publishes a new spec, regenerate and bump **`HUDUSPECVERSION`** accord
 - v1.0.2480 - Generated Endpoints from Hudu OpenAPI **2.48.0**. Password sharing links: **`SharesResource`** (`client.shares`) and **`AssetPassword`** helpers `new_sharing_link`, `list_sharing_links`, `get_sharing_link`, and `remove_sharing_link`. Create sends `{"share": {...}}` with required `expire_in`. See **Password sharing links** above.
 
 - v1.0.2481 - Regenerated Endpoints from Hudu OpenAPI **2.48.1**. No change to endpoints.py from openapi spec.
+
+- v1.1.2490 - Regenerated Endpoints from Hudu OpenAPI **2.49.0**. Spec delta is **Rack Storage Items** create body (inlined fields); generator now resolves `$ref` body schemas so update/create field maps are usable. **`RESOURCE_WRAPPERS`** now nests payloads for `rack_storage_items`, `ip_addresses`, `labels`, `label_types`, and `expirations` to match OpenAPI (`rack_storage_item`, `ip_address`, `label`, `label_type`, `expiration`). Flat kwargs still work at the resource layer; wrapping happens in `HuduClient.create` / `update`.
 
 ---
 

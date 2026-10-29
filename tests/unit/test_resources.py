@@ -305,6 +305,27 @@ def test_asset_layouts_resource_update_uses_id_endpoint():
     )
 
 
+def test_base_resource_update_and_delete_use_id_endpoint():
+    from hudu_magic.resources import RackStorageItemResource
+
+    client = MagicMock()
+    client.update = MagicMock(return_value={"id": 7})
+    client.resolve_path = MagicMock(return_value="/rack_storage_items/7")
+    client.delete = MagicMock(return_value=None)
+    res = RackStorageItemResource(client)
+
+    res.update(7, {"reserved_message": "x", "status": 0})
+    client.update.assert_called_once_with(
+        HuduEndpoint.RACK_STORAGE_ITEMS_ID,
+        7,
+        {"reserved_message": "x", "status": 0},
+    )
+
+    res.delete(7)
+    client.resolve_path.assert_called_with(HuduEndpoint.RACK_STORAGE_ITEMS_ID, 7)
+    client.delete.assert_called_once_with("/rack_storage_items/7")
+
+
 def test_asset_layout_model_update_delegates_to_resource():
     from hudu_magic.models import AssetLayout
 
