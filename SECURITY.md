@@ -20,6 +20,7 @@ This document applies to the **hudu-magic** Python client library (this reposito
 | 1.0.2480| :white_check_mark: |
 | 1.0.2481| :white_check_mark: |
 | 1.1.2490| :white_check_mark: |
+| 1.1.2500| :white_check_mark: |
 
 ## Reporting a vulnerability in this library
 

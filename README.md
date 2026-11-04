@@ -767,6 +767,8 @@ When Hudu publishes a new spec, regenerate and bump **`HUDUSPECVERSION`** accord
 
 - v1.1.2490 - Regenerated Endpoints from Hudu OpenAPI **2.49.0**. Spec delta is **Rack Storage Items** create body (inlined fields); generator now resolves `$ref` body schemas so update/create field maps are usable. **`RESOURCE_WRAPPERS`** now nests payloads for `rack_storage_items`, `ip_addresses`, `labels`, `label_types`, and `expirations` to match OpenAPI (`rack_storage_item`, `ip_address`, `label`, `label_type`, `expiration`). Flat kwargs still work at the resource layer; wrapping happens in `HuduClient.create` / `update`.
 
+- v1.1.2500 - Generated Endpoints from Hudu version 2.50.0 api specification. No change to endpoints.py from openapi spec.
+
 ---
 
 ## Community & Socials
