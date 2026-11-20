@@ -769,6 +769,7 @@ When Hudu publishes a new spec, regenerate and bump **`HUDUSPECVERSION`** accord
 
 - v1.1.2500 - Generated Endpoints from Hudu version 2.50.0 api specification. No change to endpoints.py from openapi spec.
 
+- v1.1.2501 - Generated Endpoints from Hudu version 2.50.1 api specification. No change to endpoints.py from openapi spec at this time.
 ---
 
 ## Community & Socials
