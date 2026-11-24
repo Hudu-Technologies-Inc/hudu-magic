@@ -8,8 +8,12 @@ import requests
 from hudu_magic.endpoints import HuduEndpoint
 from hudu_magic.instance import Instance
 
-from .constants import HUDU_ERROR_RETRY_DELAY_SECONDS, HUDU_RATE_LIMIT_WINDOW_SECONDS
+from .constants import (
+    HUDU_ERROR_RETRY_DELAY_SECONDS,
+    HUDU_RATE_LIMIT_WINDOW_SECONDS,
+)
 from .helpers.http import error_message_from_response, retry_delay_seconds
+from .helpers.pagination import collect_paginated_items, default_page_size_for
 from .models import MODEL_MAP, HuduCollection
 from .payloads import maybe_wrap_payload
 from .resources import (
@@ -31,6 +35,7 @@ from .resources import (
     LabelTypesResource,
     ListResourceListResource,
     MagicDashesResource,
+    MatchersResource,
     NetworksResource,
     PasswordFoldersResource,
     PhotosResource,
@@ -49,6 +54,9 @@ from .resources import (
     WebsitesResource,
 )
 from .validation import HuduAPIError, validate_payload
+
+# Sentinel: pick articles/assets 250 vs other lists 1000 when ``page_size`` is omitted.
+_AUTO_PAGE_SIZE = object()
 
 
 class HuduClient:
@@ -100,6 +108,7 @@ class HuduClient:
         self.rack_storage_items = RackStorageItemResource(self)
         self.rack_storages = RackStorageResource(self)
         self.ActivityLogs = ActivityLogsResource(self)
+        self.matchers = MatchersResource(self)
         self.flags = FlagsResource(self)
         self.flag_types = FlagTypesResource(self)
         self.cards = CardsResource(self)
@@ -109,6 +118,7 @@ class HuduClient:
         self.exports = ExportsResource(self)
         self.s3_exports = S3ExportsResource(self)
         # aliases
+        self.matcher = self.matchers
         self.label = self.labels
         self.label_type = self.label_types
         self.labeltypes = self.label_types
@@ -382,61 +392,59 @@ class HuduClient:
         )
         return self._handle_response(response)
 
+    def _paginate(
+        self,
+        endpoint_or_path: HuduEndpoint | str,
+        params: dict | None = None,
+        *,
+        property_names: list[str] | tuple[str, ...] | None = None,
+        default_page_size: int | None | object = _AUTO_PAGE_SIZE,
+        max_pages: int | None = None,
+    ) -> list[dict]:
+        """Walk paginated list responses; shared by ``_get_all_pages`` and path-based lists.
+
+        When ``default_page_size`` is left at the auto sentinel, articles/assets use 250
+        and other resources use 1000. Pass ``None`` to leave ``page_size`` unset.
+        """
+        if default_page_size is _AUTO_PAGE_SIZE:
+            resolved_page_size: int | None = default_page_size_for(endpoint_or_path)
+        else:
+            resolved_page_size = default_page_size  # type: ignore[assignment]
+
+        return collect_paginated_items(
+            # Positional ``params`` matches prior path-based list callers/tests.
+            lambda page_params: self._get_nonpaginated(endpoint_or_path, page_params),
+            params,
+            property_names=property_names,
+            default_page_size=resolved_page_size,
+            max_pages=max_pages,
+        )
+
     def _get_all_pages(
         self,
         endpoint: HuduEndpoint,
         params: dict | None = None,
         property_name: str | None = None,
+        *,
+        default_page_size: int | None | object = _AUTO_PAGE_SIZE,
+        max_pages: int | None = None,
     ) -> list[dict]:
-        page = 1
-        all_items: list[dict] = []
-        params = dict(params or {})
-        seen_signatures: set[tuple] = set()
+        keys: list[str] = []
+        if property_name:
+            keys.append(property_name)
+        keys.append(endpoint.resource_name)
+        if endpoint.resource_name == "procedures":
+            keys.append("processes")
+        elif endpoint.resource_name == "asset_passwords_shares":
+            keys.append("shares")
 
-        while True:
-            page_params = dict(params)
-            page_params["page"] = page
-
-            result = self._get_nonpaginated(endpoint, params=page_params)
-
-            if isinstance(result, dict):
-                items = (
-                    result.get(property_name)
-                    or result.get(endpoint.resource_name)
-                    or (
-                        result.get("processes")
-                        if endpoint.resource_name == "procedures"
-                        else None
-                    )
-                    or (
-                        result.get("shares")
-                        if endpoint.resource_name == "asset_passwords_shares"
-                        else None
-                    )
-                    or result.get("items")
-                    or result.get("data")
-                    or []
-                )
-            elif isinstance(result, list):
-                items = result
-            else:
-                items = []
-
-            if not items:
-                break
-
-            signature = tuple(
-                item.get("id") for item in items
-                if isinstance(item, dict)
-            )
-            if signature in seen_signatures:
-                break
-
-            seen_signatures.add(signature)
-            all_items.extend(items)
-            page += 1
-
-        return all_items
+        return self._paginate(
+            endpoint,
+            params,
+            property_names=keys,
+            default_page_size=default_page_size,
+            max_pages=max_pages,
+        )
 
     def archive(self, endpoint: HuduEndpoint | str, item_id: int | str,
                 payload: dict | None = None):

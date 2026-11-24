@@ -770,6 +770,9 @@ When Hudu publishes a new spec, regenerate and bump **`HUDUSPECVERSION`** accord
 - v1.1.2500 - Generated Endpoints from Hudu version 2.50.0 api specification. No change to endpoints.py from openapi spec.
 
 - v1.1.2501 - Generated Endpoints from Hudu version 2.50.1 api specification. No change to endpoints.py from openapi spec at this time.
+
+- v1.2.2502 - Generated Endpoints from Hudu version 2.50.2 api specification. Fixed an issue with get-attr and set-attr. Call-sites can now override page size, which defaults to a higher number for less-dense records (1000) and dense records default to 250. 
+
 ---
 
 ## Community & Socials

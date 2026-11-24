@@ -78,6 +78,28 @@ class BaseResource:
             return item
         return self.endpoint
 
+    def _archive_sibling(self) -> HuduEndpoint | None:
+        """``/{resource}/{id}/archive`` enum member when present (codegen flags archive there)."""
+        return getattr(HuduEndpoint, f"{self.endpoint.name}_ID_ARCHIVE", None)
+
+    def _unarchive_sibling(self) -> HuduEndpoint | None:
+        return getattr(HuduEndpoint, f"{self.endpoint.name}_ID_UNARCHIVE", None)
+
+    def _operation_supported(
+        self, operation: str, endpoint: HuduEndpoint | None = None
+    ) -> bool:
+        ep = endpoint or self.endpoint
+        if getattr(ep.meta, f"supports_{operation}", False):
+            return True
+        # Archive flags live on ``*_ID_ARCHIVE`` / ``*_ID_UNARCHIVE``, not the collection.
+        if operation == "archive":
+            sibling = self._archive_sibling()
+            return bool(sibling is not None and sibling.meta.supports_archive)
+        if operation == "unarchive":
+            sibling = self._unarchive_sibling()
+            return bool(sibling is not None and sibling.meta.supports_unarchive)
+        return False
+
     def _resolve_action_path(
         self,
         item_id: int | str | None = None,
@@ -107,11 +129,11 @@ class BaseResource:
 
     def _require_support(self, operation: str, endpoint: HuduEndpoint | None = None) -> None:
         ep = endpoint or self.endpoint
-        attr_name = f"supports_{operation}"
-        if not getattr(ep.meta, attr_name, False):
+        if not self._operation_supported(operation, endpoint):
+            methods = ", ".join(supported_methods(ep.meta))
             raise HuduNotImplementedError(
-                f"{ep.name} does not support {operation}"
-                f"supported methods are: {supported_methods}"
+                f"{ep.name} does not support {operation}; "
+                f"supported methods are: {methods}"
             )
 
     def _reraise_with_description(self, exc: HuduValidationError) -> None:
@@ -578,7 +600,7 @@ class SharesResource(BaseResource):
     def list(self, asset_password_id: Any = None, **params) -> HuduCollection:
         """Every sharing link for a password.
 
-        The API pages results (25 per page by default). This walks every page.
+        Walks every page (sends ``page_size`` default from the client paginator when omitted).
         """
         if asset_password_id is None:
             asset_password_id = params.pop("asset_password_id", None)
@@ -587,36 +609,16 @@ class SharesResource(BaseResource):
 
         password_id = self._password_id_from(asset_password_id)
         path = self._path(password_id)
-        page = 1
-        all_items: list[dict] = []
-        seen_signatures: set[tuple] = set()
-        query = dict(params)
-
-        while True:
-            page_params = {**query, "page": page}
-            result = self.client._get_nonpaginated(path, page_params)
-            if isinstance(result, dict):
-                items = []
-                for key in ("shares", "asset_passwords_shares", "items", "data"):
-                    if key in result and isinstance(result[key], list):
-                        items = result[key]
-                        break
-            elif isinstance(result, list):
-                items = result
-            else:
-                items = []
-
-            if not items:
-                break
-
-            signature = tuple(
-                item.get("id") for item in items if isinstance(item, dict)
-            )
-            if signature in seen_signatures:
-                break
-            seen_signatures.add(signature)
-            all_items.extend(item for item in items if isinstance(item, dict))
-            page += 1
+        all_items = self.client._paginate(
+            path,
+            params,
+            property_names=(
+                "shares",
+                "asset_passwords_shares",
+                "items",
+                "data",
+            ),
+        )
 
         wrapped = self.client._wrap_result(self.endpoint, all_items)
         if isinstance(wrapped, HuduCollection):
@@ -781,35 +783,11 @@ class AssetsResource(BaseResource):
     def _list_company_assets(self, company_id: int | str, params: dict | None) -> Any:
         """GET companies/{company_id}/assets — path is not an endpoint enum, so paginate and wrap here."""
         path = f"companies/{company_id}/assets"
-        page = 1
-        all_items: list[dict] = []
-        p = dict(params or {})
-        seen_signatures: set[tuple] = set()
-        while True:
-            page_params = {**p, "page": page}
-            result = self.client._get_nonpaginated(path, page_params)
-            if isinstance(result, dict):
-                items = (
-                    result.get("companies_assets")
-                    or result.get("assets")
-                    or result.get("items")
-                    or result.get("data")
-                    or []
-                )
-            elif isinstance(result, list):
-                items = result
-            else:
-                items = []
-            if not items:
-                break
-            signature = tuple(
-                item.get("id") for item in items if isinstance(item, dict)
-            )
-            if signature in seen_signatures:
-                break
-            seen_signatures.add(signature)
-            all_items.extend(items)
-            page += 1
+        all_items = self.client._paginate(
+            path,
+            params,
+            property_names=("companies_assets", "assets", "items", "data"),
+        )
         return self.client._wrap_result(HuduEndpoint.ASSETS, all_items)
 
     def list(self, company_id=None, **params):
@@ -1377,6 +1355,21 @@ class MagicDashesResource(BaseResource):
 
 class ActivityLogsResource(BaseResource):
     endpoint = HuduEndpoint.ACTIVITY_LOGS
+
+
+class MatchersResource(BaseResource):
+    """Integration company matchers (``GET /matchers``, ``PUT``/``DELETE /matchers/{id}``)."""
+
+    endpoint = HuduEndpoint.MATCHERS
+
+    def get(self, item_id=None, **params):
+        if item_id is None and "id" in params:
+            item_id = params.pop("id")
+        if item_id is not None:
+            raise HuduNotImplementedError(
+                "Matchers does not support get by id; use list(), update(), or delete()"
+            )
+        return self.list(**params)
 
 
 class ExpirationsResource(BaseResource):
