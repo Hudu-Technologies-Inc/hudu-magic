@@ -1290,6 +1290,13 @@ class Matcher(HuduObject):
         }
         return self.update(payload, **kwargs)
 
+    def refresh(self):
+        from .validation import HuduNotImplementedError
+
+        raise HuduNotImplementedError(
+            "Matchers does not support refresh; use list() with integration_id"
+        )
+
 
 class Flags(HuduObject):
     endpoint = HuduEndpoint.FLAGS
