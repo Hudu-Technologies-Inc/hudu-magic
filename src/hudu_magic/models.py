@@ -61,6 +61,38 @@ class HuduObject:
         except KeyError as exc:
             raise AttributeError(item) from exc
 
+    def __setattr__(self, name: str, value: Any) -> None:
+        # Internal / private attrs stay on the instance (including during __init__).
+        if name.startswith("_"):
+            object.__setattr__(self, name, value)
+            return
+
+        # Walk the MRO so inherited properties (e.g. ``id``) are not treated as API fields.
+        cls_attr = None
+        for klass in type(self).__mro__:
+            if name in klass.__dict__:
+                cls_attr = klass.__dict__[name]
+                break
+
+        if isinstance(cls_attr, property):
+            if cls_attr.fset is None:
+                raise AttributeError(f"can't set attribute {name!r}")
+            cls_attr.fset(self, value)
+            return
+
+        # Class-level methods/constants (relation_type, resource_attr, …) — not API fields.
+        if cls_attr is not None:
+            object.__setattr__(self, name, value)
+            return
+
+        try:
+            data = object.__getattribute__(self, "_data")
+        except AttributeError:
+            object.__setattr__(self, name, value)
+            return
+
+        data[name] = value
+
     def help(self) -> str:
         return "\n".join(describe_endpoint(self._endpoint))
 
@@ -1244,6 +1276,21 @@ class ActivityLogs(HuduObject):
     resource_attr = "activity_logs"
 
 
+class Matcher(HuduObject):
+    endpoint = HuduEndpoint.MATCHERS
+    update_endpoint = HuduEndpoint.MATCHERS_ID
+    resource_attr = "matchers"
+
+    def save(self, **kwargs):
+        self._require_id()
+        payload = {
+            key: value
+            for key, value in clean_payload(self.to_dict()).items()
+            if key in self.update_endpoint.meta.update_fields
+        }
+        return self.update(payload, **kwargs)
+
+
 class Flags(HuduObject):
     endpoint = HuduEndpoint.FLAGS
     resource_attr = "flags"
@@ -1328,6 +1375,8 @@ def ordered_procedure_tasks(client: Any, procedure_id: int | str) -> list[Any]:
 
 MODEL_MAP = {
     HuduEndpoint.ACTIVITY_LOGS: ActivityLogs,
+    HuduEndpoint.MATCHERS: Matcher,
+    HuduEndpoint.MATCHERS_ID: Matcher,
     HuduEndpoint.ASSET_LAYOUTS: AssetLayout,
     HuduEndpoint.ASSET_LAYOUTS_ID: AssetLayout,
     HuduEndpoint.ASSET_PASSWORDS: AssetPassword,

@@ -286,3 +286,8 @@ HUDU_RATE_LIMIT_WINDOW_SECONDS = 300
 HUDU_ERROR_RETRY_DELAY_SECONDS = 5
 HUDU_RATE_LIMIT_JITTER_MIN = 1
 HUDU_RATE_LIMIT_JITTER_MAX = 4
+
+# Pagination: applied when the caller omits ``page_size`` (Hudu max is typically 1000).
+HUDU_DEFAULT_PAGE_SIZE = 1000
+# Articles/assets payloads can be large per row; keep pages smaller to avoid oversized responses.
+HUDU_DENSE_PAGE_SIZE = 250

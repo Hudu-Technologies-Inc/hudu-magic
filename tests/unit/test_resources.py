@@ -10,12 +10,13 @@ from hudu_magic.endpoints import HuduEndpoint
 from hudu_magic.models import Article, Asset, AssetPassword, HuduCollection, Share
 from hudu_magic.resources import (
     ArticlesResource,
+    CompaniesResource,
     ExportsResource,
     ProcedureTasksResource,
     RelationsResource,
     S3ExportsResource,
 )
-from hudu_magic.validation import HuduValidationError
+from hudu_magic.validation import HuduNotImplementedError, HuduValidationError
 
 
 def test_procedure_tasks_create_accepts_kwargs_only():
@@ -514,3 +515,23 @@ def test_hudu_collection_pin_rejects_non_articles():
     asset = Asset(MagicMock(), HuduEndpoint.ASSETS, {"id": 1, "name": "srv"})
     with pytest.raises(AttributeError, match="does not support pin"):
         HuduCollection([asset]).pin()
+
+
+def test_companies_archive_uses_sibling_capability():
+    client = HuduClient(api_key="x", instance_url="https://example.hudu.app")
+    client.put = MagicMock(return_value={"id": 4, "archived": True})
+    res = CompaniesResource(client)
+
+    res.archive(4)
+    client.put.assert_called_once_with("/companies/4/archive")
+
+    res.unarchive(4)
+    assert client.put.call_args_list[1].args == ("/companies/4/unarchive",)
+
+
+def test_companies_archive_unsupported_resource_message():
+    client = MagicMock()
+    res = ExportsResource(client)
+
+    with pytest.raises(HuduNotImplementedError, match="does not support archive"):
+        res.archive(1)
