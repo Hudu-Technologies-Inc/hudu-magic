@@ -1,8 +1,12 @@
 from unittest.mock import MagicMock
 
+import pytest
+
 from hudu_magic.client import HuduClient
+from hudu_magic.constants import HUDU_DEFAULT_PAGE_SIZE, HUDU_DENSE_PAGE_SIZE
 from hudu_magic.endpoints import HuduEndpoint
-from hudu_magic.models import Article, HuduCollection, Procedure, Share
+from hudu_magic.models import Article, HuduCollection, Matcher, Procedure, Share
+from hudu_magic.validation import HuduNotImplementedError
 
 
 def test_get_dispatches_paginated_single_item_wraps_to_model():
@@ -90,3 +94,76 @@ def test_get_dispatches_nonpaginated():
     client._get_all_pages.assert_not_called()
 
     assert result == {"version": "1"}
+
+
+def test_get_all_pages_defaults_page_size_and_stops_on_empty():
+    client = HuduClient(api_key="x", instance_url="example.hudu.app")
+    client._get_nonpaginated = MagicMock(
+        side_effect=[
+            {"articles": [{"id": 1}, {"id": 2}]},
+            {"articles": []},
+        ]
+    )
+
+    items = client._get_all_pages(HuduEndpoint.ARTICLES)
+
+    assert items == [{"id": 1}, {"id": 2}]
+    assert client._get_nonpaginated.call_count == 2
+    first_params = client._get_nonpaginated.call_args_list[0].args[1]
+    assert first_params["page"] == 1
+    assert first_params["page_size"] == HUDU_DENSE_PAGE_SIZE
+
+
+def test_get_all_pages_uses_dense_size_for_assets_and_default_elsewhere():
+    client = HuduClient(api_key="x", instance_url="example.hudu.app")
+    client._get_nonpaginated = MagicMock(return_value={"assets": []})
+    client._get_all_pages(HuduEndpoint.ASSETS)
+    assert (
+        client._get_nonpaginated.call_args.args[1]["page_size"] == HUDU_DENSE_PAGE_SIZE
+    )
+
+    client._get_nonpaginated = MagicMock(return_value={"companies": []})
+    client._get_all_pages(HuduEndpoint.COMPANIES)
+    assert (
+        client._get_nonpaginated.call_args.args[1]["page_size"] == HUDU_DEFAULT_PAGE_SIZE
+    )
+
+    client._get_nonpaginated = MagicMock(return_value={"assets": []})
+    client._paginate("companies/9/assets", property_names=("assets",))
+    assert (
+        client._get_nonpaginated.call_args.args[1]["page_size"] == HUDU_DENSE_PAGE_SIZE
+    )
+
+
+def test_get_all_pages_respects_explicit_page_size_and_max_pages():
+    client = HuduClient(api_key="x", instance_url="example.hudu.app")
+    client._get_nonpaginated = MagicMock(
+        side_effect=[
+            {"articles": [{"id": 1}]},
+            {"articles": [{"id": 2}]},
+            {"articles": [{"id": 3}]},
+        ]
+    )
+
+    with pytest.raises(RuntimeError, match="max_pages"):
+        client._get_all_pages(HuduEndpoint.ARTICLES, {"page_size": 1}, max_pages=2)
+
+    assert client._get_nonpaginated.call_count == 2
+    assert client._get_nonpaginated.call_args_list[0].args[1]["page_size"] == 1
+
+
+def test_client_matchers_resource_and_aliases():
+    client = HuduClient(api_key="x", instance_url="example.hudu.app")
+    assert client.matcher is client.matchers
+    assert client.matchers.endpoint == HuduEndpoint.MATCHERS
+
+    listed = client._wrap_result(
+        HuduEndpoint.MATCHERS,
+        {"matchers": [{"id": 3, "company_id": 9}]},
+    )
+    assert isinstance(listed, HuduCollection)
+    assert isinstance(listed[0], Matcher)
+    assert listed[0].id == 3
+
+    with pytest.raises(HuduNotImplementedError, match="get by id"):
+        client.matchers.get(3)
