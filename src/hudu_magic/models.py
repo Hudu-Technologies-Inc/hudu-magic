@@ -1281,6 +1281,15 @@ class Matcher(HuduObject):
     update_endpoint = HuduEndpoint.MATCHERS_ID
     resource_attr = "matchers"
 
+    def save(self, **kwargs):
+        self._require_id()
+        payload = {
+            key: value
+            for key, value in clean_payload(self.to_dict()).items()
+            if key in self.update_endpoint.meta.update_fields
+        }
+        return self.update(payload, **kwargs)
+
 
 class Flags(HuduObject):
     endpoint = HuduEndpoint.FLAGS
